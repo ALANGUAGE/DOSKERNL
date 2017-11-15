@@ -246,23 +246,19 @@ int domem() {
     ah=0x52;//DOS list of lists 
     asm int 33 ; // out= ES:BX ptr to invars
     asm mov [vBX], bx 
-    asm mov [vES], es
 //    asm mov es, [es:bx-2]//first memory control block
-    __emit__(0x26,0x8E,0x47,0xFE);    
-        
-    asm mov [vES], es
-    
+    __emit__(0x26,0x8E,0x47,0xFE);            
+    asm mov [vES], es   
     do {
         putch(10); 
-        cputs("ES:"); 
+        cputs("Start:"); 
         printhex16(vES);
         if (vES >= 0xA000) cputs(" MCB in UMB");
 //        asm mov al, [es:0]// M or Z 
         __emit__(0x26,0xA0,0,0);     
-        asm mov [memSignature], al  
-        
-        cputs(", ");
-        putch(memSignature);
+        asm mov [memSignature], al         
+//        cputs(", ");
+//        putch(memSignature);
 //        asm mov ax, [es:1]//program segment prefix  
         __emit__(0x26,0xA1,1,0);           
         asm mov [memOwner], ax  
@@ -289,7 +285,8 @@ int dotype() {
     int fdin; int i;
     fdin=openR(par2);
     if (DOS_ERR) {
-        cputs(" file missing"); 
+        cputs("file missing");
+        putch(10); 
         return;
         }
     do {
