@@ -1,8 +1,13 @@
 char Version1[]="CMD V0.5";//Command.com for 1OS
 
 int DOS_ERR=0;
-char inp_buf[81];
-
+char inp_buf[81]; 
+char par_count=0;
+char *par1;
+char *par2;
+char *par3;
+        
+        
 int writetty()     { ah=0x0E; bx=0; __emit__(0xCD,0x10); }
 int putch(char c)  {if (c==10) {al=13; writetty();} al=c; writetty(); }
 int cputs(char *s) {char c;  while(*s) { c=*s; putch(c); s++; } }
@@ -61,12 +66,16 @@ int prunsign(unsigned int n) {
     putch(n); 
 }
 
-int isin(char *s, char c) { 
-    while(*s) { 
-        if (*s==c) return s; 
-            s++;
-        }  
-    return 0;
+int letter(char c) {
+  if (c> 'z') return 0;
+  if (c< 'A') return 0;
+  if (c> 'Z') { if (c< 'a') return 0; }
+  return 1;
+}
+int digit(char c){
+    if(c<'0') return 0;
+    if(c>'9') return 0;
+    return 1;
 }
 int strcpy(char *s, char *t) {
     do { *s=*t; s++; t++; }
@@ -89,21 +98,17 @@ int toupper(char *s) {
             s++;
     }
 }
-int head1(char *s) {
-    while(*s >= 'A') s++;     
-    *s=0; 
-}
 
 
 int Prompt1(unsigned char *s) {
     char c; 
-    unsigned char *starts;
-    starts=s;  
+    unsigned char *startstr;
+    startstr=s;  
     do { 
         c=GetKey();  
-        if (c == 27)    exitR(1);
+        if (c == 27)    exitR(1);//good bye
         if (c==8) {
-            if (s > starts){
+            if (s > startstr){
                 s--;
                 putch(8);
                 putch(' ');
@@ -132,18 +137,116 @@ int dohelp() {
     cputs(Info1);   putch(10); 
 //    cputs(Info2);
 }
+int isspace(char c) {
+  if (c==32) return 1;//space
+  if (c>=9) { if (c<=13) return 1; }
+  return 0;
+}
+int isSpaceNullStr(char *s) {
+  if (*s==32) return 1;//space
+  if (*s>=9) { if (*s<=13) return 1; }
+  if (*s==0) return 1;
+  return 0;
+}
+int isin(char *s, char c) { 
+    while(*s) { 
+        if (*s==c) return s; 
+            s++;
+        }  
+    return 0;
+}
+/*
+strtok(s, delim)
+    char *s;            // string to search for tokens
+    const char *delim;  // delimiting characters
+{
+    static char *lasts;
+    register int ch;
 
-int intrinsic(char *t) {  
-    char s[81];  
-    char c; int i;
-    DOS_ERR=0;    
-    while (*t == ' ') t++;
-    strcpy(s, t); 
-    toupper(s);   
-    head1(s);
-    if(eqstr(s,"HELP")){dohelp();return;}
-    if(eqstr(s,"EXIT"))exitR(0);
-    if(eqstr(s,"CLS" )){clrscr();return;}
+    if (s == 0)
+	s = lasts;
+    do {
+	if ((ch = *s++) == '\0')
+	    return 0;
+    } while (strchr(delim, ch));
+    --s;
+    lasts = s + strcspn(s, delim);
+    if (*lasts != 0)
+	*lasts++ = 0;
+    return s;
+}
+*/
+int head1(char *s) {
+    while(*s >= 33) s++;     
+    *s=0; 
+}
+
+int removespace(char *s) {
+    char c;
+    c= *s;
+    while (isspace(c)) {
+        s++;
+        c= *s;
+    }
+}
+
+int getpar(char *t) {
+char c;
+cputs(t);
+    
+    while (*t == 32) t++;     
+    if (*t<=13) return 0;
+    par1=t; 
+    while(*t >= 33) t++; *t=0; 
+    toupper(par1);
+c= *t;
+prunsign(c);
+
+   t++;
+cputs(" nach ");   
+c= *t;
+prunsign(c);
+    while (*t == 32) t++; 
+    if (*t<=13) return 1;
+    par2=t; 
+    while(*t >= 33) t++; *t=0; 
+
+    t++;    
+    while (*t == 32) t++; 
+    if (*t<=13) return 2; 
+    par3=t;     
+    while(*t >= 33) t++; *t=0;     
+    return 3;    
+}
+/*
+int getpar(char *t) {
+//char c;    
+//cputs(t);    
+    while (*t == 32) t++;//skip leading blank  
+    par1=t; 
+//c= *t;
+//prunsign(c);
+    if (*t<=13) return 0;//missing command
+    while(*t >= 33) t++;     
+    *t=0; 
+    toupper(par1);
+//    if (*t<=13) return 1;//command
+    t++; 
+    
+    while (*t == 32) t++;  
+    par2=t; 
+    if (*t<=13) return 1;
+    while(*t >= 33) t++;     
+    *t=0; 
+    if (*t<=13) return 2;//one parameter 
+    return 3; 
+}*/
+
+int intrinsic() {
+      
+    if(eqstr(par1,"HELP")){dohelp();return;}
+    if(eqstr(par1,"EXIT"))exitR(0);
+    if(eqstr(par1,"CLS" )){clrscr();return;}
 //    if(eqstr(s,"DIR" )){dir1();return;}
 //    if(eqstr(s,"DOS" )){dodos(); return;}
 //    if(eqstr(s,"TYPE")){dotype();return;}
@@ -160,8 +263,8 @@ int intrinsic(char *t) {
 }
 
 
-int get_cmd(char *s){
-    inp_buf=0;
+int get_cmd(){
+    *inp_buf=0;
     DOS_ERR=0;
     putch(':');
     Prompt1(inp_buf);
@@ -171,8 +274,16 @@ int get_cmd(char *s){
 int main() {
     dohelp();
     do { 
-        get_cmd(inp_buf); 
-        intrinsic(inp_buf); 
+        get_cmd(); 
+        par_count=getpar(inp_buf);
+cputs(" par1:");
+prunsign(par_count); 
+cputs(par1);
+cputs(" par2:");
+cputs(par2);
+cputs(" par3:");
+cputs(par3);
+        intrinsic(); 
         } 
     while(1);
 }
