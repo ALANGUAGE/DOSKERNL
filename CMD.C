@@ -1,14 +1,4 @@
 char Version1[]="CMD V0.5";//Command.com for 1OS
-
-int DOS_ERR=0;
-char inp_buf[81]; 
-char par_count=0;
-char *par1;
-char *par2;
-char *par3;
-int DOS_NoBytes;        //number of bytes read (0 or 1)
-char DOS_ByteRead;      //the byte just read by DOS
-        
         
 int writetty()     { ah=0x0E; bx=0; __emit__(0xCD,0x10); }
 int putch(char c)  {if (c==10) {al=13; writetty();} al=c; writetty(); }
@@ -42,6 +32,16 @@ int GetKey() {
 }
 int getche() { GetKey(); writetty();}
 
+
+char par_count=0;
+char *par1;
+char *par2;
+char *par3;
+        
+int DOS_ERR=0;        
+int DOS_NoBytes;        //number of bytes read (0 or 1)
+char DOS_ByteRead;      //the byte just read by DOS
+        
 int DosInt() {
     __emit__(0xCD,0x21);//int 0x21;
     __emit__(0x73, 04); //ifcarry DOS_ERR++;
@@ -62,6 +62,9 @@ int fputcR(char *n, int fd) {
     ax=0x4000; 
     DosInt(); 
 }
+int setdta(char *s) {dx=s; ah=0x1A; __emit__(0xCD,0x21); }
+int ffirst(char *s) {dx=s; ah=0x4E; cx=0x1E; DosInt(); }
+int fnext (char *s) {dx=s; ah=0x4F; cx=0x1E; DosInt(); }
 
 int printhex4(unsigned char c) {
     c += 48;
@@ -89,7 +92,6 @@ int prunsign(unsigned int n) {
     n+='0'; 
     putch(n); 
 }
-
 int letter(char c) {
   if (c> 'z') return 0;
   if (c< 'A') return 0;
@@ -101,6 +103,11 @@ int digit(char c){
     if(c>'9') return 0;
     return 1;
 }
+int strlen(char *s) { int c;
+    c=0;
+    while (*s!=0) {s++; c++;}
+    return c;
+    }
 int strcpy(char *s, char *t) {
     do { *s=*t; s++; t++; }
     while (*t!=0);
@@ -122,6 +129,110 @@ int toupper(char *s) {
             s++;
     }
 }
+
+
+char FNBuf[64];
+char Pfad[]="*.*";
+char direcord[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};//21 do not change
+char dirattr=0;   
+int  dirtime=0;  
+int  dirdate=0;
+int  dirlenlo=0;  
+int  dirlenhi=0; 
+char dirdatname[]={0,0,0,0,0,0,0,0,0,0,0,0,0};//13 structure until here
+
+int dodir() { 
+    int j;
+    char c;
+    si= &FNBuf; 
+    dl=0;  
+    ax=0x4700;//get current directory 
+    DosInt(); 
+    if (DOS_ERR) {
+        cputs(" error reading directory");
+        return;
+    }
+    cputs("Current directory: "); 
+    cputs(FNBuf); 
+    putch(10);
+ 
+    setdta(direcord);
+      
+    ffirst(Pfad);
+    if (DOS_ERR) {
+        cputs("Empty directory "); 
+        return;
+        }
+    cputs("Name             Date   Time Attr   Size");
+  do {
+        putch(10);  
+        cputs(dirdatname);  
+        j=strlen(dirdatname);
+        do {
+            putch(' '); 
+            j++; 
+            } while (j<13);
+            
+        j=dirdate & 31;         
+        if (j<10) putch(' '); 
+        prunsign(j); 
+        putch('.');
+            
+        j=dirdate >> 5; 
+        j&=  15;
+        if (j<10) putch('0'); 
+        prunsign(j); 
+        putch('.');
+            
+        j=dirdate >> 9; 
+        j+=  80;
+        if (j>=100) j-=100;
+        if (j<10) putch('0'); 
+        prunsign(j); 
+        putch(' ');
+        putch(' ');
+            
+        j=dirtime  >>11;         
+        if (j<10) putch(' '); 
+        prunsign(j); 
+        putch(':');
+            
+        j=dirtime  >> 5; 
+        j&=  63;
+        if (j<10) putch('0'); 
+        prunsign(j); 
+        putch(' ');
+                       
+        c = dirattr & 32;
+        if (c) putch('A'); else putch(' ');
+        c = dirattr & 16;
+        if (c) putch('D'); else putch(' ');
+        c = dirattr & 8;
+        if (c) putch('V'); else putch(' ');
+        c = dirattr & 4;
+        if (c) putch('S'); else putch(' ');
+        c = dirattr & 2;
+        if (c) putch('H'); else putch(' ');
+        c = dirattr & 1;
+        if (c) putch('R'); else putch(' ');
+                              
+        if (dirlenhi) { 
+            dirlenlo=dirlenlo >>10; 
+            dirlenhi=dirlenhi << 6;
+            dirlenhi=dirlenhi+dirlenlo;
+            putch(' ');
+            prunsign(dirlenhi); 
+            cputs(" KB"); 
+            }
+        else {
+            putch(' ');
+            prunsign(dirlenlo);
+            }   
+    j=fnext(Pfad);  
+    } while (j!=18);
+    putch(10);    
+}
+
 
 char memSignature; 
 unsigned int memOwner; 
@@ -171,15 +282,14 @@ int domem() {
     es = vES;
     } 
     while (memSignature == 'M');
+    putch(10); 
 }
 
 int dotype() {
     int fdin; int i;
     fdin=openR(par2);
     if (DOS_ERR) {
-        putch(10); 
-        cputs("file missing: "); 
-        cputs(par2); 
+        cputs(" file missing"); 
         return;
         }
     do {
@@ -216,8 +326,8 @@ int Prompt1(unsigned char *s) {
     *s=0; 
 }
 
-char Info1[]=" commands: help,exit,cls,type,mem";
-//char Info1[]="dir,dos,dump,exec,fn, *.COM";
+char Info1[]=" commands: help,exit,cls,type,mem,dir";
+//dos,dump,exec,fn, *.COM
 
 int dohelp() { 
     unsigned int i;   
@@ -225,6 +335,8 @@ int dohelp() {
 //    rdump();
     cputs(Info1);   putch(10); 
 }
+
+char inp_buf[81]; 
 
 int getpar(char *t) {    
     while (*t == 32) t++; 
@@ -259,7 +371,7 @@ int intrinsic() {
     if(eqstr(par1,"CLS" )){clrscr();return;}
     if(eqstr(par1,"TYPE")){dotype();return;}
     if(eqstr(par1,"MEM" )){domem(); return;}
-//    if(eqstr(s,"DIR" )){dir1();return;}
+    if(eqstr(par1,"DIR" )){dodir();return;}
 //    if(eqstr(s,"DOS" )){dodos(); return;}
 //    if(eqstr(s,"DUMP")){dodump();return;}
 //    if(eqstr(s,"EXEC")){exec1 ();return;}
