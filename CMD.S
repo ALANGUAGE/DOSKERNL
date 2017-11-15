@@ -269,150 +269,243 @@ readRL: PROC
  mov  bx, [bp+6]
  mov  ax, 16128
  call DosInt
-;-57 int fputcR(char *n, int fd) { __asm{lea dx, [bp+4]}; /* = *n */
+;-57 int fputcR(char *n, int fd) { 
  LEAVE
  ret
 ENDP
-fputcR: PROC;
+fputcR: PROC
+;-58     __asm{lea dx, [bp+4]}; /* = *n */  
+;
  ENTER  0,0
 lea dx, [bp+4]
-;-58   cx=1; bx=fd; ax=0x4000; DosInt(); }
+;-59 //    dx=n;
+
+;-60     cx=1; 
 
  mov  cx, 1
+;-61     bx=fd; 
+
  mov  bx, [bp+6]
+;-62     ax=0x4000; 
+
  mov  ax, 16384
+;-63     DosInt(); 
+
  call DosInt
-;-59 
+;-64 }
 
-;-60 
+;-65 
 
-;-61 int prunsign(unsigned int n) { 
+;-66 int printhex4(unsigned char c) {
+ LEAVE
+ ret
+ENDP
+printhex4: PROC
+;-67     c += 48;
+;
+ ENTER  0,0
+ add  byte[bp+4], 48
+;-68     if (c > 57) c += 7;
+
+ mov al, [bp+4]
+ cmp al, 57
+ jle .printhex45
+ add  byte[bp+4], 7
+;-69     putch(c);
+
+.printhex45:
+ mov al, byte [bp+4]
+ mov ah, 0
+ push ax
+ call putch
+ add  sp, 2
+;-70 }
+
+;-71 int printhex8a(unsigned char c) {
+ LEAVE
+ ret
+ENDP
+printhex8a: PROC
+;-72     unsigned char nib;
+
+;-73     nib = c >> 4; printhex4(nib);
+;
+ ENTER  2,0
+ mov al, [bp+4]
+ shr al, 4
+ mov [bp-2], al
+ mov al, byte [bp-2]
+ mov ah, 0
+ push ax
+ call printhex4
+ add  sp, 2
+;-74     nib = c & 15; printhex4(nib);
+
+ mov al, [bp+4]
+ and al, 15
+ mov [bp-2], al
+ mov al, byte [bp-2]
+ mov ah, 0
+ push ax
+ call printhex4
+ add  sp, 2
+;-75 }
+
+;-76 int printhex16(unsigned int i) {
+ LEAVE
+ ret
+ENDP
+printhex16: PROC
+;-77     unsigned int half;
+
+;-78     half = i >>  8; printhex8a(half);
+;
+ ENTER  2,0
+ mov ax, [bp+4]
+ shr ax, 8
+ mov [bp-2], ax
+ push word [bp-2]
+ call printhex8a
+ add  sp, 2
+;-79     half = i & 255; printhex8a(half);
+
+ mov ax, [bp+4]
+ and ax, 255
+ mov [bp-2], ax
+ push word [bp-2]
+ call printhex8a
+ add  sp, 2
+;-80 }
+
+;-81 
+
+;-82 int prunsign(unsigned int n) { 
  LEAVE
  ret
 ENDP
 prunsign: PROC
-;-62     unsigned int e;
+;-83     unsigned int e;
 
-;-63     if (n >= 10) { 
+;-84     if (n >= 10) { 
 ;
  ENTER  2,0
  mov ax, [bp+4]
  cmp ax, 10 ;unsigned : 0
- jb  .prunsign5
-;-64         e=n/10; 
+ jb  .prunsign6
+;-85         e=n/10; 
 
  mov ax, [bp+4]
  mov bx, 10
  mov dx, 0
  div bx
  mov [bp-2], ax
-;-65         prunsign(e); 
+;-86         prunsign(e); 
 
  push word [bp-2]
  call prunsign
  add  sp, 2
-;-66         } 
+;-87         } 
 
-;-67     n=n%10; 
+;-88     n=n%10; 
 
-.prunsign5:
+.prunsign6:
  mov ax, [bp+4]
  mov bx, 10
  mov dx, 0
  div bx
  mov ax, dx
  mov [bp+4], ax
-;-68     n+='0'; 
+;-89     n+='0'; 
 
  add  word[bp+4], 48
-;-69     putch(n); 
+;-90     putch(n); 
 
  push word [bp+4]
  call putch
  add  sp, 2
-;-70 }
+;-91 }
 
-;-71 
+;-92 
 
-;-72 int letter(char c) {
+;-93 int letter(char c) {
  LEAVE
  ret
 ENDP
 letter: PROC
-;-73   if (c> 'z') return 0;
+;-94   if (c> 'z') return 0;
 ;
  ENTER  0,0
  mov al, [bp+4]
  cmp al, 122
- jle .letter6
+ jle .letter7
  mov ax, 0
  jmp .retnletter
-;-74   if (c< 'A') return 0;
-
-.letter6:
- mov al, [bp+4]
- cmp al, 65
- jge .letter7
- mov ax, 0
- jmp .retnletter
-;-75   if (c> 'Z') { if (c< 'a') return 0; }
+;-95   if (c< 'A') return 0;
 
 .letter7:
  mov al, [bp+4]
- cmp al, 90
- jle .letter8
- mov al, [bp+4]
- cmp al, 97
- jge .letter9
+ cmp al, 65
+ jge .letter8
  mov ax, 0
  jmp .retnletter
-.letter9:
-;-76   return 1;
+;-96   if (c> 'Z') { if (c< 'a') return 0; }
 
 .letter8:
+ mov al, [bp+4]
+ cmp al, 90
+ jle .letter9
+ mov al, [bp+4]
+ cmp al, 97
+ jge .letter10
+ mov ax, 0
+ jmp .retnletter
+.letter10:
+;-97   return 1;
+
+.letter9:
  mov ax, 1
  jmp .retnletter
-;-77 }
+;-98 }
 
-;-78 int digit(char c){
+;-99 int digit(char c){
 
  .retnletter: LEAVE
  ret
 ENDP
 digit: PROC
-;-79     if(c<'0') return 0;
+;-100     if(c<'0') return 0;
 ;
  ENTER  0,0
  mov al, [bp+4]
  cmp al, 48
- jge .digit10
+ jge .digit11
  mov ax, 0
  jmp .retndigit
-;-80     if(c>'9') return 0;
-
-.digit10:
- mov al, [bp+4]
- cmp al, 57
- jle .digit11
- mov ax, 0
- jmp .retndigit
-;-81     return 1;
+;-101     if(c>'9') return 0;
 
 .digit11:
+ mov al, [bp+4]
+ cmp al, 57
+ jle .digit12
+ mov ax, 0
+ jmp .retndigit
+;-102     return 1;
+
+.digit12:
  mov ax, 1
  jmp .retndigit
-;-82 }
+;-103 }
 
-;-83 int strcpy(char *s, char *t) {
+;-104 int strcpy(char *s, char *t) {
 
  .retndigit: LEAVE
  ret
 ENDP
 strcpy: PROC
-;-84     do { *s=*t; s++; t++; }
+;-105     do { *s=*t; s++; t++; }
 ;
  ENTER  0,0
-.strcpy12:
+.strcpy13:
  mov bx, [bp+6]
  mov al, [bx]
  mov ah, 0
@@ -420,42 +513,42 @@ strcpy: PROC
  mov  [bx], al
  inc  word[bp+4]
  inc  word[bp+6]
-;-85     while (*t!=0);
+;-106     while (*t!=0);
 
  mov bx, [bp+6]
  mov al, [bx]
  mov ah, 0
  cmp ax, 0
- je  .strcpy13
- jmp .strcpy12
-.strcpy13:
-;-86     *s=0;
+ je  .strcpy14
+ jmp .strcpy13
+.strcpy14:
+;-107     *s=0;
 
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-87     return s;
+;-108     return s;
 
  mov ax, [bp+4]
  jmp .retnstrcpy
-;-88 }
+;-109 }
 
-;-89 int eqstr(char *p, char *q) {
+;-110 int eqstr(char *p, char *q) {
 
  .retnstrcpy: LEAVE
  ret
 ENDP
 eqstr: PROC
-;-90     while(*p) {
+;-111     while(*p) {
 ;
  ENTER  0,0
-.eqstr14:
+.eqstr15:
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  or  al, al
- je .eqstr15
-;-91         if (*p != *q) return 0;
+ je .eqstr16
+;-112         if (*p != *q) return 0;
 
  mov bx, [bp+4]
  mov al, [bx]
@@ -463,126 +556,319 @@ eqstr: PROC
  mov bx, [bp+6]
  cmp al, [bx]
  mov ah, 0
- je  .eqstr16
+ je  .eqstr17
  mov ax, 0
  jmp .retneqstr
-;-92             p++;
+;-113             p++;
 
-.eqstr16:
+.eqstr17:
  inc  word[bp+4]
-;-93             q++;
+;-114             q++;
 
  inc  word[bp+6]
-;-94         }
+;-115         }
 
-;-95     if(*q) return 0;
+;-116     if(*q) return 0;
 
- jmp .eqstr14
-.eqstr15:
+ jmp .eqstr15
+.eqstr16:
  mov bx, [bp+6]
  mov al, [bx]
  mov ah, 0
  or  al, al
- je .eqstr17
+ je .eqstr18
  mov ax, 0
  jmp .retneqstr
-;-96     return 1;
+;-117     return 1;
 
-.eqstr17:
+.eqstr18:
  mov ax, 1
  jmp .retneqstr
-;-97 }
+;-118 }
 
-;-98 int toupper(char *s) {
+;-119 int toupper(char *s) {
 
  .retneqstr: LEAVE
  ret
 ENDP
 toupper: PROC
-;-99     while(*s) {
+;-120     while(*s) {
 ;
  ENTER  0,0
-.toupper18:
+.toupper19:
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  or  al, al
- je .toupper19
-;-100         if (*s >= 'a') if (*s <= 'z') *s=*s-32;
+ je .toupper20
+;-121         if (*s >= 'a') if (*s <= 'z') *s=*s-32;
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  cmp ax, 97 ;unsigned : 1
- jl  .toupper20
+ jl  .toupper21
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  cmp ax, 122
- jg  .toupper21
+ jg  .toupper22
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  sub ax, 32
  mov  bx, [bp+4]
  mov  [bx], al
-;-101             s++;
+;-122             s++;
 
+.toupper22:
 .toupper21:
-.toupper20:
  inc  word[bp+4]
-;-102     }
+;-123     }
 
-;-103 }
+;-124 }
 
- jmp .toupper18
-.toupper19:
-;-104 
+ jmp .toupper19
+.toupper20:
+;-125 
 
-;-105 int dotype() {
+;-126 char memSignature; 
  LEAVE
  ret
 ENDP
-dotype: PROC
-;-106     int fdin; int i;
+memSignature db 0
+;-127 unsigned int memOwner; 
 
-;-107     fdin=openR(par2);
+memOwner dw 0
+;-128 unsigned int memSize;
+
+memSize dw 0
+;-129 unsigned int vES; 
+
+vES dw 0
+;-130 unsigned int vBX; 
+
+vBX dw 0
+;-131 
+
+;-132 int domem() { 
+
+domem: PROC
+;-133     unsigned int i;
+
+;-134     char c;
+
+;-135     ah=0x52;//DOS list of lists 
+;
+ ENTER  4,0
+ mov  ah, 82
+;-136     asm int 33 ; // out= ES:BX ptr to invars
+
+ int 33 ; // out= ES:BX ptr to invars
+;-137     asm mov [vBX], bx 
+
+ mov [vBX], bx 
+;-138     asm mov [vES], es
+
+ mov [vES], es
+;-139 //    asm mov es, [es:bx-2]//first memory control block
+
+;-140     __emit__(0x26,0x8E,0x47,0xFE);    
+
+ db 38,142,71,254
+;-141         
+
+;-142     asm mov [vES], es
+
+ mov [vES], es
+;-143     
+
+;-144     do {
+
+.domem23:
+;-145         putch(10); 
+
+ push 10
+ call putch
+ add  sp, 2
+;-146         cputs("ES:"); 
+
+ push domem_0
+ call cputs
+ add  sp, 2
+;-147         printhex16(vES);
+
+ push word [vES]
+ call printhex16
+ add  sp, 2
+;-148         if (vES >= 0xA000) cputs(" MCB in UMB");
+
+ mov ax, [vES]
+ cmp ax, 40960 ;unsigned : 0
+ jb  .domem24
+ push domem_1
+ call cputs
+ add  sp, 2
+;-149 //        asm mov al, [es:0]// M or Z 
+
+;-150         __emit__(0x26,0xA0,0,0);     
+
+.domem24:
+ db 38,160,0,0
+;-151         asm mov [memSignature], al  
+
+ mov [memSignature], al  
+;-152         
+
+;-153         cputs(", ");
+
+ push domem_2
+ call cputs
+ add  sp, 2
+;-154         putch(memSignature);
+
+ mov al, byte [memSignature]
+ mov ah, 0
+ push ax
+ call putch
+ add  sp, 2
+;-155 //        asm mov ax, [es:1]//program segment prefix  
+
+;-156         __emit__(0x26,0xA1,1,0);           
+
+ db 38,161,1,0
+;-157         asm mov [memOwner], ax  
+
+ mov [memOwner], ax  
+;-158         cputs(", PSP:"); 
+
+ push domem_3
+ call cputs
+ add  sp, 2
+;-159         printhex16(memOwner);
+
+ push word [memOwner]
+ call printhex16
+ add  sp, 2
+;-160 //        asm mov ax, [es:3]//size in para
+
+;-161         __emit__(0x26,0xA1,3,0);                       
+
+ db 38,161,3,0
+;-162         asm mov [memSize], ax  
+
+ mov [memSize], ax  
+;-163         cputs(", Size:"); 
+
+ push domem_4
+ call cputs
+ add  sp, 2
+;-164         printhex16(memSize);
+
+ push word [memSize]
+ call printhex16
+ add  sp, 2
+;-165         if (memOwner == 0) cputs(" free");
+
+ mov ax, [memOwner]
+ cmp ax, 0
+ jne .domem25
+ push domem_5
+ call cputs
+ add  sp, 2
+;-166         if (memOwner == 8) cputs(" DOS ");
+
+.domem25:
+ mov ax, [memOwner]
+ cmp ax, 8
+ jne .domem26
+ push domem_6
+ call cputs
+ add  sp, 2
+;-167         i=memOwner-vES; 
+
+.domem26:
+ mov ax, [memOwner]
+ sub ax, [vES]
+ mov [bp-2], ax
+;-168     vES = vES + memSize;  
+
+ mov ax, [vES]
+ add ax, [memSize]
+ mov word [vES], ax
+;-169     vES++;
+
+ inc  word[vES]
+;-170     asm mov es, vES 
+
+ mov es, vES 
+;-171     es = vES;
+
+ mov  es, [vES]
+;-172     } 
+
+;-173     while (memSignature == 'M');
+
+ mov al, [memSignature]
+ cmp al, 77
+ jne .domem27
+ jmp .domem23
+.domem27:
+;-174 }
+
+;-175 
+
+;-176 int dotype() {
+ LEAVE
+ ret
+domem_0 db "ES:",0
+domem_1 db " MCB in UMB",0
+domem_2 db ", ",0
+domem_3 db ", PSP:",0
+domem_4 db ", Size:",0
+domem_5 db " free",0
+domem_6 db " DOS ",0
+ENDP
+dotype: PROC
+;-177     int fdin; int i;
+
+;-178     fdin=openR(par2);
 ;
  ENTER  4,0
  push word [par2]
  call openR
  add  sp, 2
  mov [bp-2], ax
-;-108     if (DOS_ERR) {
+;-179     if (DOS_ERR) {
 
  mov ax, [DOS_ERR]
  or  al, al
- je .dotype22
-;-109         putch(10); 
+ je .dotype28
+;-180         putch(10); 
 
  push 10
  call putch
  add  sp, 2
-;-110         cputs("file missing: "); 
+;-181         cputs("file missing: "); 
 
  push dotype_0
  call cputs
  add  sp, 2
-;-111         cputs(par2); 
+;-182         cputs(par2); 
 
  push word [par2]
  call cputs
  add  sp, 2
-;-112         return;
+;-183         return;
 
  jmp .retndotype
-;-113         }
+;-184         }
 
-;-114     do {
+;-185     do {
 
-.dotype22:
-.dotype23:
-;-115         DOS_NoBytes=readR(&DOS_ByteRead, fdin);
+.dotype28:
+.dotype29:
+;-186         DOS_NoBytes=readR(&DOS_ByteRead, fdin);
 
  push word [bp-2]
  lea  ax, [DOS_ByteRead]
@@ -590,171 +876,168 @@ dotype: PROC
  call readR
  add  sp, 4
  mov word [DOS_NoBytes], ax
-;-116         putch(DOS_ByteRead); 
+;-187         putch(DOS_ByteRead); 
 
  mov al, byte [DOS_ByteRead]
  mov ah, 0
  push ax
  call putch
  add  sp, 2
-;-117         } 
+;-188         } 
 
-;-118         while (DOS_NoBytes);
+;-189         while (DOS_NoBytes);
 
  mov ax, [DOS_NoBytes]
  or  al, al
- je .dotype24
- jmp .dotype23
-.dotype24:
-;-119     fcloseR(fdin);
+ je .dotype30
+ jmp .dotype29
+.dotype30:
+;-190     fcloseR(fdin);
 
  push word [bp-2]
  call fcloseR
  add  sp, 2
-;-120 }
+;-191 }
 
-;-121 
+;-192 
 
-;-122 int Prompt1(unsigned char *s) {
+;-193 int Prompt1(unsigned char *s) {
 
  .retndotype: LEAVE
  ret
 dotype_0 db "file missing: ",0
 ENDP
 Prompt1: PROC
-;-123     char c; 
+;-194     char c; 
 
-;-124     unsigned char *startstr;
+;-195     unsigned char *startstr;
 
-;-125     startstr=s;  
+;-196     startstr=s;  
 ;
  ENTER  4,0
  mov ax, [bp+4]
  mov [bp-4], ax
-;-126     do { 
+;-197     do { 
 
-.Prompt125:
-;-127         c=GetKey();  
+.Prompt131:
+;-198         c=GetKey();  
 
  call GetKey
  mov [bp-2], al
-;-128         if (c == 27)    exitR(1);//good bye
+;-199         if (c == 27)    exitR(1);//good bye
 
  mov al, [bp-2]
  cmp al, 27
- jne .Prompt126
+ jne .Prompt132
  push 1
  call exitR
  add  sp, 2
-;-129         if (c==8) {
+;-200         if (c==8) {
 
-.Prompt126:
+.Prompt132:
  mov al, [bp-2]
  cmp al, 8
- jne .Prompt127
-;-130             if (s > startstr){
+ jne .Prompt133
+;-201             if (s > startstr){
 
  mov ax, [bp+4]
  cmp ax, [bp-4]
- jle .Prompt128
-;-131                 s--;
+ jle .Prompt134
+;-202                 s--;
 
  dec  word[bp+4]
-;-132                 putch(8);
+;-203                 putch(8);
 
  push 8
  call putch
  add  sp, 2
-;-133                 putch(' ');
+;-204                 putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-134                 putch(8);
+;-205                 putch(8);
 
  push 8
  call putch
  add  sp, 2
-;-135                 }
+;-206                 }
 
-;-136                 else putch(7);
+;-207                 else putch(7);
 
- jmp .Prompt129
-.Prompt128:
+ jmp .Prompt135
+.Prompt134:
  push 7
  call putch
  add  sp, 2
-;-137             }
+;-208             }
 
-.Prompt129:
-;-138             else { 
+.Prompt135:
+;-209             else { 
 
- jmp .Prompt130
-.Prompt127:
-;-139                 *s=c; 
+ jmp .Prompt136
+.Prompt133:
+;-210                 *s=c; 
 
  mov al, [bp-2]
  mov  bx, [bp+4]
  mov  [bx], al
-;-140                 s++; 
+;-211                 s++; 
 
  inc  word[bp+4]
-;-141                 putch(c); 
+;-212                 putch(c); 
 
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call putch
  add  sp, 2
-;-142             }
+;-213             }
 
-;-143     } while(c!=13); 
+;-214     } while(c!=13); 
 
-.Prompt130:
+.Prompt136:
  mov al, [bp-2]
  cmp al, 13
- je  .Prompt131
- jmp .Prompt125
-.Prompt131:
-;-144     s--;  
+ je  .Prompt137
+ jmp .Prompt131
+.Prompt137:
+;-215     s--;  
 
  dec  word[bp+4]
-;-145     *s=0; 
+;-216     *s=0; 
 
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-146 }
+;-217 }
 
-;-147 
+;-218 
 
-;-148 char Info1[]=" commands: help,exit,cls,type";
+;-219 char Info1[]=" commands: help,exit,cls,type,mem";
  LEAVE
  ret
 ENDP
-Info1 db " commands: help,exit,cls,type",0
-;-149 //char Info1[]="dir,dos,mem,dump";
+Info1 db " commands: help,exit,cls,type,mem",0
+;-220 //char Info1[]="dir,dos,dump,exec,fn, *.COM";
 
-;-150 char Info2[]="exec,fn,down,co,unreal,un,test,  *.COM ";
+;-221 
 
-Info2 db "exec,fn,down,co,unreal,un,test,  *.COM ",0
-;-151 
-
-;-152 int dohelp() { 
+;-222 int dohelp() { 
 
 dohelp: PROC
-;-153     unsigned int i;   
+;-223     unsigned int i;   
 
-;-154     cputs(Version1);
+;-224     cputs(Version1);
 ;
  ENTER  2,0
  lea  ax, [Version1]
  push ax
  call cputs
  add  sp, 2
-;-155 //    rdump();
+;-225 //    rdump();
 
-;-156     cputs(Info1);   putch(10); 
+;-226     cputs(Info1);   putch(10); 
 
  lea  ax, [Info1]
  push ax
@@ -763,76 +1046,18 @@ dohelp: PROC
  push 10
  call putch
  add  sp, 2
-;-157 //    cputs(Info2);
+;-227 }
 
-;-158 }
+;-228 
 
-;-159 
-
-;-160 int getpar(char *t) {    
+;-229 int getpar(char *t) {    
  LEAVE
  ret
 ENDP
 getpar: PROC
-;-161     while (*t == 32) t++; 
+;-230     while (*t == 32) t++; 
 ;
  ENTER  0,0
-.getpar32:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 32
- jne .getpar33
- inc  word[bp+4]
-;-162     if (*t<=13) return 0;
-
- jmp .getpar32
-.getpar33:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 13
- jg  .getpar34
- mov ax, 0
- jmp .retngetpar
-;-163         
-
-;-164     par1=t; 
-
-.getpar34:
- mov ax, [bp+4]
- mov word [par1], ax
-;-165     while(*t >= 33) t++; 
-
-.getpar35:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 33 ;unsigned : 1
- jl  .getpar36
- inc  word[bp+4]
-;-166     if (*t==0) return 1;
-
- jmp .getpar35
-.getpar36:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 0
- jne .getpar37
- mov ax, 1
- jmp .retngetpar
-;-167     *t=0; 
-
-.getpar37:
- mov ax, 0
- mov  bx, [bp+4]
- mov  [bx], al
-;-168     t++;
-
- inc  word[bp+4]
-;-169     while (*t == 32) t++; 
-
 .getpar38:
  mov bx, [bp+4]
  mov al, [bx]
@@ -840,7 +1065,7 @@ getpar: PROC
  cmp ax, 32
  jne .getpar39
  inc  word[bp+4]
-;-170     if (*t<=13) return 1;
+;-231     if (*t<=13) return 0;
 
  jmp .getpar38
 .getpar39:
@@ -849,16 +1074,16 @@ getpar: PROC
  mov ah, 0
  cmp ax, 13
  jg  .getpar40
- mov ax, 1
+ mov ax, 0
  jmp .retngetpar
-;-171         
+;-232         
 
-;-172     par2=t; 
+;-233     par1=t; 
 
 .getpar40:
  mov ax, [bp+4]
- mov word [par2], ax
-;-173     while(*t >= 33) t++; 
+ mov word [par1], ax
+;-234     while(*t >= 33) t++; 
 
 .getpar41:
  mov bx, [bp+4]
@@ -867,7 +1092,7 @@ getpar: PROC
  cmp ax, 33 ;unsigned : 1
  jl  .getpar42
  inc  word[bp+4]
-;-174     if (*t==0) return 2;
+;-235     if (*t==0) return 1;
 
  jmp .getpar41
 .getpar42:
@@ -876,18 +1101,18 @@ getpar: PROC
  mov ah, 0
  cmp ax, 0
  jne .getpar43
- mov ax, 2
+ mov ax, 1
  jmp .retngetpar
-;-175     *t=0; 
+;-236     *t=0; 
 
 .getpar43:
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-176     t++;    
+;-237     t++;
 
  inc  word[bp+4]
-;-177     while (*t == 32) t++; 
+;-238     while (*t == 32) t++; 
 
 .getpar44:
  mov bx, [bp+4]
@@ -896,7 +1121,7 @@ getpar: PROC
  cmp ax, 32
  jne .getpar45
  inc  word[bp+4]
-;-178     if (*t<=13) return 2;
+;-239     if (*t<=13) return 1;
 
  jmp .getpar44
 .getpar45:
@@ -905,16 +1130,16 @@ getpar: PROC
  mov ah, 0
  cmp ax, 13
  jg  .getpar46
- mov ax, 2
+ mov ax, 1
  jmp .retngetpar
-;-179          
+;-240         
 
-;-180     par3=t;     
+;-241     par2=t; 
 
 .getpar46:
  mov ax, [bp+4]
- mov word [par3], ax
-;-181     while(*t >= 33) t++; 
+ mov word [par2], ax
+;-242     while(*t >= 33) t++; 
 
 .getpar47:
  mov bx, [bp+4]
@@ -923,108 +1148,163 @@ getpar: PROC
  cmp ax, 33 ;unsigned : 1
  jl  .getpar48
  inc  word[bp+4]
-;-182     *t=0;     
+;-243     if (*t==0) return 2;
 
  jmp .getpar47
 .getpar48:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 0
+ jne .getpar49
+ mov ax, 2
+ jmp .retngetpar
+;-244     *t=0; 
+
+.getpar49:
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-183     return 3;    
+;-245     t++;    
+
+ inc  word[bp+4]
+;-246     while (*t == 32) t++; 
+
+.getpar50:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 32
+ jne .getpar51
+ inc  word[bp+4]
+;-247     if (*t<=13) return 2;
+
+ jmp .getpar50
+.getpar51:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 13
+ jg  .getpar52
+ mov ax, 2
+ jmp .retngetpar
+;-248          
+
+;-249     par3=t;     
+
+.getpar52:
+ mov ax, [bp+4]
+ mov word [par3], ax
+;-250     while(*t >= 33) t++; 
+
+.getpar53:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 33 ;unsigned : 1
+ jl  .getpar54
+ inc  word[bp+4]
+;-251     *t=0;     
+
+ jmp .getpar53
+.getpar54:
+ mov ax, 0
+ mov  bx, [bp+4]
+ mov  [bx], al
+;-252     return 3;    
 
  mov ax, 3
  jmp .retngetpar
-;-184 }
+;-253 }
 
-;-185 
+;-254 
 
-;-186 int intrinsic() {
+;-255 int intrinsic() {
 
  .retngetpar: LEAVE
  ret
 ENDP
 intrinsic: PROC
-;-187     toupper(par1);      
+;-256     toupper(par1);      
 
  push word [par1]
  call toupper
  add  sp, 2
-;-188     if(eqstr(par1,"HELP")){dohelp();return;}
+;-257     if(eqstr(par1,"HELP")){dohelp();return;}
 
  push intrinsic_0
  push word [par1]
  call eqstr
  add  sp, 4
  or  al, al
- je .intrinsic49
+ je .intrinsic55
  call dohelp
  jmp .retnintrinsic
-;-189     if(eqstr(par1,"EXIT"))exitR(0);
+;-258     if(eqstr(par1,"EXIT"))exitR(0);
 
-.intrinsic49:
+.intrinsic55:
  push intrinsic_1
  push word [par1]
  call eqstr
  add  sp, 4
  or  al, al
- je .intrinsic50
+ je .intrinsic56
  push 0
  call exitR
  add  sp, 2
-;-190     if(eqstr(par1,"CLS" )){clrscr();return;}
+;-259     if(eqstr(par1,"CLS" )){clrscr();return;}
 
-.intrinsic50:
+.intrinsic56:
  push intrinsic_2
  push word [par1]
  call eqstr
  add  sp, 4
  or  al, al
- je .intrinsic51
+ je .intrinsic57
  call clrscr
  jmp .retnintrinsic
-;-191     if(eqstr(par1,"TYPE")){dotype();return;}
+;-260     if(eqstr(par1,"TYPE")){dotype();return;}
 
-.intrinsic51:
+.intrinsic57:
  push intrinsic_3
  push word [par1]
  call eqstr
  add  sp, 4
  or  al, al
- je .intrinsic52
+ je .intrinsic58
  call dotype
  jmp .retnintrinsic
-;-192 //    if(eqstr(s,"DIR" )){dir1();return;}
+;-261     if(eqstr(par1,"MEM" )){domem(); return;}
 
-;-193 //    if(eqstr(s,"DOS" )){dodos(); return;}
+.intrinsic58:
+ push intrinsic_4
+ push word [par1]
+ call eqstr
+ add  sp, 4
+ or  al, al
+ je .intrinsic59
+ call domem
+ jmp .retnintrinsic
+;-262 //    if(eqstr(s,"DIR" )){dir1();return;}
 
-;-194 //    if(eqstr(s,"MEM" )){domem(); return;}
+;-263 //    if(eqstr(s,"DOS" )){dodos(); return;}
 
-;-195 //    if(eqstr(s,"DUMP")){dodump();return;}
+;-264 //    if(eqstr(s,"DUMP")){dodump();return;}
 
-;-196 //    if(eqstr(s,"EXEC")){exec1 ();return;}
+;-265 //    if(eqstr(s,"EXEC")){exec1 ();return;}
 
-;-197 //    if(eqstr(s,"FN"  )){doFN();  return;}
+;-266 //    if(eqstr(s,"FN"  )){doFN();  return;}
 
-;-198 //    if(eqstr(s,"DOWN")){dodown();return;}
+;-267 //    extrinsic(inp_buf);
 
-;-199 //    if(eqstr(s,"CO"  )){doco();  return;}
+;-268 }
 
-;-200 //    if(eqstr(s,"UNREAL")){dounreal();  return;}
+.intrinsic59:
+;-269 
 
-;-201 //    if(eqstr(s,"UN")){doun();  return;}  
+;-270 
 
-;-202 //    if(eqstr(s,"TEST")){test();  return;}
-
-;-203 //    extrinsic(inp_buf);
-
-;-204 }
-
-.intrinsic52:
-;-205 
-
-;-206 
-
-;-207 int get_cmd(){
+;-271 int get_cmd(){
 
  .retnintrinsic:
  ret
@@ -1032,73 +1312,74 @@ intrinsic_0 db "HELP",0
 intrinsic_1 db "EXIT",0
 intrinsic_2 db "CLS",0
 intrinsic_3 db "TYPE",0
+intrinsic_4 db "MEM",0
 ENDP
 get_cmd: PROC
-;-208     *inp_buf=0;
+;-272     *inp_buf=0;
 
  mov ax, 0
  mov  bx, [inp_buf]
  mov  [bx], al
-;-209     DOS_ERR=0;
+;-273     DOS_ERR=0;
 
  mov ax, 0
  mov word [DOS_ERR], ax
-;-210     putch(':');
+;-274     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-211     Prompt1(inp_buf);
+;-275     Prompt1(inp_buf);
 
  lea  ax, [inp_buf]
  push ax
  call Prompt1
  add  sp, 2
-;-212     putch(10);
+;-276     putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-213 }
+;-277 }
 
-;-214 
+;-278 
 
-;-215 int main() {
+;-279 int main() {
 
  ret
 ENDP
 main: PROC
-;-216     dohelp();
+;-280     dohelp();
 
  call dohelp
-;-217     do { 
+;-281     do { 
 
-.main53:
-;-218         get_cmd(); 
+.main60:
+;-282         get_cmd(); 
 
  call get_cmd
-;-219         par_count=getpar(inp_buf);
+;-283         par_count=getpar(inp_buf);
 
  lea  ax, [inp_buf]
  push ax
  call getpar
  add  sp, 2
  mov byte [par_count], al
-;-220         intrinsic(); 
+;-284         intrinsic(); 
 
  call intrinsic
-;-221         } 
+;-285         } 
 
-;-222     while(1);
+;-286     while(1);
 
  mov ax, 1
  or  al, al
- je .main54
- jmp .main53
-.main54:
-;-223 }
+ je .main61
+ jmp .main60
+.main61:
+;-287 }
 
  ret
 ENDP
-;Glob. variables:11 (200), Functions:30 (300), Lines:224
-;Constant: 99 (3000), stacksize: 40555
+;Glob. variables:15 (200), Functions:34 (300), Lines:288
+;Constant: 158 (3000), stacksize: 40555

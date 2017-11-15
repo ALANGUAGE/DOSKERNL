@@ -254,7 +254,9 @@ asm int 15h
     vES = vES + memSize;  vES++; __asm{mov es, [bp-2] };// _ es=vES;
     } while (memSignature == 'M');
 }
+
 char TodayStr[7];     unsigned long SumByteL; unsigned long DosL;
+
 int doco() {int fdin; int fdout; unsigned int i;  char *p;
   char fin[60]; char fout[65]; char fext[30];
 //  p=head1(inp_buf); strcpy(inp_buf, p);   Fehler!!!

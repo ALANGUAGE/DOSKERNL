@@ -54,9 +54,30 @@ int exitR  (char c) {ah=0x4C; al=c;          DosInt(); }
 int readR (char *s, int fd) {dx=s; cx=1; bx=fd; ax=0x3F00; DosInt(); }
 int readRL(char *s, int fd, int len){
     dx=s; cx=len; bx=fd; ax=0x3F00; DosInt();}
-int fputcR(char *n, int fd) { __asm{lea dx, [bp+4]}; /* = *n */
-  cx=1; bx=fd; ax=0x4000; DosInt(); }
+int fputcR(char *n, int fd) { 
+    __asm{lea dx, [bp+4]}; /* = *n */  
+//    dx=n;
+    cx=1; 
+    bx=fd; 
+    ax=0x4000; 
+    DosInt(); 
+}
 
+int printhex4(unsigned char c) {
+    c += 48;
+    if (c > 57) c += 7;
+    putch(c);
+}
+int printhex8a(unsigned char c) {
+    unsigned char nib;
+    nib = c >> 4; printhex4(nib);
+    nib = c & 15; printhex4(nib);
+}
+int printhex16(unsigned int i) {
+    unsigned int half;
+    half = i >>  8; printhex8a(half);
+    half = i & 255; printhex8a(half);
+}
 
 int prunsign(unsigned int n) { 
     unsigned int e;
@@ -102,6 +123,56 @@ int toupper(char *s) {
     }
 }
 
+char memSignature; 
+unsigned int memOwner; 
+unsigned int memSize;
+unsigned int vES; 
+unsigned int vBX; 
+
+int domem() { 
+    unsigned int i;
+    char c;
+    ah=0x52;//DOS list of lists 
+    asm int 33 ; // out= ES:BX ptr to invars
+    asm mov [vBX], bx 
+    asm mov [vES], es
+//    asm mov es, [es:bx-2]//first memory control block
+    __emit__(0x26,0x8E,0x47,0xFE);    
+        
+    asm mov [vES], es
+    
+    do {
+        putch(10); 
+        cputs("ES:"); 
+        printhex16(vES);
+        if (vES >= 0xA000) cputs(" MCB in UMB");
+//        asm mov al, [es:0]// M or Z 
+        __emit__(0x26,0xA0,0,0);     
+        asm mov [memSignature], al  
+        
+        cputs(", ");
+        putch(memSignature);
+//        asm mov ax, [es:1]//program segment prefix  
+        __emit__(0x26,0xA1,1,0);           
+        asm mov [memOwner], ax  
+        cputs(", PSP:"); 
+        printhex16(memOwner);
+//        asm mov ax, [es:3]//size in para
+        __emit__(0x26,0xA1,3,0);                       
+        asm mov [memSize], ax  
+        cputs(", Size:"); 
+        printhex16(memSize);
+        if (memOwner == 0) cputs(" free");
+        if (memOwner == 8) cputs(" DOS ");
+        i=memOwner-vES; 
+    vES = vES + memSize;  
+    vES++;
+    asm mov es, vES 
+    es = vES;
+    } 
+    while (memSignature == 'M');
+}
+
 int dotype() {
     int fdin; int i;
     fdin=openR(par2);
@@ -145,16 +216,14 @@ int Prompt1(unsigned char *s) {
     *s=0; 
 }
 
-char Info1[]=" commands: help,exit,cls,type";
-//char Info1[]="dir,dos,mem,dump";
-char Info2[]="exec,fn,down,co,unreal,un,test,  *.COM ";
+char Info1[]=" commands: help,exit,cls,type,mem";
+//char Info1[]="dir,dos,dump,exec,fn, *.COM";
 
 int dohelp() { 
     unsigned int i;   
     cputs(Version1);
 //    rdump();
     cputs(Info1);   putch(10); 
-//    cputs(Info2);
 }
 
 int getpar(char *t) {    
@@ -189,17 +258,12 @@ int intrinsic() {
     if(eqstr(par1,"EXIT"))exitR(0);
     if(eqstr(par1,"CLS" )){clrscr();return;}
     if(eqstr(par1,"TYPE")){dotype();return;}
+    if(eqstr(par1,"MEM" )){domem(); return;}
 //    if(eqstr(s,"DIR" )){dir1();return;}
 //    if(eqstr(s,"DOS" )){dodos(); return;}
-//    if(eqstr(s,"MEM" )){domem(); return;}
 //    if(eqstr(s,"DUMP")){dodump();return;}
 //    if(eqstr(s,"EXEC")){exec1 ();return;}
 //    if(eqstr(s,"FN"  )){doFN();  return;}
-//    if(eqstr(s,"DOWN")){dodown();return;}
-//    if(eqstr(s,"CO"  )){doco();  return;}
-//    if(eqstr(s,"UNREAL")){dounreal();  return;}
-//    if(eqstr(s,"UN")){doun();  return;}  
-//    if(eqstr(s,"TEST")){test();  return;}
 //    extrinsic(inp_buf);
 }
 
