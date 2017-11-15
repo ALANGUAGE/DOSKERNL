@@ -6,6 +6,8 @@ char par_count=0;
 char *par1;
 char *par2;
 char *par3;
+int DOS_NoBytes;        //number of bytes read (0 or 1)
+char DOS_ByteRead;      //the byte just read by DOS
         
         
 int writetty()     { ah=0x0E; bx=0; __emit__(0xCD,0x10); }
@@ -49,6 +51,7 @@ int openR (char *s) { dx=s;       ax=0x3D02; DosInt(); }
 int creatR(char *s) { dx=s; cx=0; ax=0x3C00; DosInt(); }
 int fcloseR(int fd) {bx=fd;       ax=0x3E00; DosInt(); }
 int exitR  (char c) {ah=0x4C; al=c;          DosInt(); }
+int readR (char *s, int fd) {dx=s; cx=1; bx=fd; ax=0x3F00; DosInt(); }
 int readRL(char *s, int fd, int len){
     dx=s; cx=len; bx=fd; ax=0x3F00; DosInt();}
 int fputcR(char *n, int fd) { __asm{lea dx, [bp+4]}; /* = *n */
@@ -99,6 +102,22 @@ int toupper(char *s) {
     }
 }
 
+int dotype() {
+    int fdin; int i;
+    fdin=openR(par2);
+    if (DOS_ERR) {
+        putch(10); 
+        cputs("file missing: "); 
+        cputs(par2); 
+        return;
+        }
+    do {
+        DOS_NoBytes=readR(&DOS_ByteRead, fdin);
+        putch(DOS_ByteRead); 
+        } 
+        while (DOS_NoBytes);
+    fcloseR(fdin);
+}
 
 int Prompt1(unsigned char *s) {
     char c; 
@@ -126,8 +145,8 @@ int Prompt1(unsigned char *s) {
     *s=0; 
 }
 
-char Info1[]=" commands: help,exit,cls";
-//char Info1[]="CMD commands: cls,dir,dos,exit,type,mem,dump,help";
+char Info1[]=" commands: help,exit,cls,type";
+//char Info1[]="dir,dos,mem,dump";
 char Info2[]="exec,fn,down,co,unreal,un,test,  *.COM ";
 
 int dohelp() { 
@@ -169,9 +188,9 @@ int intrinsic() {
     if(eqstr(par1,"HELP")){dohelp();return;}
     if(eqstr(par1,"EXIT"))exitR(0);
     if(eqstr(par1,"CLS" )){clrscr();return;}
+    if(eqstr(par1,"TYPE")){dotype();return;}
 //    if(eqstr(s,"DIR" )){dir1();return;}
 //    if(eqstr(s,"DOS" )){dodos(); return;}
-//    if(eqstr(s,"TYPE")){dotype();return;}
 //    if(eqstr(s,"MEM" )){domem(); return;}
 //    if(eqstr(s,"DUMP")){dodump();return;}
 //    if(eqstr(s,"EXEC")){exec1 ();return;}
