@@ -41,7 +41,7 @@ int GetKey() {
 int getche() { GetKey(); writetty();}
 
 int DosInt() {
-    __emit__(0xCD,0x21);//inth 0x21;
+    __emit__(0xCD,0x21);//int 0x21;
     __emit__(0x73, 04); //ifcarry DOS_ERR++;
     DOS_ERR++;
 }
@@ -155,27 +155,6 @@ int isin(char *s, char c) {
         }  
     return 0;
 }
-/*
-strtok(s, delim)
-    char *s;            // string to search for tokens
-    const char *delim;  // delimiting characters
-{
-    static char *lasts;
-    register int ch;
-
-    if (s == 0)
-	s = lasts;
-    do {
-	if ((ch = *s++) == '\0')
-	    return 0;
-    } while (strchr(delim, ch));
-    --s;
-    lasts = s + strcspn(s, delim);
-    if (*lasts != 0)
-	*lasts++ = 0;
-    return s;
-}
-*/
 int head1(char *s) {
     while(*s >= 33) s++;     
     *s=0; 
@@ -190,60 +169,34 @@ int removespace(char *s) {
     }
 }
 
-int getpar(char *t) {
-char c;
-cputs(t);
-    
+int getpar(char *t) {    
     while (*t == 32) t++;     
     if (*t<=13) return 0;
+        
     par1=t; 
-    while(*t >= 33) t++; *t=0; 
-    toupper(par1);
-c= *t;
-prunsign(c);
-
-   t++;
-cputs(" nach ");   
-c= *t;
-prunsign(c);
+    while(*t >= 33) t++; 
+    if (*t==0) return 1;
+    *t=0; 
+    t++;
     while (*t == 32) t++; 
     if (*t<=13) return 1;
+        
     par2=t; 
-    while(*t >= 33) t++; *t=0; 
-
+    while(*t >= 33) t++; 
+    if (*t==0) return 2;
+    *t=0; 
     t++;    
     while (*t == 32) t++; 
-    if (*t<=13) return 2; 
+    if (*t<=13) return 2;
+         
     par3=t;     
-    while(*t >= 33) t++; *t=0;     
+    while(*t >= 33) t++; 
+    *t=0;     
     return 3;    
 }
-/*
-int getpar(char *t) {
-//char c;    
-//cputs(t);    
-    while (*t == 32) t++;//skip leading blank  
-    par1=t; 
-//c= *t;
-//prunsign(c);
-    if (*t<=13) return 0;//missing command
-    while(*t >= 33) t++;     
-    *t=0; 
-    toupper(par1);
-//    if (*t<=13) return 1;//command
-    t++; 
-    
-    while (*t == 32) t++;  
-    par2=t; 
-    if (*t<=13) return 1;
-    while(*t >= 33) t++;     
-    *t=0; 
-    if (*t<=13) return 2;//one parameter 
-    return 3; 
-}*/
 
 int intrinsic() {
-      
+    toupper(par1);      
     if(eqstr(par1,"HELP")){dohelp();return;}
     if(eqstr(par1,"EXIT"))exitR(0);
     if(eqstr(par1,"CLS" )){clrscr();return;}
@@ -276,8 +229,9 @@ int main() {
     do { 
         get_cmd(); 
         par_count=getpar(inp_buf);
-cputs(" par1:");
+cputs(" count: ");
 prunsign(par_count); 
+cputs(" par1:");
 cputs(par1);
 cputs(" par2:");
 cputs(par2);
