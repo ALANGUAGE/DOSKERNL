@@ -137,40 +137,9 @@ int dohelp() {
     cputs(Info1);   putch(10); 
 //    cputs(Info2);
 }
-int isspace(char c) {
-  if (c==32) return 1;//space
-  if (c>=9) { if (c<=13) return 1; }
-  return 0;
-}
-int isSpaceNullStr(char *s) {
-  if (*s==32) return 1;//space
-  if (*s>=9) { if (*s<=13) return 1; }
-  if (*s==0) return 1;
-  return 0;
-}
-int isin(char *s, char c) { 
-    while(*s) { 
-        if (*s==c) return s; 
-            s++;
-        }  
-    return 0;
-}
-int head1(char *s) {
-    while(*s >= 33) s++;     
-    *s=0; 
-}
-
-int removespace(char *s) {
-    char c;
-    c= *s;
-    while (isspace(c)) {
-        s++;
-        c= *s;
-    }
-}
 
 int getpar(char *t) {    
-    while (*t == 32) t++;     
+    while (*t == 32) t++; 
     if (*t<=13) return 0;
         
     par1=t; 
@@ -229,14 +198,6 @@ int main() {
     do { 
         get_cmd(); 
         par_count=getpar(inp_buf);
-cputs(" count: ");
-prunsign(par_count); 
-cputs(" par1:");
-cputs(par1);
-cputs(" par2:");
-cputs(par2);
-cputs(" par3:");
-cputs(par3);
         intrinsic(); 
         } 
     while(1);

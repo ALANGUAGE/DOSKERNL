@@ -674,440 +674,255 @@ dohelp: PROC
 
 ;-139 }
 
-;-140 int isspace(char c) {
- LEAVE
- ret
-ENDP
-isspace: PROC
-;-141   if (c==32) return 1;//space
-;
- ENTER  0,0
- mov al, [bp+4]
- cmp al, 32
- jne .isspace29
- mov ax, 1
- jmp .retnisspace
-;-142   if (c>=9) { if (c<=13) return 1; }
+;-140 
 
-.isspace29:
- mov al, [bp+4]
- cmp al, 9 ;unsigned : 1
- jl  .isspace30
- mov al, [bp+4]
- cmp al, 13
- jg  .isspace31
- mov ax, 1
- jmp .retnisspace
-.isspace31:
-;-143   return 0;
-
-.isspace30:
- mov ax, 0
- jmp .retnisspace
-;-144 }
-
-;-145 int isSpaceNullStr(char *s) {
-
- .retnisspace: LEAVE
- ret
-ENDP
-isSpaceNullStr: PROC
-;-146   if (*s==32) return 1;//space
-;
- ENTER  0,0
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 32
- jne .isSpaceNullStr32
- mov ax, 1
- jmp .retnisSpaceNullStr
-;-147   if (*s>=9) { if (*s<=13) return 1; }
-
-.isSpaceNullStr32:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 9 ;unsigned : 1
- jl  .isSpaceNullStr33
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 13
- jg  .isSpaceNullStr34
- mov ax, 1
- jmp .retnisSpaceNullStr
-.isSpaceNullStr34:
-;-148   if (*s==0) return 1;
-
-.isSpaceNullStr33:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 0
- jne .isSpaceNullStr35
- mov ax, 1
- jmp .retnisSpaceNullStr
-;-149   return 0;
-
-.isSpaceNullStr35:
- mov ax, 0
- jmp .retnisSpaceNullStr
-;-150 }
-
-;-151 int isin(char *s, char c) { 
-
- .retnisSpaceNullStr: LEAVE
- ret
-ENDP
-isin: PROC
-;-152     while(*s) { 
-;
- ENTER  0,0
-.isin36:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- or  al, al
- je .isin37
-;-153         if (*s==c) return s; 
-
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp al, [bp+6]
- jne .isin38
- mov ax, [bp+4]
- jmp .retnisin
-;-154             s++;
-
-.isin38:
- inc  word[bp+4]
-;-155         }  
-
-;-156     return 0;
-
- jmp .isin36
-.isin37:
- mov ax, 0
- jmp .retnisin
-;-157 }
-
-;-158 int head1(char *s) {
-
- .retnisin: LEAVE
- ret
-ENDP
-head1: PROC
-;-159     while(*s >= 33) s++;     
-;
- ENTER  0,0
-.head139:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 33 ;unsigned : 1
- jl  .head140
- inc  word[bp+4]
-;-160     *s=0; 
-
- jmp .head139
-.head140:
- mov ax, 0
- mov  bx, [bp+4]
- mov  [bx], al
-;-161 }
-
-;-162 
-
-;-163 int removespace(char *s) {
- LEAVE
- ret
-ENDP
-removespace: PROC
-;-164     char c;
-
-;-165     c= *s;
-;
- ENTER  2,0
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- mov [bp-2], al
-;-166     while (isspace(c)) {
-
-.removespace41:
- mov al, byte [bp-2]
- mov ah, 0
- push ax
- call isspace
- add  sp, 2
- or  al, al
- je .removespace42
-;-167         s++;
-
- inc  word[bp+4]
-;-168         c= *s;
-
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- mov [bp-2], al
-;-169     }
-
-;-170 }
-
- jmp .removespace41
-.removespace42:
-;-171 
-
-;-172 int getpar(char *t) {    
+;-141 int getpar(char *t) {    
  LEAVE
  ret
 ENDP
 getpar: PROC
-;-173     while (*t == 32) t++;     
+;-142     while (*t == 32) t++; 
 ;
  ENTER  0,0
-.getpar43:
+.getpar29:
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  cmp ax, 32
- jne .getpar44
+ jne .getpar30
  inc  word[bp+4]
-;-174     if (*t<=13) return 0;
+;-143     if (*t<=13) return 0;
 
- jmp .getpar43
+ jmp .getpar29
+.getpar30:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 13
+ jg  .getpar31
+ mov ax, 0
+ jmp .retngetpar
+;-144         
+
+;-145     par1=t; 
+
+.getpar31:
+ mov ax, [bp+4]
+ mov word [par1], ax
+;-146     while(*t >= 33) t++; 
+
+.getpar32:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 33 ;unsigned : 1
+ jl  .getpar33
+ inc  word[bp+4]
+;-147     if (*t==0) return 1;
+
+ jmp .getpar32
+.getpar33:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 0
+ jne .getpar34
+ mov ax, 1
+ jmp .retngetpar
+;-148     *t=0; 
+
+.getpar34:
+ mov ax, 0
+ mov  bx, [bp+4]
+ mov  [bx], al
+;-149     t++;
+
+ inc  word[bp+4]
+;-150     while (*t == 32) t++; 
+
+.getpar35:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 32
+ jne .getpar36
+ inc  word[bp+4]
+;-151     if (*t<=13) return 1;
+
+ jmp .getpar35
+.getpar36:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 13
+ jg  .getpar37
+ mov ax, 1
+ jmp .retngetpar
+;-152         
+
+;-153     par2=t; 
+
+.getpar37:
+ mov ax, [bp+4]
+ mov word [par2], ax
+;-154     while(*t >= 33) t++; 
+
+.getpar38:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 33 ;unsigned : 1
+ jl  .getpar39
+ inc  word[bp+4]
+;-155     if (*t==0) return 2;
+
+ jmp .getpar38
+.getpar39:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 0
+ jne .getpar40
+ mov ax, 2
+ jmp .retngetpar
+;-156     *t=0; 
+
+.getpar40:
+ mov ax, 0
+ mov  bx, [bp+4]
+ mov  [bx], al
+;-157     t++;    
+
+ inc  word[bp+4]
+;-158     while (*t == 32) t++; 
+
+.getpar41:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 32
+ jne .getpar42
+ inc  word[bp+4]
+;-159     if (*t<=13) return 2;
+
+ jmp .getpar41
+.getpar42:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 13
+ jg  .getpar43
+ mov ax, 2
+ jmp .retngetpar
+;-160          
+
+;-161     par3=t;     
+
+.getpar43:
+ mov ax, [bp+4]
+ mov word [par3], ax
+;-162     while(*t >= 33) t++; 
+
 .getpar44:
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
- cmp ax, 13
- jg  .getpar45
- mov ax, 0
- jmp .retngetpar
-;-175         
+ cmp ax, 33 ;unsigned : 1
+ jl  .getpar45
+ inc  word[bp+4]
+;-163     *t=0;     
 
-;-176     par1=t; 
-
+ jmp .getpar44
 .getpar45:
- mov ax, [bp+4]
- mov word [par1], ax
-;-177     while(*t >= 33) t++; 
-
-.getpar46:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 33 ;unsigned : 1
- jl  .getpar47
- inc  word[bp+4]
-;-178     if (*t==0) return 1;
-
- jmp .getpar46
-.getpar47:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 0
- jne .getpar48
- mov ax, 1
- jmp .retngetpar
-;-179     *t=0; 
-
-.getpar48:
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-180     t++;
-
- inc  word[bp+4]
-;-181     while (*t == 32) t++; 
-
-.getpar49:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 32
- jne .getpar50
- inc  word[bp+4]
-;-182     if (*t<=13) return 1;
-
- jmp .getpar49
-.getpar50:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 13
- jg  .getpar51
- mov ax, 1
- jmp .retngetpar
-;-183         
-
-;-184     par2=t; 
-
-.getpar51:
- mov ax, [bp+4]
- mov word [par2], ax
-;-185     while(*t >= 33) t++; 
-
-.getpar52:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 33 ;unsigned : 1
- jl  .getpar53
- inc  word[bp+4]
-;-186     if (*t==0) return 2;
-
- jmp .getpar52
-.getpar53:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 0
- jne .getpar54
- mov ax, 2
- jmp .retngetpar
-;-187     *t=0; 
-
-.getpar54:
- mov ax, 0
- mov  bx, [bp+4]
- mov  [bx], al
-;-188     t++;    
-
- inc  word[bp+4]
-;-189     while (*t == 32) t++; 
-
-.getpar55:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 32
- jne .getpar56
- inc  word[bp+4]
-;-190     if (*t<=13) return 2;
-
- jmp .getpar55
-.getpar56:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 13
- jg  .getpar57
- mov ax, 2
- jmp .retngetpar
-;-191          
-
-;-192     par3=t;     
-
-.getpar57:
- mov ax, [bp+4]
- mov word [par3], ax
-;-193     while(*t >= 33) t++; 
-
-.getpar58:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 33 ;unsigned : 1
- jl  .getpar59
- inc  word[bp+4]
-;-194     *t=0;     
-
- jmp .getpar58
-.getpar59:
- mov ax, 0
- mov  bx, [bp+4]
- mov  [bx], al
-;-195     return 3;    
+;-164     return 3;    
 
  mov ax, 3
  jmp .retngetpar
-;-196 }
+;-165 }
 
-;-197 
+;-166 
 
-;-198 int intrinsic() {
+;-167 int intrinsic() {
 
  .retngetpar: LEAVE
  ret
 ENDP
 intrinsic: PROC
-;-199     toupper(par1);      
+;-168     toupper(par1);      
 
  push word [par1]
  call toupper
  add  sp, 2
-;-200     if(eqstr(par1,"HELP")){dohelp();return;}
+;-169     if(eqstr(par1,"HELP")){dohelp();return;}
 
  push intrinsic_0
  push word [par1]
  call eqstr
  add  sp, 4
  or  al, al
- je .intrinsic60
+ je .intrinsic46
  call dohelp
  jmp .retnintrinsic
-;-201     if(eqstr(par1,"EXIT"))exitR(0);
+;-170     if(eqstr(par1,"EXIT"))exitR(0);
 
-.intrinsic60:
+.intrinsic46:
  push intrinsic_1
  push word [par1]
  call eqstr
  add  sp, 4
  or  al, al
- je .intrinsic61
+ je .intrinsic47
  push 0
  call exitR
  add  sp, 2
-;-202     if(eqstr(par1,"CLS" )){clrscr();return;}
+;-171     if(eqstr(par1,"CLS" )){clrscr();return;}
 
-.intrinsic61:
+.intrinsic47:
  push intrinsic_2
  push word [par1]
  call eqstr
  add  sp, 4
  or  al, al
- je .intrinsic62
+ je .intrinsic48
  call clrscr
  jmp .retnintrinsic
-;-203 //    if(eqstr(s,"DIR" )){dir1();return;}
+;-172 //    if(eqstr(s,"DIR" )){dir1();return;}
 
-;-204 //    if(eqstr(s,"DOS" )){dodos(); return;}
+;-173 //    if(eqstr(s,"DOS" )){dodos(); return;}
 
-;-205 //    if(eqstr(s,"TYPE")){dotype();return;}
+;-174 //    if(eqstr(s,"TYPE")){dotype();return;}
 
-;-206 //    if(eqstr(s,"MEM" )){domem(); return;}
+;-175 //    if(eqstr(s,"MEM" )){domem(); return;}
 
-;-207 //    if(eqstr(s,"DUMP")){dodump();return;}
+;-176 //    if(eqstr(s,"DUMP")){dodump();return;}
 
-;-208 //    if(eqstr(s,"EXEC")){exec1 ();return;}
+;-177 //    if(eqstr(s,"EXEC")){exec1 ();return;}
 
-;-209 //    if(eqstr(s,"FN"  )){doFN();  return;}
+;-178 //    if(eqstr(s,"FN"  )){doFN();  return;}
 
-;-210 //    if(eqstr(s,"DOWN")){dodown();return;}
+;-179 //    if(eqstr(s,"DOWN")){dodown();return;}
 
-;-211 //    if(eqstr(s,"CO"  )){doco();  return;}
+;-180 //    if(eqstr(s,"CO"  )){doco();  return;}
 
-;-212 //    if(eqstr(s,"UNREAL")){dounreal();  return;}
+;-181 //    if(eqstr(s,"UNREAL")){dounreal();  return;}
 
-;-213 //    if(eqstr(s,"UN")){doun();  return;}  
+;-182 //    if(eqstr(s,"UN")){doun();  return;}  
 
-;-214 //    if(eqstr(s,"TEST")){test();  return;}
+;-183 //    if(eqstr(s,"TEST")){test();  return;}
 
-;-215 //    extrinsic(inp_buf);
+;-184 //    extrinsic(inp_buf);
 
-;-216 }
+;-185 }
 
-.intrinsic62:
-;-217 
+.intrinsic48:
+;-186 
 
-;-218 
+;-187 
 
-;-219 int get_cmd(){
+;-188 int get_cmd(){
 
  .retnintrinsic:
  ret
@@ -1116,117 +931,71 @@ intrinsic_1 db "EXIT",0
 intrinsic_2 db "CLS",0
 ENDP
 get_cmd: PROC
-;-220     *inp_buf=0;
+;-189     *inp_buf=0;
 
  mov ax, 0
  mov  bx, [inp_buf]
  mov  [bx], al
-;-221     DOS_ERR=0;
+;-190     DOS_ERR=0;
 
  mov ax, 0
  mov word [DOS_ERR], ax
-;-222     putch(':');
+;-191     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-223     Prompt1(inp_buf);
+;-192     Prompt1(inp_buf);
 
  lea  ax, [inp_buf]
  push ax
  call Prompt1
  add  sp, 2
-;-224     putch(10);
+;-193     putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-225 }
+;-194 }
 
-;-226 
+;-195 
 
-;-227 int main() {
+;-196 int main() {
 
  ret
 ENDP
 main: PROC
-;-228     dohelp();
+;-197     dohelp();
 
  call dohelp
-;-229     do { 
+;-198     do { 
 
-.main63:
-;-230         get_cmd(); 
+.main49:
+;-199         get_cmd(); 
 
  call get_cmd
-;-231         par_count=getpar(inp_buf);
+;-200         par_count=getpar(inp_buf);
 
  lea  ax, [inp_buf]
  push ax
  call getpar
  add  sp, 2
  mov byte [par_count], al
-;-232 cputs(" count: ");
-
- push main_0
- call cputs
- add  sp, 2
-;-233 prunsign(par_count); 
-
- mov al, byte [par_count]
- mov ah, 0
- push ax
- call prunsign
- add  sp, 2
-;-234 cputs(" par1:");
-
- push main_1
- call cputs
- add  sp, 2
-;-235 cputs(par1);
-
- push word [par1]
- call cputs
- add  sp, 2
-;-236 cputs(" par2:");
-
- push main_2
- call cputs
- add  sp, 2
-;-237 cputs(par2);
-
- push word [par2]
- call cputs
- add  sp, 2
-;-238 cputs(" par3:");
-
- push main_3
- call cputs
- add  sp, 2
-;-239 cputs(par3);
-
- push word [par3]
- call cputs
- add  sp, 2
-;-240         intrinsic(); 
+;-201         intrinsic(); 
 
  call intrinsic
-;-241         } 
+;-202         } 
 
-;-242     while(1);
+;-203     while(1);
 
  mov ax, 1
  or  al, al
- je .main64
- jmp .main63
-.main64:
-;-243 }
+ je .main50
+ jmp .main49
+.main50:
+;-204 }
 
  ret
-main_0 db " count: ",0
-main_1 db " par1:",0
-main_2 db " par2:",0
-main_3 db " par3:",0
 ENDP
-;Glob. variables:9 (200), Functions:33 (300), Lines:244
-;Constant: 90 (3000), stacksize: 40555
+;Glob. variables:9 (200), Functions:28 (300), Lines:205
+;Constant: 74 (3000), stacksize: 40555
