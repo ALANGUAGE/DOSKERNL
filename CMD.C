@@ -131,13 +131,15 @@ int toupper(char *s) {
 }
 int atoi(char *s) { 
     char c; 
-    unsigned int i; 
+    unsigned int i; unsigned int j; 
     i=0;
     while (*s) { 
         c=*s; 
         c-=48; 
         i=i*10; 
-        i=i+c; 
+        j=0;
+        j=c;//c2i
+        i=i+j; 
         s++; 
         }  
     return i; 
@@ -178,9 +180,6 @@ int mdump(unsigned char *adr, unsigned int len ) {
 int dodump() { 
     unsigned int i;
     i=atoi(par2);
-    cputs(par2);
-    cputs(":par2 "); 
-    prunsign(i);
     mdump(i, 120);
     putch(10);      
 }

@@ -689,11 +689,11 @@ ENDP
 atoi: PROC
 ;-133     char c; 
 
-;-134     unsigned int i; 
+;-134     unsigned int i; unsigned int j; 
 
 ;-135     i=0;
 ;
- ENTER  4,0
+ ENTER  6,0
  mov ax, 0
  mov [bp-4], ax
 ;-136     while (*s) { 
@@ -719,132 +719,140 @@ atoi: PROC
  mov bx, 10
  mul bx
  mov [bp-4], ax
-;-140         i=i+c; 
+;-140         j=0;
+
+ mov ax, 0
+ mov [bp-6], ax
+;-141         j=c;//c2i
+
+ mov al, [bp-2]
+ mov [bp-6], ax
+;-142         i=i+j; 
 
  mov ax, [bp-4]
- add al, [bp-2]
+ add ax, [bp-6]
  mov [bp-4], ax
-;-141         s++; 
+;-143         s++; 
 
  inc  word[bp+4]
-;-142         }  
+;-144         }  
 
-;-143     return i; 
+;-145     return i; 
 
  jmp .atoi25
 .atoi26:
  mov ax, [bp-4]
  jmp .retnatoi
-;-144 }
+;-146 }
 
-;-145 
+;-147 
 
-;-146 
+;-148 
 
-;-147 int mdump(unsigned char *adr, unsigned int len ) {
+;-149 int mdump(unsigned char *adr, unsigned int len ) {
 
  .retnatoi: LEAVE
  ret
 ENDP
 mdump: PROC
-;-148     unsigned char c; 
+;-150     unsigned char c; 
 
-;-149     int i; 
+;-151     int i; 
 
-;-150     int j;
+;-152     int j;
 
-;-151     j=0; 
+;-153     j=0; 
 ;
  ENTER  6,0
  mov ax, 0
  mov [bp-6], ax
-;-152     while (j < len ) {
+;-154     while (j < len ) {
 
 .mdump27:
  mov ax, [bp-6]
  cmp ax, [bp+6]
  jge .mdump28
-;-153         putch(10);  
+;-155         putch(10);  
 
  push 10
  call putch
  add  sp, 2
-;-154         printhex16(adr); 
+;-156         printhex16(adr); 
 
  push word [bp+4]
  call printhex16
  add  sp, 2
-;-155         putch(':');
+;-157         putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-156         i=0; 
+;-158         i=0; 
 
  mov ax, 0
  mov [bp-4], ax
-;-157         while (i < 16) {
+;-159         while (i < 16) {
 
 .mdump29:
  mov ax, [bp-4]
  cmp ax, 16
  jge .mdump30
-;-158             putch(' '); 
+;-160             putch(' '); 
 
  push 32
  call putch
  add  sp, 2
-;-159             c = *adr; 
+;-161             c = *adr; 
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-160             printhex8(c);
+;-162             printhex8(c);
 
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call printhex8
  add  sp, 2
-;-161             adr++;
+;-163             adr++;
 
  inc  word[bp+4]
-;-162             i++;
+;-164             i++;
 
  inc  word[bp-4]
-;-163             j++;
+;-165             j++;
 
  inc  word[bp-6]
-;-164             }
+;-166             }
 
-;-165         putch(' '); 
+;-167         putch(' '); 
 
  jmp .mdump29
 .mdump30:
  push 32
  call putch
  add  sp, 2
-;-166         adr -=16; 
+;-168         adr -=16; 
 
  sub  word[bp+4], 16
-;-167         i=0; 
+;-169         i=0; 
 
  mov ax, 0
  mov [bp-4], ax
-;-168         while(i < 16) {
+;-170         while(i < 16) {
 
 .mdump31:
  mov ax, [bp-4]
  cmp ax, 16
  jge .mdump32
-;-169             c= *adr; 
+;-171             c= *adr; 
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-170             if (c < 32) putch('.');
+;-172             if (c < 32) putch('.');
 
  mov al, [bp-2]
  cmp al, 32
@@ -852,7 +860,7 @@ mdump: PROC
  push 46
  call putch
  add  sp, 2
-;-171                 else putch(c); 
+;-173                 else putch(c); 
 
  jmp .mdump34
 .mdump33:
@@ -861,240 +869,224 @@ mdump: PROC
  push ax
  call putch
  add  sp, 2
-;-172             adr++;
+;-174             adr++;
 
 .mdump34:
  inc  word[bp+4]
-;-173             i++; 
+;-175             i++; 
 
  inc  word[bp-4]
-;-174         }  
+;-176         }  
 
-;-175     }  
+;-177     }  
 
  jmp .mdump31
 .mdump32:
-;-176 }
+;-178 }
 
  jmp .mdump27
 .mdump28:
-;-177 
+;-179 
 
-;-178 int dodump() { 
+;-180 int dodump() { 
  LEAVE
  ret
 ENDP
 dodump: PROC
-;-179     unsigned int i;
+;-181     unsigned int i;
 
-;-180     i=atoi(par2);
+;-182     i=atoi(par2);
 ;
  ENTER  2,0
  push word [par2]
  call atoi
  add  sp, 2
  mov [bp-2], ax
-;-181     cputs(par2);
-
- push word [par2]
- call cputs
- add  sp, 2
-;-182     cputs(":par2 "); 
-
- push dodump_0
- call cputs
- add  sp, 2
-;-183     prunsign(i);
-
- push word [bp-2]
- call prunsign
- add  sp, 2
-;-184     mdump(i, 120);
+;-183     mdump(i, 120);
 
  push 120
  push word [bp-2]
  call mdump
  add  sp, 4
-;-185     putch(10);      
+;-184     putch(10);      
 
  push 10
  call putch
  add  sp, 2
-;-186 }
+;-185 }
 
-;-187 
+;-186 
 
-;-188 char FNBuf[64];
+;-187 char FNBuf[64];
  LEAVE
  ret
-dodump_0 db ":par2 ",0
 ENDP
 section .bss
 absolute 25000
 FNBuf resb 64
 section .text
-;-189 char Pfad[]="*.*";
+;-188 char Pfad[]="*.*";
 
 Pfad db "*.*",0
-;-190 char direcord[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};//21 do not change
+;-189 char direcord[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};//21 do not change
 
 direcord db 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-;-191 char dirattr=0;   
+;-190 char dirattr=0;   
 
 dirattr db 0
-;-192 int  dirtime=0;  
+;-191 int  dirtime=0;  
 
 dirtime dw 0
-;-193 int  dirdate=0;
+;-192 int  dirdate=0;
 
 dirdate dw 0
-;-194 int  dirlenlo=0;  
+;-193 int  dirlenlo=0;  
 
 dirlenlo dw 0
-;-195 int  dirlenhi=0; 
+;-194 int  dirlenhi=0; 
 
 dirlenhi dw 0
-;-196 char dirdatname[]={0,0,0,0,0,0,0,0,0,0,0,0,0};//13 structure until here
+;-195 char dirdatname[]={0,0,0,0,0,0,0,0,0,0,0,0,0};//13 structure until here
 
 dirdatname db 0,0,0,0,0,0,0,0,0,0,0,0,0
-;-197 
+;-196 
 
-;-198 int dodir() { 
+;-197 int dodir() { 
 
 dodir: PROC
-;-199     int j;
+;-198     int j;
 
-;-200     char c;
+;-199     char c;
 
-;-201     si= &FNBuf; 
+;-200     si= &FNBuf; 
 ;
  ENTER  4,0
  mov  si, FNBuf
-;-202     dl=0;  
+;-201     dl=0;  
 
  mov  dl, 0
-;-203     ax=0x4700;//get current directory 
+;-202     ax=0x4700;//get current directory 
 
  mov  ax, 18176
-;-204     DosInt(); 
+;-203     DosInt(); 
 
  call DosInt
-;-205     if (DOS_ERR) {
+;-204     if (DOS_ERR) {
 
  mov ax, [DOS_ERR]
  or  al, al
  je .dodir35
-;-206         cputs(" error reading directory");
+;-205         cputs(" error reading directory");
 
  push dodir_0
  call cputs
  add  sp, 2
-;-207         return;
+;-206         return;
 
  jmp .retndodir
-;-208     }
+;-207     }
 
-;-209     cputs("Current directory: "); 
+;-208     cputs("Current directory: "); 
 
 .dodir35:
  push dodir_1
  call cputs
  add  sp, 2
-;-210     cputs(FNBuf); 
+;-209     cputs(FNBuf); 
 
  lea  ax, [FNBuf]
  push ax
  call cputs
  add  sp, 2
-;-211     putch(10);
+;-210     putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-212  
+;-211  
 
-;-213     setdta(direcord);
+;-212     setdta(direcord);
 
  lea  ax, [direcord]
  push ax
  call setdta
  add  sp, 2
-;-214       
+;-213       
 
-;-215     ffirst(Pfad);
+;-214     ffirst(Pfad);
 
  lea  ax, [Pfad]
  push ax
  call ffirst
  add  sp, 2
-;-216     if (DOS_ERR) {
+;-215     if (DOS_ERR) {
 
  mov ax, [DOS_ERR]
  or  al, al
  je .dodir36
-;-217         cputs("Empty directory "); 
+;-216         cputs("Empty directory "); 
 
  push dodir_2
  call cputs
  add  sp, 2
-;-218         return;
+;-217         return;
 
  jmp .retndodir
-;-219         }
+;-218         }
 
-;-220     cputs("Name             Date   Time Attr   Size");
+;-219     cputs("Name             Date   Time Attr   Size");
 
 .dodir36:
  push dodir_3
  call cputs
  add  sp, 2
-;-221   do {
+;-220   do {
 
 .dodir37:
-;-222         putch(10);  
+;-221         putch(10);  
 
  push 10
  call putch
  add  sp, 2
-;-223         cputs(dirdatname);  
+;-222         cputs(dirdatname);  
 
  lea  ax, [dirdatname]
  push ax
  call cputs
  add  sp, 2
-;-224         j=strlen(dirdatname);
+;-223         j=strlen(dirdatname);
 
  lea  ax, [dirdatname]
  push ax
  call strlen
  add  sp, 2
  mov [bp-2], ax
-;-225         do {
+;-224         do {
 
 .dodir38:
-;-226             putch(' '); 
+;-225             putch(' '); 
 
  push 32
  call putch
  add  sp, 2
-;-227             j++; 
+;-226             j++; 
 
  inc  word[bp-2]
-;-228             } while (j<13);
+;-227             } while (j<13);
 
  mov ax, [bp-2]
  cmp ax, 13
  jge .dodir39
  jmp .dodir38
 .dodir39:
-;-229             
+;-228             
 
-;-230         j=dirdate & 31;         
+;-229         j=dirdate & 31;         
 
  mov ax, [dirdate]
  and ax, 31
  mov [bp-2], ax
-;-231         if (j<10) putch(' '); 
+;-230         if (j<10) putch(' '); 
 
  mov ax, [bp-2]
  cmp ax, 10
@@ -1102,28 +1094,28 @@ dodir: PROC
  push 32
  call putch
  add  sp, 2
-;-232         prunsign(j); 
+;-231         prunsign(j); 
 
 .dodir40:
  push word [bp-2]
  call prunsign
  add  sp, 2
-;-233         putch('.');
+;-232         putch('.');
 
  push 46
  call putch
  add  sp, 2
-;-234             
+;-233             
 
-;-235         j=dirdate >> 5; 
+;-234         j=dirdate >> 5; 
 
  mov ax, [dirdate]
  shr ax, 5
  mov [bp-2], ax
-;-236         j&=  15;
+;-235         j&=  15;
 
  and  word[bp-2], 15
-;-237         if (j<10) putch('0'); 
+;-236         if (j<10) putch('0'); 
 
  mov ax, [bp-2]
  cmp ax, 10
@@ -1131,34 +1123,34 @@ dodir: PROC
  push 48
  call putch
  add  sp, 2
-;-238         prunsign(j); 
+;-237         prunsign(j); 
 
 .dodir41:
  push word [bp-2]
  call prunsign
  add  sp, 2
-;-239         putch('.');
+;-238         putch('.');
 
  push 46
  call putch
  add  sp, 2
-;-240             
+;-239             
 
-;-241         j=dirdate >> 9; 
+;-240         j=dirdate >> 9; 
 
  mov ax, [dirdate]
  shr ax, 9
  mov [bp-2], ax
-;-242         j+=  80;
+;-241         j+=  80;
 
  add  word[bp-2], 80
-;-243         if (j>=100) j-=100;
+;-242         if (j>=100) j-=100;
 
  mov ax, [bp-2]
  cmp ax, 100 ;unsigned : 1
  jl  .dodir42
  sub  word[bp-2], 100
-;-244         if (j<10) putch('0'); 
+;-243         if (j<10) putch('0'); 
 
 .dodir42:
  mov ax, [bp-2]
@@ -1167,30 +1159,30 @@ dodir: PROC
  push 48
  call putch
  add  sp, 2
-;-245         prunsign(j); 
+;-244         prunsign(j); 
 
 .dodir43:
  push word [bp-2]
  call prunsign
+ add  sp, 2
+;-245         putch(' ');
+
+ push 32
+ call putch
  add  sp, 2
 ;-246         putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-247         putch(' ');
+;-247             
 
- push 32
- call putch
- add  sp, 2
-;-248             
-
-;-249         j=dirtime  >>11;         
+;-248         j=dirtime  >>11;         
 
  mov ax, [dirtime]
  shr ax, 11
  mov [bp-2], ax
-;-250         if (j<10) putch(' '); 
+;-249         if (j<10) putch(' '); 
 
  mov ax, [bp-2]
  cmp ax, 10
@@ -1198,28 +1190,28 @@ dodir: PROC
  push 32
  call putch
  add  sp, 2
-;-251         prunsign(j); 
+;-250         prunsign(j); 
 
 .dodir44:
  push word [bp-2]
  call prunsign
  add  sp, 2
-;-252         putch(':');
+;-251         putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-253             
+;-252             
 
-;-254         j=dirtime  >> 5; 
+;-253         j=dirtime  >> 5; 
 
  mov ax, [dirtime]
  shr ax, 5
  mov [bp-2], ax
-;-255         j&=  63;
+;-254         j&=  63;
 
  and  word[bp-2], 63
-;-256         if (j<10) putch('0'); 
+;-255         if (j<10) putch('0'); 
 
  mov ax, [bp-2]
  cmp ax, 10
@@ -1227,25 +1219,25 @@ dodir: PROC
  push 48
  call putch
  add  sp, 2
-;-257         prunsign(j); 
+;-256         prunsign(j); 
 
 .dodir45:
  push word [bp-2]
  call prunsign
  add  sp, 2
-;-258         putch(' ');
+;-257         putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-259                        
+;-258                        
 
-;-260         c = dirattr & 32;
+;-259         c = dirattr & 32;
 
  mov al, [dirattr]
  and al, 32
  mov [bp-4], al
-;-261         if (c) putch('A'); else putch(' ');
+;-260         if (c) putch('A'); else putch(' ');
 
  mov al, [bp-4]
  or  al, al
@@ -1258,13 +1250,13 @@ dodir: PROC
  push 32
  call putch
  add  sp, 2
-;-262         c = dirattr & 16;
+;-261         c = dirattr & 16;
 
 .dodir47:
  mov al, [dirattr]
  and al, 16
  mov [bp-4], al
-;-263         if (c) putch('D'); else putch(' ');
+;-262         if (c) putch('D'); else putch(' ');
 
  mov al, [bp-4]
  or  al, al
@@ -1277,13 +1269,13 @@ dodir: PROC
  push 32
  call putch
  add  sp, 2
-;-264         c = dirattr & 8;
+;-263         c = dirattr & 8;
 
 .dodir49:
  mov al, [dirattr]
  and al, 8
  mov [bp-4], al
-;-265         if (c) putch('V'); else putch(' ');
+;-264         if (c) putch('V'); else putch(' ');
 
  mov al, [bp-4]
  or  al, al
@@ -1296,13 +1288,13 @@ dodir: PROC
  push 32
  call putch
  add  sp, 2
-;-266         c = dirattr & 4;
+;-265         c = dirattr & 4;
 
 .dodir51:
  mov al, [dirattr]
  and al, 4
  mov [bp-4], al
-;-267         if (c) putch('S'); else putch(' ');
+;-266         if (c) putch('S'); else putch(' ');
 
  mov al, [bp-4]
  or  al, al
@@ -1315,13 +1307,13 @@ dodir: PROC
  push 32
  call putch
  add  sp, 2
-;-268         c = dirattr & 2;
+;-267         c = dirattr & 2;
 
 .dodir53:
  mov al, [dirattr]
  and al, 2
  mov [bp-4], al
-;-269         if (c) putch('H'); else putch(' ');
+;-268         if (c) putch('H'); else putch(' ');
 
  mov al, [bp-4]
  or  al, al
@@ -1334,13 +1326,13 @@ dodir: PROC
  push 32
  call putch
  add  sp, 2
-;-270         c = dirattr & 1;
+;-269         c = dirattr & 1;
 
 .dodir55:
  mov al, [dirattr]
  and al, 1
  mov [bp-4], al
-;-271         if (c) putch('R'); else putch(' ');
+;-270         if (c) putch('R'); else putch(' ');
 
  mov al, [bp-4]
  or  al, al
@@ -1353,63 +1345,63 @@ dodir: PROC
  push 32
  call putch
  add  sp, 2
-;-272                               
+;-271                               
 
-;-273         if (dirlenhi) { 
+;-272         if (dirlenhi) { 
 
 .dodir57:
  mov ax, [dirlenhi]
  or  al, al
  je .dodir58
-;-274             dirlenlo=dirlenlo >>10; 
+;-273             dirlenlo=dirlenlo >>10; 
 
  mov ax, [dirlenlo]
  shr ax, 10
  mov word [dirlenlo], ax
-;-275             dirlenhi=dirlenhi << 6;
+;-274             dirlenhi=dirlenhi << 6;
 
  mov ax, [dirlenhi]
  shl ax, 6
  mov word [dirlenhi], ax
-;-276             dirlenhi=dirlenhi+dirlenlo;
+;-275             dirlenhi=dirlenhi+dirlenlo;
 
  mov ax, [dirlenhi]
  add ax, [dirlenlo]
  mov word [dirlenhi], ax
-;-277             putch(' ');
+;-276             putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-278             prunsign(dirlenhi); 
+;-277             prunsign(dirlenhi); 
 
  push word [dirlenhi]
  call prunsign
  add  sp, 2
-;-279             cputs(" KB"); 
+;-278             cputs(" KB"); 
 
  push dodir_4
  call cputs
  add  sp, 2
-;-280             }
+;-279             }
 
-;-281         else {
+;-280         else {
 
  jmp .dodir59
 .dodir58:
-;-282             putch(' ');
+;-281             putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-283             prunsign(dirlenlo);
+;-282             prunsign(dirlenlo);
 
  push word [dirlenlo]
  call prunsign
  add  sp, 2
-;-284             }   
+;-283             }   
 
-;-285     j=fnext(Pfad);  
+;-284     j=fnext(Pfad);  
 
 .dodir59:
  lea  ax, [Pfad]
@@ -1417,25 +1409,25 @@ dodir: PROC
  call fnext
  add  sp, 2
  mov [bp-2], ax
-;-286     } while (j!=18);
+;-285     } while (j!=18);
 
  mov ax, [bp-2]
  cmp ax, 18
  je  .dodir60
  jmp .dodir37
 .dodir60:
-;-287     putch(10);    
+;-286     putch(10);    
 
  push 10
  call putch
  add  sp, 2
-;-288 }
+;-287 }
+
+;-288 
 
 ;-289 
 
-;-290 
-
-;-291 char memSignature; 
+;-290 char memSignature; 
 
  .retndodir: LEAVE
  ret
@@ -1446,64 +1438,64 @@ dodir_3 db "Name             Date   Time Attr   Size",0
 dodir_4 db " KB",0
 ENDP
 memSignature db 0
-;-292 unsigned int memOwner; 
+;-291 unsigned int memOwner; 
 
 memOwner dw 0
-;-293 unsigned int memSize;
+;-292 unsigned int memSize;
 
 memSize dw 0
-;-294 unsigned int vES; 
+;-293 unsigned int vES; 
 
 vES dw 0
-;-295 unsigned int vBX; 
+;-294 unsigned int vBX; 
 
 vBX dw 0
-;-296 
+;-295 
 
-;-297 int domem() { 
+;-296 int domem() { 
 
 domem: PROC
-;-298     unsigned int i;
+;-297     unsigned int i;
 
-;-299     char c;
+;-298     char c;
 
-;-300     ah=0x52;//DOS list of lists 
+;-299     ah=0x52;//DOS list of lists 
 ;
  ENTER  4,0
  mov  ah, 82
-;-301     asm int 33 ; // out= ES:BX ptr to invars
+;-300     asm int 33 ; // out= ES:BX ptr to invars
 
  int 33 ; // out= ES:BX ptr to invars
-;-302     asm mov [vBX], bx 
+;-301     asm mov [vBX], bx 
 
  mov [vBX], bx 
-;-303 //    asm mov es, [es:bx-2]//first memory control block
+;-302 //    asm mov es, [es:bx-2]//first memory control block
 
-;-304     __emit__(0x26,0x8E,0x47,0xFE);            
+;-303     __emit__(0x26,0x8E,0x47,0xFE);            
 
  db 38,142,71,254
-;-305     asm mov [vES], es   
+;-304     asm mov [vES], es   
 
  mov [vES], es   
-;-306     do {
+;-305     do {
 
 .domem61:
-;-307         putch(10); 
+;-306         putch(10); 
 
  push 10
  call putch
  add  sp, 2
-;-308         cputs("Start:"); 
+;-307         cputs("Start:"); 
 
  push domem_0
  call cputs
  add  sp, 2
-;-309         printhex16(vES);
+;-308         printhex16(vES);
 
  push word [vES]
  call printhex16
  add  sp, 2
-;-310         if (vES >= 0xA000) cputs(" MCB in UMB");
+;-309         if (vES >= 0xA000) cputs(" MCB in UMB");
 
  mov ax, [vES]
  cmp ax, 40960 ;unsigned : 0
@@ -1511,56 +1503,56 @@ domem: PROC
  push domem_1
  call cputs
  add  sp, 2
-;-311 //        asm mov al, [es:0]// M or Z 
+;-310 //        asm mov al, [es:0]// M or Z 
 
-;-312         __emit__(0x26,0xA0,0,0);     
+;-311         __emit__(0x26,0xA0,0,0);     
 
 .domem62:
  db 38,160,0,0
-;-313         asm mov [memSignature], al         
+;-312         asm mov [memSignature], al         
 
  mov [memSignature], al         
-;-314 //        cputs(", ");
+;-313 //        cputs(", ");
 
-;-315 //        putch(memSignature);
+;-314 //        putch(memSignature);
 
-;-316 //        asm mov ax, [es:1]//program segment prefix  
+;-315 //        asm mov ax, [es:1]//program segment prefix  
 
-;-317         __emit__(0x26,0xA1,1,0);           
+;-316         __emit__(0x26,0xA1,1,0);           
 
  db 38,161,1,0
-;-318         asm mov [memOwner], ax  
+;-317         asm mov [memOwner], ax  
 
  mov [memOwner], ax  
-;-319         cputs(", PSP:"); 
+;-318         cputs(", PSP:"); 
 
  push domem_2
  call cputs
  add  sp, 2
-;-320         printhex16(memOwner);
+;-319         printhex16(memOwner);
 
  push word [memOwner]
  call printhex16
  add  sp, 2
-;-321 //        asm mov ax, [es:3]//size in para
+;-320 //        asm mov ax, [es:3]//size in para
 
-;-322         __emit__(0x26,0xA1,3,0);                       
+;-321         __emit__(0x26,0xA1,3,0);                       
 
  db 38,161,3,0
-;-323         asm mov [memSize], ax  
+;-322         asm mov [memSize], ax  
 
  mov [memSize], ax  
-;-324         cputs(", Size:"); 
+;-323         cputs(", Size:"); 
 
  push domem_3
  call cputs
  add  sp, 2
-;-325         printhex16(memSize);
+;-324         printhex16(memSize);
 
  push word [memSize]
  call printhex16
  add  sp, 2
-;-326         if (memOwner == 0) cputs(" free");
+;-325         if (memOwner == 0) cputs(" free");
 
  mov ax, [memOwner]
  cmp ax, 0
@@ -1568,7 +1560,7 @@ domem: PROC
  push domem_4
  call cputs
  add  sp, 2
-;-327         if (memOwner == 8) cputs(" DOS ");
+;-326         if (memOwner == 8) cputs(" DOS ");
 
 .domem63:
  mov ax, [memOwner]
@@ -1577,45 +1569,45 @@ domem: PROC
  push domem_5
  call cputs
  add  sp, 2
-;-328         i=memOwner-vES; 
+;-327         i=memOwner-vES; 
 
 .domem64:
  mov ax, [memOwner]
  sub ax, [vES]
  mov [bp-2], ax
-;-329     vES = vES + memSize;  
+;-328     vES = vES + memSize;  
 
  mov ax, [vES]
  add ax, [memSize]
  mov word [vES], ax
-;-330     vES++;
+;-329     vES++;
 
  inc  word[vES]
-;-331     asm mov es, vES 
+;-330     asm mov es, vES 
 
  mov es, vES 
-;-332     es = vES;
+;-331     es = vES;
 
  mov  es, [vES]
-;-333     } 
+;-332     } 
 
-;-334     while (memSignature == 'M');
+;-333     while (memSignature == 'M');
 
  mov al, [memSignature]
  cmp al, 77
  jne .domem65
  jmp .domem61
 .domem65:
-;-335     putch(10); 
+;-334     putch(10); 
 
  push 10
  call putch
  add  sp, 2
-;-336 }
+;-335 }
 
-;-337 
+;-336 
 
-;-338 int dotype() {
+;-337 int dotype() {
  LEAVE
  ret
 domem_0 db "Start:",0
@@ -1626,40 +1618,40 @@ domem_4 db " free",0
 domem_5 db " DOS ",0
 ENDP
 dotype: PROC
-;-339     int fdin; int i;
+;-338     int fdin; int i;
 
-;-340     fdin=openR(par2);
+;-339     fdin=openR(par2);
 ;
  ENTER  4,0
  push word [par2]
  call openR
  add  sp, 2
  mov [bp-2], ax
-;-341     if (DOS_ERR) {
+;-340     if (DOS_ERR) {
 
  mov ax, [DOS_ERR]
  or  al, al
  je .dotype66
-;-342         cputs("file missing");
+;-341         cputs("file missing");
 
  push dotype_0
  call cputs
  add  sp, 2
-;-343         putch(10); 
+;-342         putch(10); 
 
  push 10
  call putch
  add  sp, 2
-;-344         return;
+;-343         return;
 
  jmp .retndotype
-;-345         }
+;-344         }
 
-;-346     do {
+;-345     do {
 
 .dotype66:
 .dotype67:
-;-347         DOS_NoBytes=readR(&DOS_ByteRead, fdin);
+;-346         DOS_NoBytes=readR(&DOS_ByteRead, fdin);
 
  push word [bp-2]
  lea  ax, [DOS_ByteRead]
@@ -1667,55 +1659,55 @@ dotype: PROC
  call readR
  add  sp, 4
  mov word [DOS_NoBytes], ax
-;-348         putch(DOS_ByteRead); 
+;-347         putch(DOS_ByteRead); 
 
  mov al, byte [DOS_ByteRead]
  mov ah, 0
  push ax
  call putch
  add  sp, 2
-;-349         } 
+;-348         } 
 
-;-350         while (DOS_NoBytes);
+;-349         while (DOS_NoBytes);
 
  mov ax, [DOS_NoBytes]
  or  al, al
  je .dotype68
  jmp .dotype67
 .dotype68:
-;-351     fcloseR(fdin);
+;-350     fcloseR(fdin);
 
  push word [bp-2]
  call fcloseR
  add  sp, 2
-;-352 }
+;-351 }
 
-;-353 
+;-352 
 
-;-354 int Prompt1(unsigned char *s) {
+;-353 int Prompt1(unsigned char *s) {
 
  .retndotype: LEAVE
  ret
 dotype_0 db "file missing",0
 ENDP
 Prompt1: PROC
-;-355     char c; 
+;-354     char c; 
 
-;-356     unsigned char *startstr;
+;-355     unsigned char *startstr;
 
-;-357     startstr=s;  
+;-356     startstr=s;  
 ;
  ENTER  4,0
  mov ax, [bp+4]
  mov [bp-4], ax
-;-358     do { 
+;-357     do { 
 
 .Prompt169:
-;-359         c=GetKey();  
+;-358         c=GetKey();  
 
  call GetKey
  mov [bp-2], al
-;-360         if (c == 27)    exitR(1);//good bye
+;-359         if (c == 27)    exitR(1);//good bye
 
  mov al, [bp-2]
  cmp al, 27
@@ -1723,69 +1715,69 @@ Prompt1: PROC
  push 1
  call exitR
  add  sp, 2
-;-361         if (c==8) {
+;-360         if (c==8) {
 
 .Prompt170:
  mov al, [bp-2]
  cmp al, 8
  jne .Prompt171
-;-362             if (s > startstr){
+;-361             if (s > startstr){
 
  mov ax, [bp+4]
  cmp ax, [bp-4]
  jle .Prompt172
-;-363                 s--;
+;-362                 s--;
 
  dec  word[bp+4]
-;-364                 putch(8);
+;-363                 putch(8);
 
  push 8
  call putch
  add  sp, 2
-;-365                 putch(' ');
+;-364                 putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-366                 putch(8);
+;-365                 putch(8);
 
  push 8
  call putch
  add  sp, 2
-;-367                 }
+;-366                 }
 
-;-368                 else putch(7);
+;-367                 else putch(7);
 
  jmp .Prompt173
 .Prompt172:
  push 7
  call putch
  add  sp, 2
-;-369             }
+;-368             }
 
 .Prompt173:
-;-370             else { 
+;-369             else { 
 
  jmp .Prompt174
 .Prompt171:
-;-371                 *s=c; 
+;-370                 *s=c; 
 
  mov al, [bp-2]
  mov  bx, [bp+4]
  mov  [bx], al
-;-372                 s++; 
+;-371                 s++; 
 
  inc  word[bp+4]
-;-373                 putch(c); 
+;-372                 putch(c); 
 
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call putch
  add  sp, 2
-;-374             }
+;-373             }
 
-;-375     } while(c!=13); 
+;-374     } while(c!=13); 
 
 .Prompt174:
  mov al, [bp-2]
@@ -1793,42 +1785,42 @@ Prompt1: PROC
  je  .Prompt175
  jmp .Prompt169
 .Prompt175:
-;-376     s--;  
+;-375     s--;  
 
  dec  word[bp+4]
-;-377     *s=0; 
+;-376     *s=0; 
 
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-378 }
+;-377 }
 
-;-379 
+;-378 
 
-;-380 char Info1[]=" commands: help,exit,cls,type,mem,dir,dump (adr)";
+;-379 char Info1[]=" commands: help,exit,cls,type,mem,dir,dump (adr)";
  LEAVE
  ret
 ENDP
 Info1 db " commands: help,exit,cls,type,mem,dir,dump (adr)",0
-;-381 //dos,exec,fn, *.COM
+;-380 //dos,exec,fn, *.COM
 
-;-382 
+;-381 
 
-;-383 int dohelp() { 
+;-382 int dohelp() { 
 
 dohelp: PROC
-;-384     unsigned int i;   
+;-383     unsigned int i;   
 
-;-385     cputs(Version1);
+;-384     cputs(Version1);
 ;
  ENTER  2,0
  lea  ax, [Version1]
  push ax
  call cputs
  add  sp, 2
-;-386 //    rdump();
+;-385 //    rdump();
 
-;-387     cputs(Info1);   putch(10); 
+;-386     cputs(Info1);   putch(10); 
 
  lea  ax, [Info1]
  push ax
@@ -1837,11 +1829,11 @@ dohelp: PROC
  push 10
  call putch
  add  sp, 2
-;-388 }
+;-387 }
 
-;-389 
+;-388 
 
-;-390 char inp_buf[81]; 
+;-389 char inp_buf[81]; 
  LEAVE
  ret
 ENDP
@@ -1849,12 +1841,12 @@ section .bss
 absolute 25064
 inp_buf resb 81
 section .text
-;-391 
+;-390 
 
-;-392 int getpar(char *t) {    
+;-391 int getpar(char *t) {    
 
 getpar: PROC
-;-393     while (*t == 32) t++; 
+;-392     while (*t == 32) t++; 
 ;
  ENTER  0,0
 .getpar76:
@@ -1864,7 +1856,7 @@ getpar: PROC
  cmp ax, 32
  jne .getpar77
  inc  word[bp+4]
-;-394     if (*t<=13) return 0;
+;-393     if (*t<=13) return 0;
 
  jmp .getpar76
 .getpar77:
@@ -1875,14 +1867,14 @@ getpar: PROC
  jg  .getpar78
  mov ax, 0
  jmp .retngetpar
-;-395         
+;-394         
 
-;-396     par1=t; 
+;-395     par1=t; 
 
 .getpar78:
  mov ax, [bp+4]
  mov word [par1], ax
-;-397     while(*t >= 33) t++; 
+;-396     while(*t >= 33) t++; 
 
 .getpar79:
  mov bx, [bp+4]
@@ -1891,7 +1883,7 @@ getpar: PROC
  cmp ax, 33 ;unsigned : 1
  jl  .getpar80
  inc  word[bp+4]
-;-398     if (*t==0) return 1;
+;-397     if (*t==0) return 1;
 
  jmp .getpar79
 .getpar80:
@@ -1902,16 +1894,16 @@ getpar: PROC
  jne .getpar81
  mov ax, 1
  jmp .retngetpar
-;-399     *t=0; 
+;-398     *t=0; 
 
 .getpar81:
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-400     t++;
+;-399     t++;
 
  inc  word[bp+4]
-;-401     while (*t == 32) t++; 
+;-400     while (*t == 32) t++; 
 
 .getpar82:
  mov bx, [bp+4]
@@ -1920,7 +1912,7 @@ getpar: PROC
  cmp ax, 32
  jne .getpar83
  inc  word[bp+4]
-;-402     if (*t<=13) return 1;
+;-401     if (*t<=13) return 1;
 
  jmp .getpar82
 .getpar83:
@@ -1931,14 +1923,14 @@ getpar: PROC
  jg  .getpar84
  mov ax, 1
  jmp .retngetpar
-;-403         
+;-402         
 
-;-404     par2=t; 
+;-403     par2=t; 
 
 .getpar84:
  mov ax, [bp+4]
  mov word [par2], ax
-;-405     while(*t >= 33) t++; 
+;-404     while(*t >= 33) t++; 
 
 .getpar85:
  mov bx, [bp+4]
@@ -1947,7 +1939,7 @@ getpar: PROC
  cmp ax, 33 ;unsigned : 1
  jl  .getpar86
  inc  word[bp+4]
-;-406     if (*t==0) return 2;
+;-405     if (*t==0) return 2;
 
  jmp .getpar85
 .getpar86:
@@ -1958,16 +1950,16 @@ getpar: PROC
  jne .getpar87
  mov ax, 2
  jmp .retngetpar
-;-407     *t=0; 
+;-406     *t=0; 
 
 .getpar87:
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-408     t++;    
+;-407     t++;    
 
  inc  word[bp+4]
-;-409     while (*t == 32) t++; 
+;-408     while (*t == 32) t++; 
 
 .getpar88:
  mov bx, [bp+4]
@@ -1976,7 +1968,7 @@ getpar: PROC
  cmp ax, 32
  jne .getpar89
  inc  word[bp+4]
-;-410     if (*t<=13) return 2;
+;-409     if (*t<=13) return 2;
 
  jmp .getpar88
 .getpar89:
@@ -1987,14 +1979,14 @@ getpar: PROC
  jg  .getpar90
  mov ax, 2
  jmp .retngetpar
-;-411          
+;-410          
 
-;-412     par3=t;     
+;-411     par3=t;     
 
 .getpar90:
  mov ax, [bp+4]
  mov word [par3], ax
-;-413     while(*t >= 33) t++; 
+;-412     while(*t >= 33) t++; 
 
 .getpar91:
  mov bx, [bp+4]
@@ -2003,33 +1995,33 @@ getpar: PROC
  cmp ax, 33 ;unsigned : 1
  jl  .getpar92
  inc  word[bp+4]
-;-414     *t=0;     
+;-413     *t=0;     
 
  jmp .getpar91
 .getpar92:
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-415     return 3;    
+;-414     return 3;    
 
  mov ax, 3
  jmp .retngetpar
-;-416 }
+;-415 }
 
-;-417 
+;-416 
 
-;-418 int intrinsic() {
+;-417 int intrinsic() {
 
  .retngetpar: LEAVE
  ret
 ENDP
 intrinsic: PROC
-;-419     toupper(par1);      
+;-418     toupper(par1);      
 
  push word [par1]
  call toupper
  add  sp, 2
-;-420     if(eqstr(par1,"HELP")){dohelp();return;}
+;-419     if(eqstr(par1,"HELP")){dohelp();return;}
 
  push intrinsic_0
  push word [par1]
@@ -2039,7 +2031,7 @@ intrinsic: PROC
  je .intrinsic93
  call dohelp
  jmp .retnintrinsic
-;-421     if(eqstr(par1,"EXIT"))exitR(0);
+;-420     if(eqstr(par1,"EXIT"))exitR(0);
 
 .intrinsic93:
  push intrinsic_1
@@ -2051,7 +2043,7 @@ intrinsic: PROC
  push 0
  call exitR
  add  sp, 2
-;-422     if(eqstr(par1,"CLS" )){clrscr();return;}
+;-421     if(eqstr(par1,"CLS" )){clrscr();return;}
 
 .intrinsic94:
  push intrinsic_2
@@ -2062,7 +2054,7 @@ intrinsic: PROC
  je .intrinsic95
  call clrscr
  jmp .retnintrinsic
-;-423     if(eqstr(par1,"TYPE")){dotype();return;}
+;-422     if(eqstr(par1,"TYPE")){dotype();return;}
 
 .intrinsic95:
  push intrinsic_3
@@ -2073,7 +2065,7 @@ intrinsic: PROC
  je .intrinsic96
  call dotype
  jmp .retnintrinsic
-;-424     if(eqstr(par1,"MEM" )){domem(); return;}
+;-423     if(eqstr(par1,"MEM" )){domem(); return;}
 
 .intrinsic96:
  push intrinsic_4
@@ -2084,7 +2076,7 @@ intrinsic: PROC
  je .intrinsic97
  call domem
  jmp .retnintrinsic
-;-425     if(eqstr(par1,"DIR" )){dodir();return;}
+;-424     if(eqstr(par1,"DIR" )){dodir();return;}
 
 .intrinsic97:
  push intrinsic_5
@@ -2095,7 +2087,7 @@ intrinsic: PROC
  je .intrinsic98
  call dodir
  jmp .retnintrinsic
-;-426     if(eqstr(par1,"DUMP")){dodump();return;}
+;-425     if(eqstr(par1,"DUMP")){dodump();return;}
 
 .intrinsic98:
  push intrinsic_6
@@ -2106,22 +2098,22 @@ intrinsic: PROC
  je .intrinsic99
  call dodump
  jmp .retnintrinsic
-;-427 //    if(eqstr(par1,"DOS" )){dodos(); return;}
+;-426 //    if(eqstr(par1,"DOS" )){dodos(); return;}
 
-;-428 //    if(eqstr(par1,"EXEC")){exec1 ();return;}
+;-427 //    if(eqstr(par1,"EXEC")){exec1 ();return;}
 
-;-429 //    if(eqstr(par1,"FN"  )){doFN();  return;}
+;-428 //    if(eqstr(par1,"FN"  )){doFN();  return;}
 
-;-430 //    extrinsic(inp_buf);
+;-429 //    extrinsic(inp_buf);
 
-;-431 }
+;-430 }
 
 .intrinsic99:
+;-431 
+
 ;-432 
 
-;-433 
-
-;-434 int get_cmd(){
+;-433 int get_cmd(){
 
  .retnintrinsic:
  ret
@@ -2134,71 +2126,71 @@ intrinsic_5 db "DIR",0
 intrinsic_6 db "DUMP",0
 ENDP
 get_cmd: PROC
-;-435     *inp_buf=0;
+;-434     *inp_buf=0;
 
  mov ax, 0
  mov  bx, [inp_buf]
  mov  [bx], al
-;-436     DOS_ERR=0;
+;-435     DOS_ERR=0;
 
  mov ax, 0
  mov word [DOS_ERR], ax
-;-437     putch(':');
+;-436     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-438     Prompt1(inp_buf);
+;-437     Prompt1(inp_buf);
 
  lea  ax, [inp_buf]
  push ax
  call Prompt1
  add  sp, 2
-;-439     putch(10);
+;-438     putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-440 }
+;-439 }
 
-;-441 
+;-440 
 
-;-442 int main() {
+;-441 int main() {
 
  ret
 ENDP
 main: PROC
-;-443     dohelp();
+;-442     dohelp();
 
  call dohelp
-;-444     do { 
+;-443     do { 
 
 .main100:
-;-445         get_cmd(); 
+;-444         get_cmd(); 
 
  call get_cmd
-;-446         par_count=getpar(inp_buf);
+;-445         par_count=getpar(inp_buf);
 
  lea  ax, [inp_buf]
  push ax
  call getpar
  add  sp, 2
  mov byte [par_count], al
-;-447         intrinsic(); 
+;-446         intrinsic(); 
 
  call intrinsic
-;-448         } 
+;-447         } 
 
-;-449     while(1);
+;-448     while(1);
 
  mov ax, 1
  or  al, al
  je .main101
  jmp .main100
 .main101:
-;-450 }
+;-449 }
 
  ret
 ENDP
-;Glob. variables:24 (200), Functions:42 (300), Lines:451
+;Glob. variables:24 (200), Functions:42 (300), Lines:450
 ;Constant: 187 (3000), stacksize: 40491
