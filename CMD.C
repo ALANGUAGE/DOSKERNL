@@ -71,15 +71,15 @@ int printhex4(unsigned char c) {
     if (c > 57) c += 7;
     putch(c);
 }
-int printhex8a(unsigned char c) {
+int printhex8(unsigned char c) {
     unsigned char nib;
     nib = c >> 4; printhex4(nib);
     nib = c & 15; printhex4(nib);
 }
 int printhex16(unsigned int i) {
     unsigned int half;
-    half = i >>  8; printhex8a(half);
-    half = i & 255; printhex8a(half);
+    half = i >>  8; printhex8(half);
+    half = i & 255; printhex8(half);
 }
 
 int prunsign(unsigned int n) { 
@@ -129,7 +129,61 @@ int toupper(char *s) {
             s++;
     }
 }
+int atoi(char *s) { 
+    char c; 
+    unsigned int i; 
+    i=0;
+    while (*s) { 
+        c=*s; 
+        c-=48; 
+        i=i*10; 
+        i=i+c; 
+        s++; 
+        }  
+    return i; 
+}
 
+
+int mdump(unsigned char *adr, unsigned int len ) {
+    unsigned char c; 
+    int i; 
+    int j;
+    j=0; 
+    while (j < len ) {
+        putch(10);  
+        printhex16(adr); 
+        putch(':');
+        i=0; 
+        while (i < 16) {
+            putch(' '); 
+            c = *adr; 
+            printhex8(c);
+            adr++;
+            i++;
+            j++;
+            }
+        putch(' '); 
+        adr -=16; 
+        i=0; 
+        while(i < 16) {
+            c= *adr; 
+            if (c < 32) putch('.');
+                else putch(c); 
+            adr++;
+            i++; 
+        }  
+    }  
+}
+
+int dodump() { 
+    unsigned int i;
+    i=atoi(par2);
+    cputs(par2);
+    cputs(":par2 "); 
+    prunsign(i);
+    mdump(i, 120);
+    putch(10);      
+}
 
 char FNBuf[64];
 char Pfad[]="*.*";
@@ -323,8 +377,8 @@ int Prompt1(unsigned char *s) {
     *s=0; 
 }
 
-char Info1[]=" commands: help,exit,cls,type,mem,dir";
-//dos,dump,exec,fn, *.COM
+char Info1[]=" commands: help,exit,cls,type,mem,dir,dump (adr)";
+//dos,exec,fn, *.COM
 
 int dohelp() { 
     unsigned int i;   
@@ -369,10 +423,10 @@ int intrinsic() {
     if(eqstr(par1,"TYPE")){dotype();return;}
     if(eqstr(par1,"MEM" )){domem(); return;}
     if(eqstr(par1,"DIR" )){dodir();return;}
-//    if(eqstr(s,"DOS" )){dodos(); return;}
-//    if(eqstr(s,"DUMP")){dodump();return;}
-//    if(eqstr(s,"EXEC")){exec1 ();return;}
-//    if(eqstr(s,"FN"  )){doFN();  return;}
+    if(eqstr(par1,"DUMP")){dodump();return;}
+//    if(eqstr(par1,"DOS" )){dodos(); return;}
+//    if(eqstr(par1,"EXEC")){exec1 ();return;}
+//    if(eqstr(par1,"FN"  )){doFN();  return;}
 //    extrinsic(inp_buf);
 }
 
