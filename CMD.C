@@ -166,7 +166,7 @@ int setblock(unsigned int i) {
 //    cputs(", BX:"); printhex16(vBX);
 }
 
-int Env_seg=0; /*Take over Master Environment*/
+int Env_seg=0; //Take over Master Environment, do not change
 int Cmd_ofs=0;     int Cmd_seg=0;
 int FCB_ofs1=0x5C; int FCB_seg1=0;
 int FCB_ofs2=0x6C; int FCB_seg2=0;
@@ -174,8 +174,9 @@ char FCB1=0; char FCB1A[]="           ";
 char FCB1B[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 char FCB2=0; char FCB2A[]="           ";
 char FCB2B[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-
+// structure until here
 char FNBuf[64];
+char inp_buf[81]; 
 
 int getcurdir() {
     si=&FNBuf;
@@ -187,45 +188,35 @@ int getcurdir() {
     if (DOS_ERR) cputs(" ***Error GetCurrentDir***");
 }
 
-
-/*
+    int stkseg; 
+    int stkptr; 
 int exec1(char *Datei1, char *ParmBlk, char *CmdLine1) { 
-    int stkseg; int stkptr; unsigned int vAX;
-//    setblock(4096); 
     putch(10);
-    asm mov ax, [es:2ch]
-    _ Env_seg=ax;
+    __emit__(0x26,0xA1,0x2C,0);//asm mov ax, [es:2ch]
+           
+    asm mov [Env_seg], ax
     Cmd_ofs = CmdLine1;
-    _ ax      =es;   
-    _ Cmd_seg =ds;
-    _ FCB_seg1=ax;   
-    _ FCB_seg2=ax;
-    _ stkseg  =ss;   
-    _ stkptr  =sp;
+    ax      =es;   
+    asm mov [Cmd_seg],  ds
+    asm mov [FCB_seg1], ax   
+    asm mov [FCB_seg2], ax
+    asm mov [stkseg],   ss   
+    asm mov [stkptr],   sp
     dx=Datei1; 
     bx=ParmBlk; 
     ax=0x4B00; 
     DosInt();
-    _ vAX=ax;  
-    _ ss=stkseg;  
-    _ sp=stkptr;
+    asm mov [vAX], ax    
+    ss=stkseg;  
+    sp=stkptr;
     if (DOS_ERR) cputs(" ***Error EXEC*** ");
 }
 
-int extrinsic(char *s) {
-    char *p; 
-    inp_len=strlen(inp_buf);
-    if (inp_len == 0) return;
-    p=&inp_buf+inp_len; 
-    *p=0;
-    doFN();
-    waitkey();
-    exec1(inp_buf, &Env_seg, &inp_len);
-}
+char inp_len=0;
 
 int dodos() { 
     char *p; int h;
-    strcpy(inp_buf, "");
+    strcpy(inp_buf, " ");
     h=strlen(inp_buf); 
     inp_len=h & 255; 
     p=&inp_buf+h; 
@@ -234,7 +225,17 @@ int dodos() {
     cputs(inp_buf);
     exec1("COMMAND.COM", &Env_seg, &inp_len);
 }
-*/
+
+int extrinsic(char *s) {
+    char *p; 
+    inp_len=strlen(inp_buf);
+    if (inp_len == 0) return;
+    p=&inp_buf+inp_len; 
+    *p=0;
+//    doFN();
+    waitkey();
+    exec1(inp_buf, &Env_seg, &inp_len);
+}
 
 
 int mdump(unsigned char *adr, unsigned int len ) {
@@ -457,8 +458,7 @@ int Prompt1(unsigned char *s) {
     *s=0; 
 }
 
-char Info1[]=" commands: help,exit,cls,type,mem,dir,dump (adr)";
-//dos,exec, *.COM
+char Info1[]=" commands: help,exit,cls,type,mem,dir,dump (adr),exec,dos,*COM";
 
 int dohelp() { 
     unsigned int i;   
@@ -467,7 +467,6 @@ int dohelp() {
     putch(10); 
 }
 
-char inp_buf[81]; 
 
 int getpar(char *t) {    
     while (*t == 32) t++; 
@@ -505,7 +504,7 @@ int intrinsic() {
     if(eqstr(par1,"DIR" )){dodir();return;}
     if(eqstr(par1,"DUMP")){dodump();return;}
 //    if(eqstr(par1,"DOS" )){dodos(); return;}
-//    if(eqstr(par1,"EXEC")){exec1 ();return;}
+    if(eqstr(par1,"EXEC")){exec1 ();return;}
 //    extrinsic(inp_buf);
 }
 
