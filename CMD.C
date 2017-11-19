@@ -58,8 +58,8 @@ int readR (char *s, int fd) {dx=s; cx=1; bx=fd; ax=0x3F00; DosInt(); }
 int readRL(char *s, int fd, int len){
     dx=s; cx=len; bx=fd; ax=0x3F00; DosInt();}
 int fputcR(char *n, int fd) { 
-    __asm{lea dx, [bp+4]}; /* = *n */  
 //    dx=n;
+    __asm{lea dx, [bp+4]}; /* = *n */  
     cx=1; 
     bx=fd; 
     ax=0x4000; 
@@ -162,10 +162,8 @@ int setblock(unsigned int i) {
     if (DOS_ERR) cputs(" ***Error SetBlock***");
 //    7=MCB destroyed, 8=Insufficient memory, 90=Invalid block address
 //    BX=Max mem available, if CF & AX=8 
-    cputs(" AX:");
-    printhex16(vAX);
-    cputs(", BX:");
-    printhex16(vBX);
+//    cputs(" AX:"); printhex16(vAX);
+//    cputs(", BX:"); printhex16(vBX);
 }
 
 int Env_seg=0; /*Take over Master Environment*/
@@ -176,10 +174,24 @@ char FCB1=0; char FCB1A[]="           ";
 char FCB1B[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 char FCB2=0; char FCB2A[]="           ";
 char FCB2B[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+
+char FNBuf[64];
+
+int getcurdir() {
+    si=&FNBuf;
+    dl=0;  
+    ah=0x47; 
+    DosInt();  
+    asm mov [vAX], ax; vAX=ax;    
+    asm mov [vBX], bx; vBX=bx;
+    if (DOS_ERR) cputs(" ***Error GetCurrentDir***");
+}
+
+
 /*
 int exec1(char *Datei1, char *ParmBlk, char *CmdLine1) { 
     int stkseg; int stkptr; unsigned int vAX;
-    setblock(4096); 
+//    setblock(4096); 
     putch(10);
     asm mov ax, [es:2ch]
     _ Env_seg=ax;
@@ -198,26 +210,6 @@ int exec1(char *Datei1, char *ParmBlk, char *CmdLine1) {
     _ ss=stkseg;  
     _ sp=stkptr;
     if (DOS_ERR) cputs(" ***Error EXEC*** ");
-}
-
-int doFN() {  
-    __asm{mov si, FNBuf}; // _ si=&FNBuf;
-    dx=0;  
-    ax=0x4700; 
-    DosInt();  
-    _ vAX=ax; 
-    _ vBX=bx;
-    if (DOS_ERR) cputs(" ***Error GetCurrentDir***, AX=");
-        //1=OK, 2=LW ungültig
-    __asm{mov si, inp_buf};// _ si=&inp_buf;
-    __asm{mov di, FNBuf};  // _ di=&FNBuf;
-    ax=0x6000; 
-    DosInt(); 
-    _ vAX=ax; 
-    _ vBX=bx;//2=LW ungültig,3=falsch aufgebaut
-    if (DOS_ERR) cputs(" ***Error Expand Filename***, AX=");
-    cputs("Expanded filename: "); 
-    cputs(&FNBuf);
 }
 
 int extrinsic(char *s) {
@@ -283,8 +275,7 @@ int dodump() {
     putch(10);      
 }
 
-char FNBuf[64];
-char Pfad[]="*.*";
+char path[]="*.*";
 char direcord[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};//21 do not change
 char dirattr=0;   
 int  dirtime=0;  
@@ -295,22 +286,15 @@ char dirdatname[]={0,0,0,0,0,0,0,0,0,0,0,0,0};//13 structure until here
 
 int dodir() { 
     int j;
-    char c;
-    si= &FNBuf; 
-    dl=0;  
-    ax=0x4700;//get current directory 
-    DosInt(); 
-    if (DOS_ERR) {
-        cputs(" error reading directory");
-        return;
-    }
+    char c; 
+    getcurdir(); 
     cputs("Current directory: "); 
     cputs(FNBuf); 
     putch(10);
  
     setdta(direcord);
       
-    ffirst(Pfad);
+    ffirst(path);
     if (DOS_ERR) {
         cputs("Empty directory "); 
         return;
@@ -380,7 +364,7 @@ int dodir() {
             putch(' ');
             prunsign(dirlenlo);
             }   
-    j=fnext(Pfad);  
+    j=fnext(path);  
     } while (j!=18);
     putch(10);    
 }
@@ -474,13 +458,13 @@ int Prompt1(unsigned char *s) {
 }
 
 char Info1[]=" commands: help,exit,cls,type,mem,dir,dump (adr)";
-//dos,exec,fn, *.COM
+//dos,exec, *.COM
 
 int dohelp() { 
     unsigned int i;   
     cputs(Version1);
-//    rdump();
-    cputs(Info1);   putch(10); 
+    cputs(Info1);   
+    putch(10); 
 }
 
 char inp_buf[81]; 
@@ -522,7 +506,6 @@ int intrinsic() {
     if(eqstr(par1,"DUMP")){dodump();return;}
 //    if(eqstr(par1,"DOS" )){dodos(); return;}
 //    if(eqstr(par1,"EXEC")){exec1 ();return;}
-    if(eqstr(par1,"FN"  )){    setblock(4096); return;}
 //    extrinsic(inp_buf);
 }
 
@@ -536,6 +519,7 @@ int get_cmd(){
 }
 
 int main() {
+    setblock(4096);
     dohelp();
     do { 
         get_cmd(); 
