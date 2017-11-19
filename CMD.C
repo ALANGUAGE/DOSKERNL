@@ -32,6 +32,9 @@ int GetKey() {
 }
 int getche() { GetKey(); writetty();}
 
+unsigned int vAX; 
+unsigned int vBX;
+unsigned int vES; 
 
 char par_count=0;
 char *par1;
@@ -144,6 +147,102 @@ int atoi(char *s) {
         }  
     return i; 
 }
+
+
+int setblock(unsigned int i) { 
+    DOS_ERR=0; 
+    bx=i; 
+    ax=cs; 
+    es=ax; 
+    ax=0x4A00; 
+    DosInt();
+//modify memory Allocation. IN: ES=Block Seg, BX=size in para
+    asm mov [vAX], ax; vAX=ax;    
+    asm mov [vBX], bx; vBX=bx;
+    if (DOS_ERR) cputs(" ***Error SetBlock***");
+//    7=MCB destroyed, 8=Insufficient memory, 90=Invalid block address
+//    BX=Max mem available, if CF & AX=8 
+    cputs(" AX:");
+    printhex16(vAX);
+    cputs(", BX:");
+    printhex16(vBX);
+}
+
+int Env_seg=0; /*Take over Master Environment*/
+int Cmd_ofs=0;     int Cmd_seg=0;
+int FCB_ofs1=0x5C; int FCB_seg1=0;
+int FCB_ofs2=0x6C; int FCB_seg2=0;
+char FCB1=0; char FCB1A[]="           ";
+char FCB1B[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+char FCB2=0; char FCB2A[]="           ";
+char FCB2B[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+/*
+int exec1(char *Datei1, char *ParmBlk, char *CmdLine1) { 
+    int stkseg; int stkptr; unsigned int vAX;
+    setblock(4096); 
+    putch(10);
+    asm mov ax, [es:2ch]
+    _ Env_seg=ax;
+    Cmd_ofs = CmdLine1;
+    _ ax      =es;   
+    _ Cmd_seg =ds;
+    _ FCB_seg1=ax;   
+    _ FCB_seg2=ax;
+    _ stkseg  =ss;   
+    _ stkptr  =sp;
+    dx=Datei1; 
+    bx=ParmBlk; 
+    ax=0x4B00; 
+    DosInt();
+    _ vAX=ax;  
+    _ ss=stkseg;  
+    _ sp=stkptr;
+    if (DOS_ERR) cputs(" ***Error EXEC*** ");
+}
+
+int doFN() {  
+    __asm{mov si, FNBuf}; // _ si=&FNBuf;
+    dx=0;  
+    ax=0x4700; 
+    DosInt();  
+    _ vAX=ax; 
+    _ vBX=bx;
+    if (DOS_ERR) cputs(" ***Error GetCurrentDir***, AX=");
+        //1=OK, 2=LW ungültig
+    __asm{mov si, inp_buf};// _ si=&inp_buf;
+    __asm{mov di, FNBuf};  // _ di=&FNBuf;
+    ax=0x6000; 
+    DosInt(); 
+    _ vAX=ax; 
+    _ vBX=bx;//2=LW ungültig,3=falsch aufgebaut
+    if (DOS_ERR) cputs(" ***Error Expand Filename***, AX=");
+    cputs("Expanded filename: "); 
+    cputs(&FNBuf);
+}
+
+int extrinsic(char *s) {
+    char *p; 
+    inp_len=strlen(inp_buf);
+    if (inp_len == 0) return;
+    p=&inp_buf+inp_len; 
+    *p=0;
+    doFN();
+    waitkey();
+    exec1(inp_buf, &Env_seg, &inp_len);
+}
+
+int dodos() { 
+    char *p; int h;
+    strcpy(inp_buf, "");
+    h=strlen(inp_buf); 
+    inp_len=h & 255; 
+    p=&inp_buf+h; 
+    *p=0;
+    cputs("Before DOS: "); 
+    cputs(inp_buf);
+    exec1("COMMAND.COM", &Env_seg, &inp_len);
+}
+*/
 
 
 int mdump(unsigned char *adr, unsigned int len ) {
@@ -290,8 +389,6 @@ int dodir() {
 char memSignature; 
 unsigned int memOwner; 
 unsigned int memSize;
-unsigned int vES; 
-unsigned int vBX; 
 
 int domem() { 
     unsigned int i;
@@ -425,7 +522,7 @@ int intrinsic() {
     if(eqstr(par1,"DUMP")){dodump();return;}
 //    if(eqstr(par1,"DOS" )){dodos(); return;}
 //    if(eqstr(par1,"EXEC")){exec1 ();return;}
-//    if(eqstr(par1,"FN"  )){doFN();  return;}
+    if(eqstr(par1,"FN"  )){    setblock(4096); return;}
 //    extrinsic(inp_buf);
 }
 
