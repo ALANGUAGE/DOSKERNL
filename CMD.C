@@ -503,9 +503,9 @@ int intrinsic() {
     if(eqstr(par1,"MEM" )){domem(); return;}
     if(eqstr(par1,"DIR" )){dodir();return;}
     if(eqstr(par1,"DUMP")){dodump();return;}
-//    if(eqstr(par1,"DOS" )){dodos(); return;}
+    if(eqstr(par1,"DOS" )){dodos(); return;}
     if(eqstr(par1,"EXEC")){exec1 ();return;}
-//    extrinsic(inp_buf);
+    extrinsic(inp_buf);
 }
 
 

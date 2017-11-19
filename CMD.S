@@ -2403,9 +2403,7 @@ intrinsic: PROC
  je .intrinsic102
  call dodump
  jmp .retnintrinsic
-;-506 //    if(eqstr(par1,"DOS" )){dodos(); return;}
-
-;-507     if(eqstr(par1,"EXEC")){exec1 ();return;}
+;-506     if(eqstr(par1,"DOS" )){dodos(); return;}
 
 .intrinsic102:
  push intrinsic_7
@@ -2414,13 +2412,28 @@ intrinsic: PROC
  add  sp, 4
  or  al, al
  je .intrinsic103
- call exec1
+ call dodos
  jmp .retnintrinsic
-;-508 //    extrinsic(inp_buf);
-
-;-509 }
+;-507     if(eqstr(par1,"EXEC")){exec1 ();return;}
 
 .intrinsic103:
+ push intrinsic_8
+ push word [par1]
+ call eqstr
+ add  sp, 4
+ or  al, al
+ je .intrinsic104
+ call exec1
+ jmp .retnintrinsic
+;-508     extrinsic(inp_buf);
+
+.intrinsic104:
+ lea  ax, [inp_buf]
+ push ax
+ call extrinsic
+ add  sp, 2
+;-509 }
+
 ;-510 
 
 ;-511 
@@ -2436,7 +2449,8 @@ intrinsic_3 db "TYPE",0
 intrinsic_4 db "MEM",0
 intrinsic_5 db "DIR",0
 intrinsic_6 db "DUMP",0
-intrinsic_7 db "EXEC",0
+intrinsic_7 db "DOS",0
+intrinsic_8 db "EXEC",0
 ENDP
 get_cmd: PROC
 ;-513     *inp_buf=0;
@@ -2483,7 +2497,7 @@ main: PROC
  call dohelp
 ;-523     do { 
 
-.main104:
+.main105:
 ;-524         get_cmd(); 
 
  call get_cmd
@@ -2503,12 +2517,12 @@ main: PROC
 
  mov ax, 1
  or  al, al
- je .main105
- jmp .main104
-.main105:
+ je .main106
+ jmp .main105
+.main106:
 ;-529 }
 
  ret
 ENDP
 ;Glob. variables:41 (200), Functions:47 (300), Lines:530
-;Constant: 197 (3000), stacksize: 40491
+;Constant: 221 (3000), stacksize: 40491
