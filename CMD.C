@@ -209,8 +209,10 @@ int exec1(char *Datei1, char *ParmBlk, char *CmdLine1) {
     asm mov [vAX], ax    
     ss=stkseg;  
     sp=stkptr;
-    if (DOS_ERR) cputs(" ***Error EXEC*** ");
-}
+    if (DOS_ERR) {
+        cputs("*****EXEC ERROR Code: ");
+        printhex16(vAX);
+}       }
 
 char inp_len=0;
 
@@ -223,7 +225,7 @@ int dodos() {
     *p=0;
     cputs("Before DOS: "); 
     cputs(inp_buf);
-    exec1("COMMAND.COM", &Env_seg, &inp_len);
+    exec1("Z:\COMMAND.COM", &Env_seg, &inp_len);
 }
 
 int extrinsic(char *s) {
@@ -232,7 +234,6 @@ int extrinsic(char *s) {
     if (inp_len == 0) return;
     p=&inp_buf+inp_len; 
     *p=0;
-//    doFN();
     waitkey();
     exec1(inp_buf, &Env_seg, &inp_len);
 }
