@@ -22,7 +22,7 @@ int clrscr()    {
 
 
 int getch()  { ah=0x10; __emit__(0xCD,0x16); }
-int waitkey(){ ah=0x11; __emit__(0xCD,0x10); __emit__(0x74,0xFA); }
+int waitkey(){ ah=0x11; __emit__(0xCD,0x16); __emit__(0x74,0xFA); }
 int GetKey() {
     int i; 
     waitkey();
