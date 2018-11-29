@@ -125,6 +125,16 @@ int GetIntVecNew(char c) {
     asm pop es
 }
 
+int SetIntVec(char *adr) {
+    asm push ds
+    asm mov ax, cs
+    asm mov ds, ax
+    asm lea dx, [bp+4]; *adr
+    asm mov ax, 9505; 0x2521
+    DosInt();//new addr in ds:dx
+    asm pop ds
+}
+
 unsigned int DS_old;
 
 int DOS_START() {
@@ -169,7 +179,7 @@ int setblock(unsigned int i) {
 //    cputs(",BX:"); printhex16(vBX);
 }
 
-int TerminateStayResident(char *s) {
+int TermStayRes(char *s) {
     asm mov  dx, [bp+4]; dx = s; get adr of main in dx
     asm shr  dx, 4; dx >> 4;  make paragraph
     asm inc dx  ;dx ++;
