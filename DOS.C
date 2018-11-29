@@ -14,17 +14,17 @@ unsigned int vES;
 int DOS_ERR=0;
 unsigned int count21h=0;
 
-int writetty()     {//ah=0x0E; bx=0; __emit__(0xCD,0x10);
-asm mov ah, 14
-asm mov bx, 0
-asm int 16
+int writetty()     {
+    ah=0x0E;
+    bx=0;
+    asm int 16
 }
 int putch(char c)  {
     if (c==10)  {
-        asm mov al, 13
+        al=13;
         writetty();
     }
-    asm mov al, [bp+4]; parameter c
+    al=c;
     writetty();
 }
 int cputs(char *s) {
@@ -104,8 +104,8 @@ unsigned int VecOldSeg;//end struct
 
 int GetIntVec(char c) {
     asm push es
-    asm mov al, [bp+4]; c
-    asm mov ah, 53; 0x35
+    al=c;
+    ah=0x35;
     DosInt();
     asm mov [VecOldOfs], bx
     asm mov [VecOldSeg], es
@@ -117,8 +117,8 @@ unsigned int VecNewSeg;
 
 int GetIntVecNew(char c) {
     asm push es
-    asm mov al, [bp+4];  c
-    asm mov ah, 53; 0x35
+    al=c;
+    ah=0x35;
     DosInt();
     asm mov [VecNewOfs], bx
     asm mov [VecNewSeg], es
@@ -127,28 +127,27 @@ int GetIntVecNew(char c) {
 
 int SetIntVec(char *adr) {
     asm push ds
-    asm mov ax, cs
-    asm mov ds, ax
+    ax=cs;
+    ds=ax;
+//    dx= &adr; is mov instead of lea
     asm lea dx, [bp+4]; *adr
-    asm mov ax, 9505; 0x2521
-    DosInt();//new addr in ds:dx
+    ax=0x2521;//new addr in ds:dx
+    DosInt();
     asm pop ds
 }
 
 unsigned int DS_old;
 
 int DOS_START() {
-    char c;
     count21h++;
-    asm mov [bp-2], ah; c
-    if (c != 0x80) {
+    if (ah != 0x80) {
         asm jmp JmpFarHook; goto new kernel
     }
-        asm mov ax, ds
+        ax=ds;
         __emit__(0x2E);//cs seg for next instruction
         asm mov [DS_old], ax
-        asm mov ax, cs; cs seg is the only seg we know the value
-        asm mov ds, ax
+        ax=cs;// cs seg is the only seg we know the value
+        ds=ax;
 
         asm sti; enable interrupts
         cputs("Inside DOS_START:");
@@ -159,17 +158,17 @@ int DOS_START() {
         cputs(" DS: old=");
         printunsign(DS_old);
 
-        asm mov ax, DS_old;//restore ds Seg
-        asm mov ds, ax
+        ax=DS_old;//restore ds Seg
+        ds=ax;
         asm iret
 }
 
 int setblock(unsigned int i) {
     DOS_ERR=0;
-    asm mov bx, [bp+4]; i
-    asm mov ax, cs
-    asm mov es, ax
-    asm mov ax, 18944; 0x4A00
+    bx=i;
+    ax=cs;
+    es=ax;
+    ax=0x4A00;
     //modify mem Alloc. IN: ES=Block Seg, BX=size in para
     DosInt();
     asm mov [vAX], ax
@@ -177,14 +176,6 @@ int setblock(unsigned int i) {
     if (DOS_ERR) cputs(" ***Error SetBlock***");
 //    cputs("SetBlock AX:"); printhex16(vAX);
 //    cputs(",BX:"); printhex16(vBX);
-}
-
-int TermStayRes(char *s) {
-    asm mov  dx, [bp+4]; dx = s; get adr of main in dx
-    asm shr  dx, 4; dx >> 4;  make paragraph
-    asm inc dx  ;dx ++;
-    asm mov ax, 12544;  0x3100
-    DosInt();
 }
 
 int main() {
@@ -197,9 +188,9 @@ int main() {
     putch(':');
     printhex16(VecOldOfs);
 
-    asm mov dx, DOS_START ;put adr in dx
-    asm mov ax, 9505; 0x2521 SetIntVec, assume ds=cs
-    DosInt();
+//    asm mov dx, DOS_START ;put adr in dx
+//    asm mov ax, 9505; 0x2521 SetIntVec, assume ds=cs
+//    DosInt();
     ShowRegister();
 
     GetIntVecNew(0x21);
@@ -214,6 +205,6 @@ int main() {
     asm mov dx, main;get adr of main in dx//Terminate stay resident
     asm shr dx, 4   ;make para
     asm inc dx      ;align to next para
-    asm mov ax, 12544; 0x3100
+    ax=0x3100;
     DosInt();
 }

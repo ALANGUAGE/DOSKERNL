@@ -1,4 +1,4 @@
-;PLA comp. A.COM V0.9.5, Input: DOS.C, Output: DOS.S
+;PLA compiler A.COM V0.9.6, Input: DOS.C, Output: DOS.S
 org  256 
 jmp main
 ;-1 char Version1[]="DOS.COM V0.1.1";//IO.SYS and MSDS.SYS for 1OS
@@ -46,17 +46,17 @@ DOS_ERR dw 0
 count21h dw 0
 ;-16 
 
-;-17 int writetty()     {//ah=0x0E; bx=0; __emit__(0xCD,0x10);
+;-17 int writetty()     {
 
 
 writetty: PROC
-;-18 asm mov ah, 14
+;-18     ah=0x0E;
 
- mov ah, 14
-;-19 asm mov bx, 0
+ mov  ah, 14
+;-19     bx=0;
 
- mov bx, 0
-;-20 asm int 16
+ mov  bx, 0
+;-20     asm int 16
 
  int 16
 ;-21 }
@@ -73,18 +73,18 @@ putch: PROC
  mov al, [bp+4]
  cmp al, 10
  jne .putch1
-;-24         asm mov al, 13
+;-24         al=13;
 
- mov al, 13
+ mov  al, 13
 ;-25         writetty();
 
  call writetty
 ;-26     }
 
-;-27     asm mov al, [bp+4]; parameter c
+;-27     al=c;
 
 .putch1:
- mov al, [bp+4]; parameter c
+ mov  al, [bp+4]
 ;-28     writetty();
 
  call writetty
@@ -461,12 +461,12 @@ GetIntVec: PROC
 ;
  ENTER  0,0
  push es
-;-107     asm mov al, [bp+4]; c
+;-107     al=c;
 
- mov al, [bp+4]; c
-;-108     asm mov ah, 53; 0x35
+ mov  al, [bp+4]
+;-108     ah=0x35;
 
- mov ah, 53; 0x35
+ mov  ah, 53
 ;-109     DosInt();
 
  call DosInt
@@ -502,12 +502,12 @@ GetIntVecNew: PROC
 ;
  ENTER  0,0
  push es
-;-120     asm mov al, [bp+4];  c
+;-120     al=c;
 
- mov al, [bp+4];  c
-;-121     asm mov ah, 53; 0x35
+ mov  al, [bp+4]
+;-121     ah=0x35;
 
- mov ah, 53; 0x35
+ mov  ah, 53
 ;-122     DosInt();
 
  call DosInt
@@ -535,128 +535,122 @@ SetIntVec: PROC
 ;
  ENTER  0,0
  push ds
-;-130     asm mov ax, cs
+;-130     ax=cs;
 
- mov ax, cs
-;-131     asm mov ds, ax
+ mov  ax, cs
+;-131     ds=ax;
 
- mov ds, ax
-;-132     asm lea dx, [bp+4]; *adr
+ mov  ds, ax
+;-132 //    dx= &adr; is mov instead of lea
+
+;-133     asm lea dx, [bp+4]; *adr
 
  lea dx, [bp+4]; *adr
-;-133     asm mov ax, 9505; 0x2521
+;-134     ax=0x2521;//new addr in ds:dx
 
- mov ax, 9505; 0x2521
-;-134     DosInt();//new addr in ds:dx
+ mov  ax, 9505
+;-135     DosInt();
 
  call DosInt
-;-135     asm pop ds
+;-136     asm pop ds
 
  pop ds
-;-136 }
+;-137 }
 
-;-137 
+;-138 
 
-;-138 unsigned int DS_old;
+;-139 unsigned int DS_old;
 
  LEAVE
  ret
 ENDP
 DS_old dw 0
-;-139 
+;-140 
 
-;-140 int DOS_START() {
+;-141 int DOS_START() {
 
 
 DOS_START: PROC
-;-141     char c;
-
 ;-142     count21h++;
-;
- ENTER  2,0
+
  inc  word[count21h]
-;-143     asm mov [bp-2], ah; c
+;-143     if (ah != 0x80) {
 
- mov [bp-2], ah; c
-;-144     if (c != 0x80) {
-
- mov al, [bp-2]
- cmp al, 128
+ cmp  ah, 128
  je  .DOS_START6
-;-145         asm jmp JmpFarHook; goto new kernel
+;-144         asm jmp JmpFarHook; goto new kernel
 
  jmp JmpFarHook; goto new kernel
-;-146     }
+;-145     }
 
-;-147         asm mov ax, ds
+;-146         ax=ds;
 
 .DOS_START6:
- mov ax, ds
-;-148         __emit__(0x2E);//cs seg for next instruction
+ mov  ax, ds
+;-147         __emit__(0x2E);//cs seg for next instruction
 
  db 46
-;-149         asm mov [DS_old], ax
+;-148         asm mov [DS_old], ax
 
  mov [DS_old], ax
-;-150         asm mov ax, cs; cs seg is the only seg we know the value
+;-149         ax=cs;// cs seg is the only seg we know the value
 
- mov ax, cs; cs seg is the only seg we know the value
-;-151         asm mov ds, ax
+ mov  ax, cs
+;-150         ds=ax;
 
- mov ds, ax
-;-152 
+ mov  ds, ax
+;-151 
 
-;-153         asm sti; enable interrupts
+;-152         asm sti; enable interrupts
 
  sti; enable interrupts
-;-154         cputs("Inside DOS_START:");
+;-153         cputs("Inside DOS_START:");
 
  push DOS_START_0
  call cputs
  add  sp, 2
-;-155         ShowRegister();
+;-154         ShowRegister();
 
  call ShowRegister
-;-156 
+;-155 
 
-;-157         cputs(" count21h=");
+;-156         cputs(" count21h=");
 
  push DOS_START_1
  call cputs
  add  sp, 2
-;-158         printunsign(count21h);
+;-157         printunsign(count21h);
 
  push word [count21h]
  call printunsign
  add  sp, 2
-;-159         cputs(" DS: old=");
+;-158         cputs(" DS: old=");
 
  push DOS_START_2
  call cputs
  add  sp, 2
-;-160         printunsign(DS_old);
+;-159         printunsign(DS_old);
 
  push word [DS_old]
  call printunsign
  add  sp, 2
-;-161 
+;-160 
 
-;-162         asm mov ax, DS_old;//restore ds Seg
+;-161         ax=DS_old;//restore ds Seg
 
- mov ax, DS_old;//restore ds Seg
-;-163         asm mov ds, ax
+ mov  ax, [DS_old]
+;-162         ds=ax;
 
- mov ds, ax
-;-164         asm iret
+ mov  ds, ax
+;-163         asm iret
 
  iret
-;-165 }
+;-164 }
 
-;-166 
+;-165 
 
-;-167 int setblock(unsigned int i) {
+;-166 int setblock(unsigned int i) {
 
- LEAVE
  ret
 DOS_START_0 db "Inside DOS_START:",0
 DOS_START_1 db " count21h=",0
@@ -664,35 +658,35 @@ DOS_START_2 db " DS: old=",0
 ENDP
 
 setblock: PROC
-;-168     DOS_ERR=0;
+;-167     DOS_ERR=0;
 ;
  ENTER  0,0
  mov ax, 0
  mov word [DOS_ERR], ax
-;-169     asm mov bx, [bp+4]; i
+;-168     bx=i;
 
- mov bx, [bp+4]; i
-;-170     asm mov ax, cs
+ mov  bx, [bp+4]
+;-169     ax=cs;
 
- mov ax, cs
-;-171     asm mov es, ax
+ mov  ax, cs
+;-170     es=ax;
 
- mov es, ax
-;-172     asm mov ax, 18944; 0x4A00
+ mov  es, ax
+;-171     ax=0x4A00;
 
- mov ax, 18944; 0x4A00
-;-173     //modify mem Alloc. IN: ES=Block Seg, BX=size in para
+ mov  ax, 18944
+;-172     //modify mem Alloc. IN: ES=Block Seg, BX=size in para
 
-;-174     DosInt();
+;-173     DosInt();
 
  call DosInt
-;-175     asm mov [vAX], ax
+;-174     asm mov [vAX], ax
 
  mov [vAX], ax
-;-176     asm mov [vBX], bx
+;-175     asm mov [vBX], bx
 
  mov [vBX], bx
-;-177     if (DOS_ERR) cputs(" ***Error SetBlock***");
+;-176     if (DOS_ERR) cputs(" ***Error SetBlock***");
 
  mov ax, [DOS_ERR]
  or  al, al
@@ -700,162 +694,132 @@ setblock: PROC
  push setblock_0
  call cputs
  add  sp, 2
-;-178 //    cputs("SetBlock AX:"); printhex16(vAX);
+;-177 //    cputs("SetBlock AX:"); printhex16(vAX);
 
-;-179 //    cputs(",BX:"); printhex16(vBX);
+;-178 //    cputs(",BX:"); printhex16(vBX);
 
-;-180 }
+;-179 }
 
 .setblock7:
-;-181 
+;-180 
 
-;-182 int TermStayRes(char *s) {
+;-181 int main() {
 
  LEAVE
  ret
 setblock_0 db " ***Error SetBlock***",0
 ENDP
 
-TermStayRes: PROC
-;-183     asm mov  dx, [bp+4]; dx = s; get adr of main in dx
-;
- ENTER  0,0
- mov  dx, [bp+4]; dx = s; get adr of main in dx
-;-184     asm shr  dx, 4; dx >> 4;  make paragraph
-
- shr  dx, 4; dx >> 4;  make paragraph
-;-185     asm inc dx  ;dx ++;
-
- inc dx  ;dx ++;
-;-186     asm mov ax, 12544;  0x3100
-
- mov ax, 12544;  0x3100
-;-187     DosInt();
-
- call DosInt
-;-188 }
-
-;-189 
-
-;-190 int main() {
-
- LEAVE
- ret
-ENDP
-
 main: PROC
-;-191     DOS_ERR = 0;
+;-182     DOS_ERR = 0;
 
  mov ax, 0
  mov word [DOS_ERR], ax
-;-192     setblock(4096);
+;-183     setblock(4096);
 
  push 4096
  call setblock
  add  sp, 2
-;-193 
+;-184 
 
-;-194     GetIntVec(0x21);
+;-185     GetIntVec(0x21);
 
  push 33
  call GetIntVec
  add  sp, 2
-;-195     cputs(" Main Int21h old=");
+;-186     cputs(" Main Int21h old=");
 
  push main_0
  call cputs
  add  sp, 2
-;-196     printhex16(VecOldSeg);
+;-187     printhex16(VecOldSeg);
 
  push word [VecOldSeg]
  call printhex16
  add  sp, 2
-;-197     putch(':');
+;-188     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-198     printhex16(VecOldOfs);
+;-189     printhex16(VecOldOfs);
 
  push word [VecOldOfs]
  call printhex16
  add  sp, 2
-;-199 
+;-190 
 
-;-200     asm mov dx, DOS_START ;put adr in dx
+;-191 //    asm mov dx, DOS_START ;put adr in dx
 
- mov dx, DOS_START ;put adr in dx
-;-201     asm mov ax, 9505; 0x2521 SetIntVec, assume ds=cs
+;-192 //    asm mov ax, 9505; 0x2521 SetIntVec, assume ds=cs
 
- mov ax, 9505; 0x2521 SetIntVec, assume ds=cs
-;-202     DosInt();
+;-193 //    DosInt();
 
- call DosInt
-;-203     ShowRegister();
+;-194     ShowRegister();
 
  call ShowRegister
-;-204 
+;-195 
 
-;-205     GetIntVecNew(0x21);
+;-196     GetIntVecNew(0x21);
 
  push 33
  call GetIntVecNew
  add  sp, 2
-;-206     cputs(" Int21h new=");
+;-197     cputs(" Int21h new=");
 
  push main_1
  call cputs
  add  sp, 2
-;-207     printhex16(VecNewSeg);
+;-198     printhex16(VecNewSeg);
 
  push word [VecNewSeg]
  call printhex16
  add  sp, 2
-;-208     putch(':');
+;-199     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-209     printhex16(VecNewOfs);
+;-200     printhex16(VecNewOfs);
 
  push word [VecNewOfs]
  call printhex16
  add  sp, 2
-;-210 
+;-201 
 
-;-211     cputs(" count21h=");
+;-202     cputs(" count21h=");
 
  push main_2
  call cputs
  add  sp, 2
-;-212     printunsign(count21h);
+;-203     printunsign(count21h);
 
  push word [count21h]
  call printunsign
  add  sp, 2
-;-213 
+;-204 
 
-;-214     asm mov dx, main;get adr of main in dx//Terminate stay resident
+;-205     asm mov dx, main;get adr of main in dx//Terminate stay resident
 
  mov dx, main;get adr of main in dx//Terminate stay resident
-;-215     asm shr dx, 4   ;make para
+;-206     asm shr dx, 4   ;make para
 
  shr dx, 4   ;make para
-;-216     asm inc dx      ;align to next para
+;-207     asm inc dx      ;align to next para
 
  inc dx      ;align to next para
-;-217     asm mov ax, 12544; 0x3100
+;-208     ax=0x3100;
 
- mov ax, 12544; 0x3100
-;-218     DosInt();
+ mov  ax, 12544
+;-209     DosInt();
 
  call DosInt
-;-219 }
+;-210 }
 
  ret
 main_0 db " Main Int21h old=",0
 main_1 db " Int21h new=",0
 main_2 db " count21h=",0
 ENDP
-;Glob. variables:19 (400), Functions:16 (400), Lines:220
+;Glob. variables:19 (300), Functions:15 (300), Lines:211
 ;Constant: 279 (3000), stacksize: 40536
