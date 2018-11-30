@@ -11,7 +11,7 @@ unsigned int vDS;
 unsigned int vSS;
 unsigned int vES;
 
-int DOS_ERR=0;
+char DOS_ERR=0;
 unsigned int count21h=0;
 
 int writetty()     {
@@ -36,13 +36,6 @@ int cputs(char *s) {
     }
 }
 
-//Int = pushf + call far
-//Int = pushf + push cs + push offset DOS_START + jmp far cs:VecOldOfs
-int DosInt() {
-    asm int 33; 21h
-    __emit__(0x73, 04); //jnc over DOS_ERR++
-    DOS_ERR++;
-}
 int printhex4(unsigned char c) {
     c += 48;
     if (c > 57) c += 7;
@@ -98,6 +91,14 @@ int ShowRegister() {
     cputs(",ES="); printhex16(vES);
 }
 
+//Int = pushf + call far
+//Int = pushf + push cs + push offset DOS_START + jmp far cs:VecOldOfs
+int DosInt() {
+    asm int 33; 21h
+    __emit__(0x73, 04); //jnc over DOS_ERR++
+    DOS_ERR++;
+}
+
 unsigned char JmpFarHook=0xEA;//start struct
 unsigned int VecOldOfs;
 unsigned int VecOldSeg;//end struct
@@ -124,8 +125,8 @@ int GetIntVecNew(char c) {
     asm mov [VecNewSeg], es
     asm pop es
 }
-
-int SetIntVec(char *adr) {
+/*
+int SetIntVecDos(char *adr) {
     asm push ds
     ax=cs;
     ds=ax;
@@ -135,13 +136,13 @@ int SetIntVec(char *adr) {
     DosInt();
     asm pop ds
 }
-
+*/
 unsigned int DS_old;
 
 int DOS_START() {
     count21h++;
     if (ah != 0x80) {
-        asm jmp JmpFarHook; goto new kernel
+        asm jmp JmpFarHook; goto old kernel
     }
         ax=ds;
         __emit__(0x2E);//cs seg for next instruction
@@ -174,13 +175,13 @@ int setblock(unsigned int i) {
     asm mov [vAX], ax
     asm mov [vBX], bx
     if (DOS_ERR) cputs(" ***Error SetBlock***");
-//    cputs("SetBlock AX:"); printhex16(vAX);
-//    cputs(",BX:"); printhex16(vBX);
+    cputs("SetBlock AX:"); printhex16(vAX);
+    cputs(",BX:"); printhex16(vBX);
 }
 
 int main() {
     DOS_ERR = 0;
-    setblock(4096);
+    setblock(4096);// 64KB
 
     GetIntVec(0x21);
     cputs(" Main Int21h old=");
@@ -188,10 +189,11 @@ int main() {
     putch(':');
     printhex16(VecOldOfs);
 
-//    asm mov dx, DOS_START ;put adr in dx
-//    asm mov ax, 9505; 0x2521 SetIntVec, assume ds=cs
-//    DosInt();
-    ShowRegister();
+    asm mov dx, DOS_START
+//    asm lea dx, [DOS_START]
+    ax=0x2521;
+    DosInt();
+//    ShowRegister();
 
     GetIntVecNew(0x21);
     cputs(" Int21h new=");
@@ -201,10 +203,13 @@ int main() {
 
     cputs(" count21h=");
     printunsign(count21h);
+    cputs(" end main.");
+
+    asm int 32;20h exit
 
     asm mov dx, main;get adr of main in dx//Terminate stay resident
     asm shr dx, 4   ;make para
-    asm inc dx      ;align to next para
+    asm add dx, 17  ;PSP in para + align to next para
     ax=0x3100;
     DosInt();
 }
