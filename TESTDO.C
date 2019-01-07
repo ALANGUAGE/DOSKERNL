@@ -1,4 +1,0 @@
-int main() {        
-    ax=0x8000;    
-    __emit__(0xCD,0x21);//int 0x21;
-}

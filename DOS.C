@@ -22,7 +22,7 @@ int writetty()     {
 int putch(char c)  {
     if (c==10)  {
         al=13;
-        writetty();
+        writett‚y();
     }
     al=c;
     writetty();
@@ -205,7 +205,7 @@ int main() {
     printunsign(count21h);
     cputs(" end main.");
 
-    asm int 32;20h exit
+//    asm int 32;20h exit
 
     asm mov dx, main;get adr of main in dx//Terminate stay resident
     asm shr dx, 4   ;make para

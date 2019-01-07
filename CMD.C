@@ -1,22 +1,21 @@
-char Version1[]="CMD V0.5";//Command.com for 1OS
-        
+char Version1[]="CMD V0.5";//Command.com for 1OS        
 int writetty()     { ah=0x0E; bx=0; __emit__(0xCD,0x10); }
 int putch(char c)  {if (c==10) {al=13; writetty();} al=c; writetty(); }
 int cputs(char *s) {char c;  while(*s) { c=*s; putch(c); s++; } }
 
 int gotoxy (char x, char y) {
-    ah=2; 
-    bx=0; 
-    dh=y; 
-    dl=x; 
-    __emit__(0xCD,0x10); 
+    ah=2;
+    bx=0;
+    dh=y;
+    dl=x;
+    __emit__(0xCD,0x10);
 }
 int clrscr()    {
-    ax=0x0600; 
-    bh=7; 
-    cx=0; 
-    dx=0x184F; 
-    __emit__(0xCD,0x10); 
+    ax=0x0600;
+    bh=7;
+    cx=0;
+    dx=0x184F;
+    __emit__(0xCD,0x10);
     gotoxy(0,0);
 }
 
@@ -24,27 +23,27 @@ int clrscr()    {
 int getch()  { ah=0x10; __emit__(0xCD,0x16); }
 int waitkey(){ ah=0x11; __emit__(0xCD,0x16); __emit__(0x74,0xFA); }
 int GetKey() {
-    int i; 
+    int i;
     waitkey();
-    i=getch() & 255; 
-    if(i==0)i=getch()+256; 
+    i=getch() & 255;
+    if(i==0)i=getch()+256;
         ax=i;
 }
 int getche() { GetKey(); writetty();}
 
-unsigned int vAX; 
+unsigned int vAX;
 unsigned int vBX;
-unsigned int vES; 
+unsigned int vES;
 
 char par_count=0;
 char *par1;
 char *par2;
 char *par3;
-        
-int DOS_ERR=0;        
+
+int DOS_ERR=0;
 int DOS_NoBytes;        //number of bytes read (0 or 1)
 char DOS_ByteRead;      //the byte just read by DOS
-        
+
 int DosInt() {
     __emit__(0xCD,0x21);//int 0x21;
     __emit__(0x73, 04); //ifcarry DOS_ERR++;
@@ -57,13 +56,13 @@ int exitR  (char c) {ah=0x4C; al=c;          DosInt(); }
 int readR (char *s, int fd) {dx=s; cx=1; bx=fd; ax=0x3F00; DosInt(); }
 int readRL(char *s, int fd, int len){
     dx=s; cx=len; bx=fd; ax=0x3F00; DosInt();}
-int fputcR(char *n, int fd) { 
+int fputcR(char *n, int fd) {
 //    dx=n;
-    __asm{lea dx, [bp+4]}; /* = *n */  
-    cx=1; 
-    bx=fd; 
-    ax=0x4000; 
-    DosInt(); 
+    __asm{lea dx, [bp+4]}; /* = *n */
+    cx=1;
+    bx=fd;
+    ax=0x4000;
+    DosInt();
 }
 int setdta(char *s) {dx=s; ah=0x1A; __emit__(0xCD,0x21); }
 int ffirst(char *s) {dx=s; ah=0x4E; cx=0x1E; DosInt(); }
@@ -85,15 +84,15 @@ int printhex16(unsigned int i) {
     half = i & 255; printhex8(half);
 }
 
-int prunsign(unsigned int n) { 
+int prunsign(unsigned int n) {
     unsigned int e;
-    if (n >= 10) { 
-        e=n/10; 
-        prunsign(e); 
-        } 
-    n=n%10; 
-    n+='0'; 
-    putch(n); 
+    if (n >= 10) {
+        e=n/10;
+        prunsign(e);
+        }
+    n=n%10;
+    n+='0';
+    putch(n);
 }
 int letter(char c) {
   if (c> 'z') return 0;
@@ -132,36 +131,36 @@ int toupper(char *s) {
             s++;
     }
 }
-int atoi(char *s) { 
-    char c; 
-    unsigned int i; unsigned int j; 
+int atoi(char *s) {
+    char c;
+    unsigned int i; unsigned int j;
     i=0;
-    while (*s) { 
-        c=*s; 
-        c-=48; 
-        i=i*10; 
+    while (*s) {
+        c=*s;
+        c-=48;
+        i=i*10;
         j=0;
         j=c;//c2i
-        i=i+j; 
-        s++; 
-        }  
-    return i; 
+        i=i+j;
+        s++;
+        }
+    return i;
 }
 
 
-int setblock(unsigned int i) { 
-    DOS_ERR=0; 
-    bx=i; 
-    ax=cs; 
-    es=ax; 
-    ax=0x4A00; 
+int setblock(unsigned int i) {
+    DOS_ERR=0;
+    bx=i;
+    ax=cs;
+    es=ax;
+    ax=0x4A00;
     DosInt();
 //modify memory Allocation. IN: ES=Block Seg, BX=size in para
-    asm mov [vAX], ax; vAX=ax;    
+    asm mov [vAX], ax; vAX=ax;
     asm mov [vBX], bx; vBX=bx;
     if (DOS_ERR) cputs(" ***Error SetBlock***");
 //    7=MCB destroyed, 8=Insufficient memory, 90=Invalid block address
-//    BX=Max mem available, if CF & AX=8 
+//    BX=Max mem available, if CF & AX=8
 //    cputs(" AX:"); printhex16(vAX);
 //    cputs(", BX:"); printhex16(vBX);
 }
@@ -176,38 +175,38 @@ char FCB2=0; char FCB2A[]="           ";
 char FCB2B[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 // structure until here
 char FNBuf[64];
-char inp_buf[81]; 
+char inp_buf[81];
 
 int getcurdir() {
     si=&FNBuf;
-    dl=0;  
-    ah=0x47; 
-    DosInt();  
-    asm mov [vAX], ax; vAX=ax;    
+    dl=0;
+    ah=0x47;
+    DosInt();
+    asm mov [vAX], ax; vAX=ax;
     asm mov [vBX], bx; vBX=bx;
     if (DOS_ERR) cputs(" ***Error GetCurrentDir***");
 }
 
-    int stkseg; 
-    int stkptr; 
-int exec1(char *Datei1, char *ParmBlk, char *CmdLine1) { 
+    int stkseg;
+    int stkptr;
+int exec1(char *Datei1, char *ParmBlk, char *CmdLine1) {
     putch(10);
     __emit__(0x26,0xA1,0x2C,0);//asm mov ax, [es:2ch]
-           
+
     asm mov [Env_seg], ax
     Cmd_ofs = CmdLine1;
-    ax      =es;   
+    ax      =es;
     asm mov [Cmd_seg],  ds
-    asm mov [FCB_seg1], ax   
+    asm mov [FCB_seg1], ax
     asm mov [FCB_seg2], ax
-    asm mov [stkseg],   ss   
+    asm mov [stkseg],   ss
     asm mov [stkptr],   sp
-    dx=Datei1; 
-    bx=ParmBlk; 
-    ax=0x4B00; 
+    dx=Datei1;
+    bx=ParmBlk;
+    ax=0x4B00;
     DosInt();
-    asm mov [vAX], ax    
-    ss=stkseg;  
+    asm mov [vAX], ax
+    ss=stkseg;
     sp=stkptr;
     if (DOS_ERR) {
         cputs("*****EXEC ERROR Code: ");
@@ -216,23 +215,23 @@ int exec1(char *Datei1, char *ParmBlk, char *CmdLine1) {
 
 char inp_len=0;
 
-int dodos() { 
+int dodos() {
     char *p; int h;
     strcpy(inp_buf, " ");
-    h=strlen(inp_buf); 
-    inp_len=h & 255; 
-    p=&inp_buf+h; 
+    h=strlen(inp_buf);
+    inp_len=h & 255;
+    p=&inp_buf+h;
     *p=0;
-    cputs("Before DOS: "); 
+    cputs("Before DOS: ");
     cputs(inp_buf);
     exec1("Z:\COMMAND.COM", &Env_seg, &inp_len);
 }
 
 int extrinsic(char *s) {
-    char *p; 
+    char *p;
     inp_len=strlen(inp_buf);
     if (inp_len == 0) return;
-    p=&inp_buf+inp_len; 
+    p=&inp_buf+inp_len;
     *p=0;
     waitkey();
     exec1(inp_buf, &Env_seg, &inp_len);
@@ -240,107 +239,107 @@ int extrinsic(char *s) {
 
 
 int mdump(unsigned char *adr, unsigned int len ) {
-    unsigned char c; 
-    int i; 
+    unsigned char c;
+    int i;
     int j;
-    j=0; 
+    j=0;
     while (j < len ) {
-        putch(10);  
-        printhex16(adr); 
+        putch(10);
+        printhex16(adr);
         putch(':');
-        i=0; 
+        i=0;
         while (i < 16) {
-            putch(' '); 
-            c = *adr; 
+            putch(' ');
+            c = *adr;
             printhex8(c);
             adr++;
             i++;
             j++;
             }
-        putch(' '); 
-        adr -=16; 
-        i=0; 
+        putch(' ');
+        adr -=16;
+        i=0;
         while(i < 16) {
-            c= *adr; 
+            c= *adr;
             if (c < 32) putch('.');
-                else putch(c); 
+                else putch(c);
             adr++;
-            i++; 
-        }  
-    }  
+            i++;
+        }
+    }
 }
 
-int dodump() { 
+int dodump() {
     unsigned int i;
     i=atoi(par2);
     mdump(i, 120);
-    putch(10);      
+    putch(10);
 }
 
 char path[]="*.*";
 char direcord[]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};//21 do not change
-char dirattr=0;   
-int  dirtime=0;  
+char dirattr=0;
+int  dirtime=0;
 int  dirdate=0;
-int  dirlenlo=0;  
-int  dirlenhi=0; 
+int  dirlenlo=0;
+int  dirlenhi=0;
 char dirdatname[]={0,0,0,0,0,0,0,0,0,0,0,0,0};//13 structure until here
 
-int dodir() { 
+int dodir() {
     int j;
-    char c; 
-    getcurdir(); 
-    cputs("Current directory: "); 
-    cputs(FNBuf); 
+    char c;
+    getcurdir();
+    cputs("Current directory: ");
+    cputs(FNBuf);
     putch(10);
- 
+
     setdta(direcord);
-      
+
     ffirst(path);
     if (DOS_ERR) {
-        cputs("Empty directory "); 
+        cputs("Empty directory ");
         return;
         }
     cputs("Name             Date   Time Attr   Size");
   do {
-        putch(10);  
-        cputs(dirdatname);  
+        putch(10);
+        cputs(dirdatname);
         j=strlen(dirdatname);
         do {
-            putch(' '); 
-            j++; 
+            putch(' ');
+            j++;
             } while (j<13);
-            
-        j=dirdate & 31;         
-        if (j<10) putch(' '); 
-        prunsign(j); 
+
+        j=dirdate & 31;
+        if (j<10) putch(' ');
+        prunsign(j);
         putch('.');
-            
-        j=dirdate >> 5; 
+
+        j=dirdate >> 5;
         j&=  15;
-        if (j<10) putch('0'); 
-        prunsign(j); 
+        if (j<10) putch('0');
+        prunsign(j);
         putch('.');
-            
-        j=dirdate >> 9; 
+
+        j=dirdate >> 9;
         j+=  80;
         if (j>=100) j-=100;
-        if (j<10) putch('0'); 
-        prunsign(j); 
+        if (j<10) putch('0');
+        prunsign(j);
         putch(' ');
         putch(' ');
-            
-        j=dirtime  >>11;         
-        if (j<10) putch(' '); 
-        prunsign(j); 
+
+        j=dirtime  >>11;
+        if (j<10) putch(' ');
+        prunsign(j);
         putch(':');
-            
-        j=dirtime  >> 5; 
+
+        j=dirtime  >> 5;
         j&=  63;
-        if (j<10) putch('0'); 
-        prunsign(j); 
+        if (j<10) putch('0');
+        prunsign(j);
         putch(' ');
-                       
+
         c = dirattr & 32;
         if (c) putch('A'); else putch(' ');
         c = dirattr & 16;
@@ -353,68 +352,68 @@ int dodir() {
         if (c) putch('H'); else putch(' ');
         c = dirattr & 1;
         if (c) putch('R'); else putch(' ');
-                              
-        if (dirlenhi) { 
-            dirlenlo=dirlenlo >>10; 
+
+        if (dirlenhi) {
+            dirlenlo=dirlenlo >>10;
             dirlenhi=dirlenhi << 6;
             dirlenhi=dirlenhi+dirlenlo;
             putch(' ');
-            prunsign(dirlenhi); 
-            cputs(" KB"); 
+            prunsign(dirlenhi);
+            cputs(" KB");
             }
         else {
             putch(' ');
             prunsign(dirlenlo);
-            }   
-    j=fnext(path);  
+            }
+    j=fnext(path);
     } while (j!=18);
-    putch(10);    
+    putch(10);
 }
 
 
-char memSignature; 
-unsigned int memOwner; 
+char memSignature;
+unsigned int memOwner;
 unsigned int memSize;
 
-int domem() { 
+int domem() {
     unsigned int i;
     char c;
-    ah=0x52;//DOS list of lists 
+    ah=0x52;//DOS list of lists
     asm int 33 ; // out= ES:BX ptr to invars
-    asm mov [vBX], bx 
+    asm mov [vBX], bx
 //    asm mov es, [es:bx-2]//first memory control block
-    __emit__(0x26,0x8E,0x47,0xFE);            
-    asm mov [vES], es   
+    __emit__(0x26,0x8E,0x47,0xFE);
+    asm mov [vES], es
     do {
-        putch(10); 
-        cputs("Start:"); 
+        putch(10);
+        cputs("Start:");
         printhex16(vES);
         if (vES >= 0xA000) cputs(" MCB in UMB");
-//        asm mov al, [es:0]// M or Z 
-        __emit__(0x26,0xA0,0,0);     
-        asm mov [memSignature], al         
+//        asm mov al, [es:0]// M or Z
+        __emit__(0x26,0xA0,0,0);
+        asm mov [memSignature], al
 //        cputs(", ");
 //        putch(memSignature);
-//        asm mov ax, [es:1]//program segment prefix  
-        __emit__(0x26,0xA1,1,0);           
-        asm mov [memOwner], ax  
-        cputs(", PSP:"); 
+//        asm mov ax, [es:1]//program segment prefix
+        __emit__(0x26,0xA1,1,0);
+        asm mov [memOwner], ax
+        cputs(", PSP:");
         printhex16(memOwner);
 //        asm mov ax, [es:3]//size in para
-        __emit__(0x26,0xA1,3,0);                       
-        asm mov [memSize], ax  
-        cputs(", Size:"); 
+        __emit__(0x26,0xA1,3,0);
+        asm mov [memSize], ax
+        cputs(", Size:");
         printhex16(memSize);
         if (memOwner == 0) cputs(" free");
         if (memOwner == 8) cputs(" DOS ");
-        i=memOwner-vES; 
-    vES = vES + memSize;  
+        i=memOwner-vES;
+    vES = vES + memSize;
     vES++;
-    asm mov es, vES 
+    asm mov es, vES
     es = vES;
-    } 
+    }
     while (memSignature == 'M');
-    putch(10); 
+    putch(10);
 }
 
 int dotype() {
@@ -422,23 +421,23 @@ int dotype() {
     fdin=openR(par2);
     if (DOS_ERR) {
         cputs("file missing");
-        putch(10); 
+        putch(10);
         return;
         }
     do {
         DOS_NoBytes=readR(&DOS_ByteRead, fdin);
-        putch(DOS_ByteRead); 
-        } 
+        putch(DOS_ByteRead);
+        }
         while (DOS_NoBytes);
     fcloseR(fdin);
 }
 
 int Prompt1(unsigned char *s) {
-    char c; 
+    char c;
     unsigned char *startstr;
-    startstr=s;  
-    do { 
-        c=GetKey();  
+    startstr=s;
+    do {
+        c=GetKey();
         if (c == 27)    exitR(1);//good bye
         if (c==8) {
             if (s > startstr){
@@ -449,54 +448,54 @@ int Prompt1(unsigned char *s) {
                 }
                 else putch(7);
             }
-            else { 
-                *s=c; 
-                s++; 
-                putch(c); 
+            else {
+                *s=c;
+                s++;
+                putch(c);
             }
-    } while(c!=13); 
-    s--;  
-    *s=0; 
+    } while(c!=13);
+    s--;
+    *s=0;
 }
 
 char Info1[]=" commands: help,exit,cls,type,mem,dir,dump (adr),exec,dos,*COM";
 
-int dohelp() { 
-    unsigned int i;   
+int dohelp() {
+    unsigned int i;
     cputs(Version1);
-    cputs(Info1);   
-    putch(10); 
+    cputs(Info1);
+    putch(10);
 }
 
 
-int getpar(char *t) {    
-    while (*t == 32) t++; 
+int getpar(char *t) {
+    while (*t == 32) t++;
     if (*t<=13) return 0;
-        
-    par1=t; 
-    while(*t >= 33) t++; 
+
+    par1=t;
+    while(*t >= 33) t++;
     if (*t==0) return 1;
-    *t=0; 
+    *t=0;
     t++;
-    while (*t == 32) t++; 
+    while (*t == 32) t++;
     if (*t<=13) return 1;
-        
-    par2=t; 
-    while(*t >= 33) t++; 
+
+    par2=t;
+    while(*t >= 33) t++;
     if (*t==0) return 2;
-    *t=0; 
-    t++;    
-    while (*t == 32) t++; 
+    *t=0;
+    t++;
+    while (*t == 32) t++;
     if (*t<=13) return 2;
-         
-    par3=t;     
-    while(*t >= 33) t++; 
-    *t=0;     
-    return 3;    
+
+    par3=t;
+    while(*t >= 33) t++;
+    *t=0;
+    return 3;
 }
 
 int intrinsic() {
-    toupper(par1);      
+    toupper(par1);
     if(eqstr(par1,"HELP")){dohelp();return;}
     if(eqstr(par1,"EXIT"))exitR(0);
     if(eqstr(par1,"CLS" )){clrscr();return;}
@@ -521,10 +520,10 @@ int get_cmd(){
 int main() {
     setblock(4096);
     dohelp();
-    do { 
-        get_cmd(); 
+    do {
+        get_cmd();
         par_count=getpar(inp_buf);
-        intrinsic(); 
-        } 
+        intrinsic();
+        }
     while(1);
 }

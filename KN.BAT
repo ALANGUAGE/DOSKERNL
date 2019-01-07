@@ -1,4 +1,4 @@
-A.COM CMD
+A.COM KRNL
 if errorlevel 1 goto err
-AS CMD
+AS KRNL 
 :err

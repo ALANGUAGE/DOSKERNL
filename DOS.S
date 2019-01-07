@@ -763,9 +763,8 @@ main: PROC
 ;-195     DosInt();
 
  call DosInt
-;-196     ShowRegister();
+;-196 //    ShowRegister();
 
- call ShowRegister
 ;-197 
 
 ;-198     GetIntVecNew(0x21);
@@ -812,9 +811,8 @@ main: PROC
  add  sp, 2
 ;-207 
 
-;-208     asm int 32;20h exit
+;-208 //    asm int 32;20h exit
 
- int 32;20h exit
 ;-209 
 
 ;-210     asm mov dx, main;get adr of main in dx//Terminate stay resident
