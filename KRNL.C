@@ -6,8 +6,8 @@ unsigned int vAX;
 
 int writetty()     {
     ah=0x0E;
-    bx=0;
-    asm int 16
+    bx=0;     //
+    asm int 16 ;int 10h
 }
 int putch(char c)  {
     if (c==10)  {
@@ -71,8 +71,15 @@ int KERNEL_START() {
         ax=0x1403;
         asm iret
     }
-    if (ah==0x25) {//setIntVec
-
+    if (ah==0x35) {//getIntVec
+        asm push ds
+        bx=0;
+        ds=bx;  //Int table starts at 0000
+        bl=al;
+        bx << 2;//int is 4 bytes long
+        asm les bx, [bx];ofs in bx, seg in es
+        asm pop ds
+        asm iret
     }
     cputs(" FUNC 18h not impl.");
     asm iret
@@ -85,7 +92,7 @@ int GetIntVec(char c) {
     asm push es
     al=c;
     ah=0x35;
-    DosInt();
+    KernelInt();
     asm mov [VecOldOfs], bx
     asm mov [VecOldSeg], es
     asm pop es
@@ -115,23 +122,19 @@ int SetIntVecKrnl(char *adr) {
 */
 int main() {
     count18h=0;
-    GetIntVec(0x18);
-//    cputs("Int18h old=");
-//    printhex16(VecOldSeg);
-//    putch(':');
-//    printhex16(VecOldOfs);
     //set Int Vec to KERNEL_START
     asm mov dx, KERNEL_START
     ax=0x2518;
     DosInt();
 
+    GetIntVec(0x18);
+    cputs("Int18h=");
+    printhex16(VecOldSeg);
+    putch(':');
+    printhex16(VecOldOfs);
 
-/*    ah=0x30;
-    DosInt();
-    asm mov [vAX], ax
-    cputs(" DosVer:");
-    printhex16(vAX);
-*/
+
+/*
     ah=0x30;
     KernelInt();
     asm mov [vAX], ax
@@ -141,6 +144,9 @@ int main() {
     vAX=vAX >>8;
     printunsign(vAX);
 
+    ah=0x99;//test error function not found
+    KernelInt();
+*/
     cputs(" count18h=");
     printunsign(count18h);
     cputs(" end main.");

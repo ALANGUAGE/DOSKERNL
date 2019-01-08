@@ -25,12 +25,12 @@ writetty: PROC
 ;-8     ah=0x0E;
 
  mov  ah, 14
-;-9     bx=0;
+;-9     bx=0;     //
 
  mov  bx, 0
-;-10     asm int 16
+;-10     asm int 16 ;int 10h
 
- int 16
+ int 16 ;int 10h
 ;-11 }
 
 ;-12 int putch(char c)  {
@@ -292,7 +292,7 @@ KERNEL_START: PROC
 ;-69     asm sti; enable interrupts
 
  sti; enable interrupts
-;-70     if (ah==0x30) {
+;-70     if (ah==0x30) {//getDosVer
 
  cmp  ah, 48
  jne .KERNEL_START6
@@ -304,226 +304,249 @@ KERNEL_START: PROC
  iret
 ;-73     }
 
-;-74     cputs(" FUNC 18h not impl.");
+;-74     if (ah==0x35) {//getIntVec
 
 .KERNEL_START6:
+ cmp  ah, 53
+ jne .KERNEL_START7
+;-75         asm push ds
+
+ push ds
+;-76         bx=0;
+
+ mov  bx, 0
+;-77         ds=bx;  //Int table starts at 0000
+
+ mov  ds, bx
+;-78         bl=al;
+
+ mov  bl, al
+;-79         bx << 2;//int is 4 bytes long
+
+ shl  bx, 2
+;-80         asm les bx, [bx];ofs in bx, seg in es
+
+ les bx, [bx];ofs in bx, seg in es
+;-81         asm pop ds
+
+ pop ds
+;-82         asm iret
+
+ iret
+;-83     }
+
+;-84     cputs(" FUNC 18h not impl.");
+
+.KERNEL_START7:
  push KERNEL_START_0
  call cputs
  add  sp, 2
-;-75     asm iret
+;-85     asm iret
 
  iret
-;-76 }
+;-86 }
 
-;-77 unsigned char JmpFarHook=0xEA;//start struct
+;-87 unsigned char JmpFarHook=0xEA;//start struct
 
  ret
 KERNEL_START_0 db " FUNC 18h not impl.",0
 ENDP
 JmpFarHook db 234
-;-78 unsigned int VecOldOfs;
+;-88 unsigned int VecOldOfs;
 
 VecOldOfs dw 0
-;-79 unsigned int VecOldSeg;//end struct
+;-89 unsigned int VecOldSeg;//end struct
 
 VecOldSeg dw 0
-;-80 
+;-90 
 
-;-81 int GetIntVec(char c) {
+;-91 int GetIntVec(char c) {
 
 
 GetIntVec: PROC
-;-82     asm push es
+;-92     asm push es
 ;
  ENTER  0,0
  push es
-;-83     al=c;
+;-93     al=c;
 
  mov  al, [bp+4]
-;-84     ah=0x35;
+;-94     ah=0x35;
 
  mov  ah, 53
-;-85     DosInt();
+;-95     KernelInt();
 
- call DosInt
-;-86     asm mov [VecOldOfs], bx
+ call KernelInt
+;-96     asm mov [VecOldOfs], bx
 
  mov [VecOldOfs], bx
-;-87     asm mov [VecOldSeg], es
+;-97     asm mov [VecOldSeg], es
 
  mov [VecOldSeg], es
-;-88     asm pop es
+;-98     asm pop es
 
  pop es
-;-89 }
+;-99 }
 
-;-90 
+;-100 
 
-;-91 int SetIntVecDos(char *adr) {
+;-101 int SetIntVecDos(char *adr) {
 
  LEAVE
  ret
 ENDP
 
 SetIntVecDos: PROC
-;-92     asm push ds
+;-102     asm push ds
 ;
  ENTER  0,0
  push ds
-;-93     ax=cs;
+;-103     ax=cs;
 
  mov  ax, cs
-;-94     ds=ax;
+;-104     ds=ax;
 
  mov  ds, ax
-;-95 //    dx= &adr; is mov instead of lea
+;-105 //    dx= &adr; is mov instead of lea
 
-;-96     asm lea dx, [bp+4]; *adr
+;-106     asm lea dx, [bp+4]; *adr
 
  lea dx, [bp+4]; *adr
-;-97     ax=0x2521;//new addr in ds:dx
+;-107     ax=0x2521;//new addr in ds:dx
 
  mov  ax, 9505
-;-98     DosInt();
+;-108     DosInt();
 
  call DosInt
-;-99     asm pop ds
+;-109     asm pop ds
 
  pop ds
-;-100 }
+;-110 }
 
-;-101 /* KERNEL_START not found because it is no variable
+;-111 /* KERNEL_START not found because it is no variable
 
-;-102 int SetIntVecKrnl(char *adr) {
+;-112 int SetIntVecKrnl(char *adr) {
 
-;-103     asm push ds
+;-113     asm push ds
 
-;-104     ax=cs;
+;-114     ax=cs;
 
-;-105     ds=ax;
+;-115     ds=ax;
 
-;-106 //    dx= &adr; is mov instead of lea
+;-116 //    dx= &adr; is mov instead of lea
 
-;-107     asm lea dx, [bp+4]; *adr
+;-117     asm lea dx, [bp+4]; *adr
 
-;-108     ax=0x2518;//new addr in ds:dx
+;-118     ax=0x2518;//new addr in ds:dx
 
-;-109     DosInt();
+;-119     DosInt();
 
-;-110     asm pop ds
+;-120     asm pop ds
 
-;-111 }
+;-121 }
 
-;-112 */
+;-122 */
 
-;-113 int main() {
+;-123 int main() {
 
  LEAVE
  ret
 ENDP
 
 main: PROC
-;-114     count18h=0;
+;-124     count18h=0;
 
  mov ax, 0
  mov word [count18h], ax
-;-115     GetIntVec(0x18);
+;-125     //set Int Vec to KERNEL_START
+
+;-126     asm mov dx, KERNEL_START
+
+ mov dx, KERNEL_START
+;-127     ax=0x2518;
+
+ mov  ax, 9496
+;-128     DosInt();
+
+ call DosInt
+;-129 
+
+;-130     GetIntVec(0x18);
 
  push 24
  call GetIntVec
  add  sp, 2
-;-116 //    cputs("Int18h old=");
-
-;-117 //    printhex16(VecOldSeg);
-
-;-118 //    putch(':');
-
-;-119 //    printhex16(VecOldOfs);
-
-;-120     //set Int Vec to KERNEL_START
-
-;-121     asm mov dx, KERNEL_START
-
- mov dx, KERNEL_START
-;-122     ax=0x2518;
-
- mov  ax, 9496
-;-123     DosInt();
-
- call DosInt
-;-124 
-
-;-125 
-
-;-126 /*    ah=0x30;
-
-;-127     DosInt();
-
-;-128     asm mov [vAX], ax
-
-;-129     cputs(" DosVer:");
-
-;-130     printhex16(vAX);
-
-;-131 */
-
-;-132     ah=0x30;
-
- mov  ah, 48
-;-133     KernelInt();
-
- call KernelInt
-;-134     asm mov [vAX], ax
-
- mov [vAX], ax
-;-135     cputs(" KernelVer:");
+;-131     cputs("Int18h=");
 
  push main_0
  call cputs
  add  sp, 2
-;-136     printhex4(vAX);
+;-132     printhex16(VecOldSeg);
 
- push word [vAX]
- call printhex4
+ push word [VecOldSeg]
+ call printhex16
  add  sp, 2
-;-137     putch('.');
+;-133     putch(':');
 
- push 46
+ push 58
  call putch
  add  sp, 2
-;-138     vAX=vAX >>8;
+;-134     printhex16(VecOldOfs);
 
- mov ax, [vAX]
- shr ax, 8
- mov word [vAX], ax
-;-139     printunsign(vAX);
-
- push word [vAX]
- call printunsign
+ push word [VecOldOfs]
+ call printhex16
  add  sp, 2
-;-140 
+;-135 
 
-;-141     cputs(" count18h=");
+;-136 
+
+;-137 /*
+
+;-138     ah=0x30;
+
+;-139     KernelInt();
+
+;-140     asm mov [vAX], ax
+
+;-141     cputs(" KernelVer:");
+
+;-142     printhex4(vAX);
+
+;-143     putch('.');
+
+;-144     vAX=vAX >>8;
+
+;-145     printunsign(vAX);
+
+;-146 
+
+;-147     ah=0x99;//test error function not found
+
+;-148     KernelInt();
+
+;-149 */
+
+;-150     cputs(" count18h=");
 
  push main_1
  call cputs
  add  sp, 2
-;-142     printunsign(count18h);
+;-151     printunsign(count18h);
 
  push word [count18h]
  call printunsign
  add  sp, 2
-;-143     cputs(" end main.");
+;-152     cputs(" end main.");
 
  push main_2
  call cputs
  add  sp, 2
-;-144 }
+;-153 }
 
  ret
-main_0 db " KernelVer:",0
+main_0 db "Int18h=",0
 main_1 db " count18h=",0
 main_2 db " end main.",0
 ENDP
-;Glob. variables:8 (300), Functions:13 (300), Lines:145
-;Constant: 79 (3000), stacksize: 40536
+;Glob. variables:8 (300), Functions:13 (300), Lines:154
+;Constant: 75 (3000), stacksize: 40536
