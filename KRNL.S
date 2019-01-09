@@ -289,264 +289,275 @@ KERNEL_START: PROC
 ;-68     count18h++;
 
  inc  word[count18h]
-;-69     asm sti; enable interrupts
+;-69     asm sti; set int enable
 
- sti; enable interrupts
-;-70     if (ah==0x30) {//getDosVer
+ sti; set int enable
+;-70     if (ah==0x25) {//setIntVec in AL from DS:DX
 
- cmp  ah, 48
+ cmp  ah, 37
  jne .KERNEL_START6
-;-71         ax=0x1403;
+;-71         asm cli; clear int enable, turn OFF int
 
- mov  ax, 5123
-;-72         asm iret
+ cli; clear int enable, turn OFF int
+;-72         asm push ax
+
+ push ax
+;-73         asm push es
+
+ push es
+;-74         asm push di
+
+ push di
+;-75         asm push ds; later pop ax
+
+ push ds; later pop ax
+;-76         ax << 2;
+
+ shl  ax, 2
+;-77         ah=0;
+
+ mov  ah, 0
+;-78         di=ax;
+
+ mov  di, ax
+;-79         ax=0;
+
+ mov  ax, 0
+;-80         es=ax;//segment 0
+
+ mov  es, ax
+;-81         ax=dx;
+
+ mov  ax, dx
+;-82         asm cld; clear direction, Up
+
+ cld; clear direction, Up
+;-83         asm stosw; ofs in DX to ES:DI
+
+ stosw; ofs in DX to ES:DI
+;-84         asm pop ax; get DS
+
+ pop ax; get DS
+;-85         asm stosw; seg (DS) to ES:DI+2
+
+ stosw; seg (DS) to ES:DI+2
+;-86         asm pop di
+
+ pop di
+;-87         asm pop es
+
+ pop es
+;-88         asm pop ax
+
+ pop ax
+;-89         asm sti;set int enable, turn ON int
+
+ sti;set int enable, turn ON int
+;-90         asm iret
 
  iret
-;-73     }
+;-91     }
 
-;-74     if (ah==0x35) {//getIntVec
+;-92     if (ah==0x30) {//getDosVer
 
 .KERNEL_START6:
- cmp  ah, 53
+ cmp  ah, 48
  jne .KERNEL_START7
-;-75         asm push ds
+;-93         ax=0x1E03; //Ver 3.30
 
- push ds
-;-76         bx=0;
-
- mov  bx, 0
-;-77         ds=bx;  //Int table starts at 0000
-
- mov  ds, bx
-;-78         bl=al;
-
- mov  bl, al
-;-79         bx << 2;//int is 4 bytes long
-
- shl  bx, 2
-;-80         asm les bx, [bx];ofs in bx, seg in es
-
- les bx, [bx];ofs in bx, seg in es
-;-81         asm pop ds
-
- pop ds
-;-82         asm iret
+ mov  ax, 7683
+;-94         asm iret
 
  iret
-;-83     }
+;-95     }
 
-;-84     cputs(" FUNC 18h not impl.");
+;-96     if (ah==0x35) {//getIntVec in AL to ES:BX
 
 .KERNEL_START7:
+ cmp  ah, 53
+ jne .KERNEL_START8
+;-97         asm cli; clear int enable, turn OFF int
+
+ cli; clear int enable, turn OFF int
+;-98         asm push ds
+
+ push ds
+;-99         bx=0;
+
+ mov  bx, 0
+;-100         ds=bx;  //Int table starts at 0000
+
+ mov  ds, bx
+;-101         bl=al;
+
+ mov  bl, al
+;-102         bx << 2;//int is 4 bytes long
+
+ shl  bx, 2
+;-103         asm les bx, [bx]; ofs in bx, seg in es
+
+ les bx, [bx]; ofs in bx, seg in es
+;-104         asm pop ds
+
+ pop ds
+;-105         asm sti; set int enable, turn ON int
+
+ sti; set int enable, turn ON int
+;-106         asm iret
+
+ iret
+;-107     }
+
+;-108     cputs(" FUNC 18h not impl.");
+
+.KERNEL_START8:
  push KERNEL_START_0
  call cputs
  add  sp, 2
-;-85     asm iret
+;-109     asm iret
 
  iret
-;-86 }
+;-110 }
 
-;-87 unsigned char JmpFarHook=0xEA;//start struct
+;-111 unsigned int VecOldOfs;
 
  ret
 KERNEL_START_0 db " FUNC 18h not impl.",0
 ENDP
-JmpFarHook db 234
-;-88 unsigned int VecOldOfs;
-
 VecOldOfs dw 0
-;-89 unsigned int VecOldSeg;//end struct
+;-112 unsigned int VecOldSeg;
 
 VecOldSeg dw 0
-;-90 
+;-113 
 
-;-91 int GetIntVec(char c) {
+;-114 int GetIntVec(char c) {
 
 
 GetIntVec: PROC
-;-92     asm push es
+;-115     asm push es
 ;
  ENTER  0,0
  push es
-;-93     al=c;
+;-116     al=c;
 
  mov  al, [bp+4]
-;-94     ah=0x35;
+;-117     ah=0x35;
 
  mov  ah, 53
-;-95     KernelInt();
+;-118     KernelInt();
 
  call KernelInt
-;-96     asm mov [VecOldOfs], bx
+;-119     asm mov [VecOldOfs], bx
 
  mov [VecOldOfs], bx
-;-97     asm mov [VecOldSeg], es
+;-120     asm mov [VecOldSeg], es
 
  mov [VecOldSeg], es
-;-98     asm pop es
+;-121     asm pop es
 
  pop es
-;-99 }
+;-122 }
 
-;-100 
+;-123 
 
-;-101 int SetIntVecDos(char *adr) {
-
- LEAVE
- ret
-ENDP
-
-SetIntVecDos: PROC
-;-102     asm push ds
-;
- ENTER  0,0
- push ds
-;-103     ax=cs;
-
- mov  ax, cs
-;-104     ds=ax;
-
- mov  ds, ax
-;-105 //    dx= &adr; is mov instead of lea
-
-;-106     asm lea dx, [bp+4]; *adr
-
- lea dx, [bp+4]; *adr
-;-107     ax=0x2521;//new addr in ds:dx
-
- mov  ax, 9505
-;-108     DosInt();
-
- call DosInt
-;-109     asm pop ds
-
- pop ds
-;-110 }
-
-;-111 /* KERNEL_START not found because it is no variable
-
-;-112 int SetIntVecKrnl(char *adr) {
-
-;-113     asm push ds
-
-;-114     ax=cs;
-
-;-115     ds=ax;
-
-;-116 //    dx= &adr; is mov instead of lea
-
-;-117     asm lea dx, [bp+4]; *adr
-
-;-118     ax=0x2518;//new addr in ds:dx
-
-;-119     DosInt();
-
-;-120     asm pop ds
-
-;-121 }
-
-;-122 */
-
-;-123 int main() {
+;-124 int main() {
 
  LEAVE
  ret
 ENDP
 
 main: PROC
-;-124     count18h=0;
+;-125     count18h=0;
 
  mov ax, 0
  mov word [count18h], ax
-;-125     //set Int Vec to KERNEL_START
+;-126     //set Int Vec to KERNEL_START
 
-;-126     asm mov dx, KERNEL_START
+;-127     asm mov dx, KERNEL_START
 
  mov dx, KERNEL_START
-;-127     ax=0x2518;
+;-128     ax=0x2518;
 
  mov  ax, 9496
-;-128     DosInt();
+;-129 //    DosInt();
 
- call DosInt
-;-129 
+;-130     KernelInt();
 
-;-130     GetIntVec(0x18);
+ call KernelInt
+;-131     
+
+;-132     GetIntVec(0x18);
 
  push 24
  call GetIntVec
  add  sp, 2
-;-131     cputs("Int18h=");
+;-133     cputs("Int18h=");
 
  push main_0
  call cputs
  add  sp, 2
-;-132     printhex16(VecOldSeg);
+;-134     printhex16(VecOldSeg);
 
  push word [VecOldSeg]
  call printhex16
  add  sp, 2
-;-133     putch(':');
+;-135     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-134     printhex16(VecOldOfs);
+;-136     printhex16(VecOldOfs);
 
  push word [VecOldOfs]
  call printhex16
  add  sp, 2
-;-135 
+;-137 
 
-;-136 
+;-138 
 
-;-137 /*
+;-139 /*
 
-;-138     ah=0x30;
+;-140     ah=0x30;
 
-;-139     KernelInt();
+;-141     KernelInt();
 
-;-140     asm mov [vAX], ax
+;-142     asm mov [vAX], ax
 
-;-141     cputs(" KernelVer:");
+;-143     cputs(" KernelVer:");
 
-;-142     printhex4(vAX);
+;-144     printhex4(vAX);
 
-;-143     putch('.');
+;-145     putch('.');
 
-;-144     vAX=vAX >>8;
+;-146     vAX=vAX >>8;
 
-;-145     printunsign(vAX);
+;-147     printunsign(vAX);
 
-;-146 
+;-148 
 
-;-147     ah=0x99;//test error function not found
+;-149     ah=0x99;//test error function not found
 
-;-148     KernelInt();
+;-150     KernelInt();
 
-;-149 */
+;-151 */
 
-;-150     cputs(" count18h=");
+;-152     cputs(" count18h=");
 
  push main_1
  call cputs
  add  sp, 2
-;-151     printunsign(count18h);
+;-153     printunsign(count18h);
 
  push word [count18h]
  call printunsign
  add  sp, 2
-;-152     cputs(" end main.");
+;-154 //    cputs(" end main.");
 
- push main_2
- call cputs
- add  sp, 2
-;-153 }
+;-155 }
 
  ret
 main_0 db "Int18h=",0
 main_1 db " count18h=",0
-main_2 db " end main.",0
 ENDP
-;Glob. variables:8 (300), Functions:13 (300), Lines:154
-;Constant: 75 (3000), stacksize: 40536
+;Glob. variables:7 (300), Functions:12 (300), Lines:156
+;Constant: 49 (3000), stacksize: 40536

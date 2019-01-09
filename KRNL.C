@@ -66,27 +66,50 @@ int KernelInt() {
 
 int KERNEL_START() {
     count18h++;
-    asm sti; enable interrupts
-    if (ah==0x30) {//getDosVer
-        ax=0x1403;
+    asm sti; set int enable
+    if (ah==0x25) {//setIntVec in AL from DS:DX
+        asm cli; clear int enable, turn OFF int
+        asm push ax
+        asm push es
+        asm push di
+        asm push ds; later pop ax
+        ax << 2;
+        ah=0;
+        di=ax;
+        ax=0;
+        es=ax;//segment 0
+        ax=dx;
+        asm cld; clear direction, Up
+        asm stosw; ofs in DX to ES:DI
+        asm pop ax; get DS
+        asm stosw; seg (DS) to ES:DI+2
+        asm pop di
+        asm pop es
+        asm pop ax
+        asm sti;set int enable, turn ON int
         asm iret
     }
-    if (ah==0x35) {//getIntVec
+    if (ah==0x30) {//getDosVer
+        ax=0x1E03; //Ver 3.30
+        asm iret
+    }
+    if (ah==0x35) {//getIntVec in AL to ES:BX
+        asm cli; clear int enable, turn OFF int
         asm push ds
         bx=0;
         ds=bx;  //Int table starts at 0000
         bl=al;
         bx << 2;//int is 4 bytes long
-        asm les bx, [bx];ofs in bx, seg in es
+        asm les bx, [bx]; ofs in bx, seg in es
         asm pop ds
+        asm sti; set int enable, turn ON int
         asm iret
     }
     cputs(" FUNC 18h not impl.");
     asm iret
 }
-unsigned char JmpFarHook=0xEA;//start struct
 unsigned int VecOldOfs;
-unsigned int VecOldSeg;//end struct
+unsigned int VecOldSeg;
 
 int GetIntVec(char c) {
     asm push es
@@ -98,35 +121,14 @@ int GetIntVec(char c) {
     asm pop es
 }
 
-int SetIntVecDos(char *adr) {
-    asm push ds
-    ax=cs;
-    ds=ax;
-//    dx= &adr; is mov instead of lea
-    asm lea dx, [bp+4]; *adr
-    ax=0x2521;//new addr in ds:dx
-    DosInt();
-    asm pop ds
-}
-/* KERNEL_START not found because it is no variable
-int SetIntVecKrnl(char *adr) {
-    asm push ds
-    ax=cs;
-    ds=ax;
-//    dx= &adr; is mov instead of lea
-    asm lea dx, [bp+4]; *adr
-    ax=0x2518;//new addr in ds:dx
-    DosInt();
-    asm pop ds
-}
-*/
 int main() {
     count18h=0;
     //set Int Vec to KERNEL_START
     asm mov dx, KERNEL_START
     ax=0x2518;
-    DosInt();
-
+//    DosInt();
+    KernelInt();
+    
     GetIntVec(0x18);
     cputs("Int18h=");
     printhex16(VecOldSeg);
@@ -149,5 +151,5 @@ int main() {
 */
     cputs(" count18h=");
     printunsign(count18h);
-    cputs(" end main.");
+//    cputs(" end main.");
 }
