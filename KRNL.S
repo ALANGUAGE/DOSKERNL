@@ -18,19 +18,19 @@ count18h dw 0
 vAX dw 0
 ;-6 
 
-;-7 int writetty()     {
+;-7 int writetty()     {//char in AL
 
 
 writetty: PROC
 ;-8     ah=0x0E;
 
  mov  ah, 14
-;-9     bx=0;     //
+;-9     bx=0;     //page
 
  mov  bx, 0
-;-10     asm int 16 ;int 10h
+;-10     inth 0x10;
 
- int 16 ;int 10h
+ int  16
 ;-11 }
 
 ;-12 int putch(char c)  {
@@ -62,7 +62,7 @@ putch: PROC
  call writetty
 ;-19 }
 
-;-20 int cputs(char *s) {
+;-20 int cputs(char *s) {//only with correct DS !!!
 
  LEAVE
  ret
@@ -243,321 +243,417 @@ printunsign: PROC
 
 ;-55 
 
-;-56 int DosInt() {
+;-56 int getch() {
 
  LEAVE
  ret
 ENDP
 
-DosInt: PROC
-;-57     asm int 33; 21h
+getch: PROC
+;-57     ah=0x10;//MF2-KBD read char
 
- int 33; 21h
-;-58     __emit__(0x73, 04); //jnc over DOS_ERR++
+ mov  ah, 16
+;-58     inth 0x16;//AH=Scan code, AL=char
+
+ int  22
+;-59 }
+
+;-60 int waitkey() {
+
+ ret
+ENDP
+
+waitkey: PROC
+;-61     ah=0x11;//get kbd status
+
+ mov  ah, 17
+;-62     inth 0x16;//AH:Scan code, AL:char read, resting in buffer
+
+ int  22
+;-63     //zero flag: 0=IS char, 1=NO char
+
+;-64     __emit__(0x74,0xFA);// jz back 2 bytes until char read
+
+ db 116,250
+;-65 }
+
+;-66 int getkey() {
+
+ ret
+ENDP
+
+getkey: PROC
+;-67     waitkey();
+
+ call waitkey
+;-68     getch();
+
+ call getch
+;-69     ah=0;//clear scan code
+
+ mov  ah, 0
+;-70     if (al == 0) getch() + 0x100;
+
+ cmp  al, 0
+ jne .getkey6
+ call getch
+ add ax, 256
+;-71     //put ext code in AX
+
+;-72 }
+
+.getkey6:
+;-73 int kbdEcho() {
+
+ ret
+ENDP
+
+kbdEcho: PROC
+;-74     getkey();
+
+ call getkey
+;-75     writetty();
+
+ call writetty
+;-76 }
+
+;-77 
+
+;-78 int DosInt() {
+
+ ret
+ENDP
+
+DosInt: PROC
+;-79     inth 0x21;
+
+ int  33
+;-80     __emit__(0x73, 04); //jnc over DOS_ERR++
 
  db 115,4
-;-59     DOS_ERR++;
+;-81     DOS_ERR++;
 
  inc  byte[DOS_ERR]
-;-60 }
+;-82 }
 
-;-61 int KernelInt() {
+;-83 int KernelInt() {
 
  ret
 ENDP
 
 KernelInt: PROC
-;-62     asm int 24; 18h
+;-84     inth 0x18;
 
- int 24; 18h
-;-63     __emit__(0x73, 04); //jnc over KERNEL_ERR++
+ int  24
+;-85     __emit__(0x73, 04); //jnc over KERNEL_ERR++
 
  db 115,4
-;-64     KERNEL_ERR++;
+;-86     KERNEL_ERR++;
 
  inc  byte[KERNEL_ERR]
-;-65 }
+;-87 }
 
-;-66 
+;-88 
 
-;-67 int KERNEL_START() {
+;-89 int KERNEL_START() {
 
  ret
 ENDP
 
 KERNEL_START: PROC
-;-68     count18h++;
+;-90     count18h++;
 
  inc  word[count18h]
-;-69     asm sti; set int enable
+;-91     asm sti; set int enable
 
  sti; set int enable
-;-70     if (ah==0x25) {//setIntVec in AL from DS:DX
+;-92 
+
+;-93     if (ah==0x25) {//setIntVec in AL from DS:DX
 
  cmp  ah, 37
- jne .KERNEL_START6
-;-71         asm cli; clear int enable, turn OFF int
+ jne .KERNEL_START7
+;-94         asm cli; clear int enable, turn OFF int
 
  cli; clear int enable, turn OFF int
-;-72         asm push ax
+;-95         asm push ax
 
  push ax
-;-73         asm push es
+;-96         asm push es
 
  push es
-;-74         asm push di
+;-97         asm push di
 
  push di
-;-75         asm push ds; later pop ax
+;-98         asm push ds; later pop ax
 
  push ds; later pop ax
-;-76         ax << 2;
+;-99         ax << 2;
 
  shl  ax, 2
-;-77         ah=0;
+;-100         ah=0;
 
  mov  ah, 0
-;-78         di=ax;
+;-101         di=ax;
 
  mov  di, ax
-;-79         ax=0;
+;-102         ax=0;
 
  mov  ax, 0
-;-80         es=ax;//segment 0
+;-103         es=ax;//segment 0
 
  mov  es, ax
-;-81         ax=dx;
+;-104         ax=dx;
 
  mov  ax, dx
-;-82         asm cld; clear direction, Up
+;-105         asm cld; clear direction, Up
 
  cld; clear direction, Up
-;-83         asm stosw; ofs in DX to ES:DI
+;-106         asm stosw; ofs in DX to ES:DI
 
  stosw; ofs in DX to ES:DI
-;-84         asm pop ax; get DS
+;-107         asm pop ax; get DS
 
  pop ax; get DS
-;-85         asm stosw; seg (DS) to ES:DI+2
+;-108         asm stosw; seg (DS) to ES:DI+2
 
  stosw; seg (DS) to ES:DI+2
-;-86         asm pop di
+;-109         asm pop di
 
  pop di
-;-87         asm pop es
+;-110         asm pop es
 
  pop es
-;-88         asm pop ax
+;-111         asm pop ax
 
  pop ax
-;-89         asm sti;set int enable, turn ON int
+;-112         asm sti;set int enable, turn ON int
 
  sti;set int enable, turn ON int
-;-90         asm iret
+;-113         asm iret
 
  iret
-;-91     }
+;-114     }
 
-;-92     if (ah==0x30) {//getDosVer
-
-.KERNEL_START6:
- cmp  ah, 48
- jne .KERNEL_START7
-;-93         ax=0x1E03; //Ver 3.30
-
- mov  ax, 7683
-;-94         asm iret
-
- iret
-;-95     }
-
-;-96     if (ah==0x35) {//getIntVec in AL to ES:BX
+;-115     if (ah==0x30) {//getDosVer
 
 .KERNEL_START7:
- cmp  ah, 53
+ cmp  ah, 48
  jne .KERNEL_START8
-;-97         asm cli; clear int enable, turn OFF int
+;-116         ax=0x1E03; //Ver 3.30
 
- cli; clear int enable, turn OFF int
-;-98         asm push ds
-
- push ds
-;-99         bx=0;
-
- mov  bx, 0
-;-100         ds=bx;  //Int table starts at 0000
-
- mov  ds, bx
-;-101         bl=al;
-
- mov  bl, al
-;-102         bx << 2;//int is 4 bytes long
-
- shl  bx, 2
-;-103         asm les bx, [bx]; ofs in bx, seg in es
-
- les bx, [bx]; ofs in bx, seg in es
-;-104         asm pop ds
-
- pop ds
-;-105         asm sti; set int enable, turn ON int
-
- sti; set int enable, turn ON int
-;-106         asm iret
+ mov  ax, 7683
+;-117         asm iret
 
  iret
-;-107     }
+;-118     }
 
-;-108     cputs(" FUNC 18h not impl.");
+;-119     if (ah==0x35) {//getIntVec in AL to ES:BX
 
 .KERNEL_START8:
+ cmp  ah, 53
+ jne .KERNEL_START9
+;-120         asm cli; clear int enable, turn OFF int
+
+ cli; clear int enable, turn OFF int
+;-121         asm push ds
+
+ push ds
+;-122         bx=0;
+
+ mov  bx, 0
+;-123         ds=bx;  //Int table starts at 0000
+
+ mov  ds, bx
+;-124         bl=al;
+
+ mov  bl, al
+;-125         bx << 2;//int is 4 bytes long
+
+ shl  bx, 2
+;-126         asm les bx, [bx]; ofs in bx, seg in es
+
+ les bx, [bx]; ofs in bx, seg in es
+;-127         asm pop ds
+
+ pop ds
+;-128         asm sti; set int enable, turn ON int
+
+ sti; set int enable, turn ON int
+;-129         asm iret
+
+ iret
+;-130     }
+
+;-131     cputs(" FUNC 18h not impl.");
+
+.KERNEL_START9:
  push KERNEL_START_0
  call cputs
  add  sp, 2
-;-109     asm iret
+;-132     asm iret
 
  iret
-;-110 }
+;-133 }
 
-;-111 unsigned int VecOldOfs;
+;-134 unsigned int VecOldOfs;
 
  ret
 KERNEL_START_0 db " FUNC 18h not impl.",0
 ENDP
 VecOldOfs dw 0
-;-112 unsigned int VecOldSeg;
+;-135 unsigned int VecOldSeg;
 
 VecOldSeg dw 0
-;-113 
+;-136 
 
-;-114 int GetIntVec(char c) {
+;-137 int GetIntVec(char c) {
 
 
 GetIntVec: PROC
-;-115     asm push es
+;-138     asm push es
 ;
  ENTER  0,0
  push es
-;-116     al=c;
+;-139     al=c;
 
  mov  al, [bp+4]
-;-117     ah=0x35;
+;-140     ah=0x35;
 
  mov  ah, 53
-;-118     KernelInt();
+;-141     KernelInt();
 
  call KernelInt
-;-119     asm mov [VecOldOfs], bx
+;-142     asm mov [VecOldOfs], bx
 
  mov [VecOldOfs], bx
-;-120     asm mov [VecOldSeg], es
+;-143     asm mov [VecOldSeg], es
 
  mov [VecOldSeg], es
-;-121     asm pop es
+;-144     asm pop es
 
  pop es
-;-122 }
+;-145 }
 
-;-123 
+;-146 
 
-;-124 int main() {
+;-147 int main() {
 
  LEAVE
  ret
 ENDP
 
 main: PROC
-;-125     count18h=0;
+;-148     count18h=0;
 
  mov ax, 0
  mov word [count18h], ax
-;-126     //set Int Vec to KERNEL_START
+;-149     //set Int Vec to KERNEL_START
 
-;-127     asm mov dx, KERNEL_START
+;-150     asm mov dx, KERNEL_START
 
  mov dx, KERNEL_START
-;-128     ax=0x2518;
+;-151     ax=0x2518;
 
  mov  ax, 9496
-;-129 //    DosInt();
+;-152 //    DosInt();
 
-;-130     KernelInt();
+;-153     KernelInt();
 
  call KernelInt
-;-131     
+;-154 
 
-;-132     GetIntVec(0x18);
+;-155     GetIntVec(0x18);
 
  push 24
  call GetIntVec
  add  sp, 2
-;-133     cputs("Int18h=");
+;-156     cputs("Int18h=");
 
  push main_0
  call cputs
  add  sp, 2
-;-134     printhex16(VecOldSeg);
+;-157     printhex16(VecOldSeg);
 
  push word [VecOldSeg]
  call printhex16
  add  sp, 2
-;-135     putch(':');
+;-158     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-136     printhex16(VecOldOfs);
+;-159     printhex16(VecOldOfs);
 
  push word [VecOldOfs]
  call printhex16
  add  sp, 2
-;-137 
+;-160 
 
-;-138 
+;-161 
 
-;-139 /*
+;-162 
 
-;-140     ah=0x30;
+;-163     ah=0x30;
 
-;-141     KernelInt();
+ mov  ah, 48
+;-164     KernelInt();
 
-;-142     asm mov [vAX], ax
+ call KernelInt
+;-165     asm mov [vAX], ax
 
-;-143     cputs(" KernelVer:");
-
-;-144     printhex4(vAX);
-
-;-145     putch('.');
-
-;-146     vAX=vAX >>8;
-
-;-147     printunsign(vAX);
-
-;-148 
-
-;-149     ah=0x99;//test error function not found
-
-;-150     KernelInt();
-
-;-151 */
-
-;-152     cputs(" count18h=");
+ mov [vAX], ax
+;-166     cputs(" KernelVer:");
 
  push main_1
  call cputs
  add  sp, 2
-;-153     printunsign(count18h);
+;-167     printhex4(vAX);
+
+ push word [vAX]
+ call printhex4
+ add  sp, 2
+;-168     putch('.');
+
+ push 46
+ call putch
+ add  sp, 2
+;-169     vAX=vAX >>8;
+
+ mov ax, [vAX]
+ shr ax, 8
+ mov word [vAX], ax
+;-170     printunsign(vAX);
+
+ push word [vAX]
+ call printunsign
+ add  sp, 2
+;-171 
+
+;-172     ah=0x99;//test error function not found
+
+ mov  ah, 153
+;-173     KernelInt();
+
+ call KernelInt
+;-174 
+
+;-175     cputs(" count18h=");
+
+ push main_2
+ call cputs
+ add  sp, 2
+;-176     printunsign(count18h);
 
  push word [count18h]
  call printunsign
  add  sp, 2
-;-154 //    cputs(" end main.");
-
-;-155 }
+;-177 }
 
  ret
 main_0 db "Int18h=",0
-main_1 db " count18h=",0
+main_1 db " KernelVer:",0
+main_2 db " count18h=",0
 ENDP
-;Glob. variables:7 (300), Functions:12 (300), Lines:156
-;Constant: 49 (3000), stacksize: 40536
+;Glob. variables:7 (300), Functions:16 (300), Lines:178
+;Constant: 76 (3000), stacksize: 40536

@@ -4,10 +4,10 @@ char KERNEL_ERR=0;
 unsigned int count18h=0;
 unsigned int vAX;
 
-int writetty()     {
+int writetty()     {//char in AL
     ah=0x0E;
-    bx=0;     //
-    asm int 16 ;int 10h
+    bx=0;     //page
+    inth 0x10;
 }
 int putch(char c)  {
     if (c==10)  {
@@ -17,7 +17,7 @@ int putch(char c)  {
     al=c;
     writetty();
 }
-int cputs(char *s) {
+int cputs(char *s) {//only with correct DS !!!
     char c;
     while(*s) {
         c=*s;
@@ -53,13 +53,35 @@ int printunsign(unsigned int n) {
     putch(n);
 }
 
+int getch() {
+    ah=0x10;//MF2-KBD read char
+    inth 0x16;//AH=Scan code, AL=char
+}
+int waitkey() {
+    ah=0x11;//get kbd status
+    inth 0x16;//AH:Scan code, AL:char read, resting in buffer
+    //zero flag: 0=IS char, 1=NO char
+    __emit__(0x74,0xFA);// jz back 2 bytes until char read
+}
+int getkey() {
+    waitkey();
+    getch();
+    ah=0;//clear scan code
+    if (al == 0) getch() + 0x100;
+    //put ext code in AX
+}
+int kbdEcho() {
+    getkey();
+    writetty();
+}
+
 int DosInt() {
-    asm int 33; 21h
+    inth 0x21;
     __emit__(0x73, 04); //jnc over DOS_ERR++
     DOS_ERR++;
 }
 int KernelInt() {
-    asm int 24; 18h
+    inth 0x18;
     __emit__(0x73, 04); //jnc over KERNEL_ERR++
     KERNEL_ERR++;
 }
@@ -67,6 +89,7 @@ int KernelInt() {
 int KERNEL_START() {
     count18h++;
     asm sti; set int enable
+
     if (ah==0x25) {//setIntVec in AL from DS:DX
         asm cli; clear int enable, turn OFF int
         asm push ax
@@ -128,7 +151,7 @@ int main() {
     ax=0x2518;
 //    DosInt();
     KernelInt();
-    
+
     GetIntVec(0x18);
     cputs("Int18h=");
     printhex16(VecOldSeg);
@@ -136,7 +159,7 @@ int main() {
     printhex16(VecOldOfs);
 
 
-/*
+
     ah=0x30;
     KernelInt();
     asm mov [vAX], ax
@@ -148,8 +171,7 @@ int main() {
 
     ah=0x99;//test error function not found
     KernelInt();
-*/
+
     cputs(" count18h=");
     printunsign(count18h);
-//    cputs(" end main.");
 }
