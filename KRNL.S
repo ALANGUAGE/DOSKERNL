@@ -537,123 +537,168 @@ GetIntVec: PROC
 
 ;-146 
 
-;-147 int main() {
+;-147 int GetDate() {
+
+ LEAVE
+ ret
+ENDP
+
+GetDate: PROC
+;-148     int year;char month;char day;char dayofweek;
+
+;-149     ah=0x2A;
+;
+ ENTER  8,0
+ mov  ah, 42
+;-150     DosInt();
+
+ call DosInt
+;-151     asm mov [bp-2], cx; year
+
+ mov [bp-2], cx; year
+;-152     asm mov [bp-4], dh; month
+
+ mov [bp-4], dh; month
+;-153     asm mov [bp-6], dl; day
+
+ mov [bp-6], dl; day
+;-154     asm mov [bp-8], al; dayofweek
+
+ mov [bp-8], al; dayofweek
+;-155     printunsign(dayofweek);
+
+ mov al, byte [bp-8]
+ mov ah, 0
+ push ax
+ call printunsign
+ add  sp, 2
+;-156     putch(':');
+
+ push 58
+ call putch
+ add  sp, 2
+;-157     printunsign(day);
+
+ mov al, byte [bp-6]
+ mov ah, 0
+ push ax
+ call printunsign
+ add  sp, 2
+;-158     putch('.');
+
+ push 46
+ call putch
+ add  sp, 2
+;-159     printunsign(month);
+
+ mov al, byte [bp-4]
+ mov ah, 0
+ push ax
+ call printunsign
+ add  sp, 2
+;-160     putch('.');
+
+ push 46
+ call putch
+ add  sp, 2
+;-161     printunsign(year);
+
+ push word [bp-2]
+ call printunsign
+ add  sp, 2
+;-162 }
+
+;-163 
+
+;-164 int main() {
 
  LEAVE
  ret
 ENDP
 
 main: PROC
-;-148     count18h=0;
+;-165     count18h=0;
 
  mov ax, 0
  mov word [count18h], ax
-;-149     //set Int Vec to KERNEL_START
+;-166     //set Int Vec to KERNEL_START
 
-;-150     asm mov dx, KERNEL_START
+;-167     asm mov dx, KERNEL_START
 
  mov dx, KERNEL_START
-;-151     ax=0x2518;
+;-168     ax=0x2518;
 
  mov  ax, 9496
-;-152 //    DosInt();
+;-169 //    DosInt();
 
-;-153     KernelInt();
+;-170     KernelInt();
 
  call KernelInt
-;-154 
+;-171 
 
-;-155     GetIntVec(0x18);
+;-172     GetDate();
 
- push 24
- call GetIntVec
- add  sp, 2
-;-156     cputs("Int18h=");
+ call GetDate
+;-173 //    cputs(datestr);
+
+;-174 //    putch(' ');
+
+;-175 
+
+;-176 /*    GetIntVec(0x18);
+
+;-177     cputs("Int18h=");
+
+;-178     printhex16(VecOldSeg);
+
+;-179     putch(':');
+
+;-180     printhex16(VecOldOfs);
+
+;-181 */
+
+;-182 
+
+;-183 /*
+
+;-184     ah=0x30;
+
+;-185     KernelInt();
+
+;-186     asm mov [vAX], ax
+
+;-187     cputs(" KernelVer:");
+
+;-188     printhex4(vAX);
+
+;-189     putch('.');
+
+;-190     vAX=vAX >>8;
+
+;-191     printunsign(vAX);
+
+;-192 */
+
+;-193 //    ah=0x99;//test error function not found
+
+;-194 //    KernelInt();
+
+;-195 
+
+;-196     cputs(" c18h=");
 
  push main_0
  call cputs
  add  sp, 2
-;-157     printhex16(VecOldSeg);
-
- push word [VecOldSeg]
- call printhex16
- add  sp, 2
-;-158     putch(':');
-
- push 58
- call putch
- add  sp, 2
-;-159     printhex16(VecOldOfs);
-
- push word [VecOldOfs]
- call printhex16
- add  sp, 2
-;-160 
-
-;-161 
-
-;-162 
-
-;-163     ah=0x30;
-
- mov  ah, 48
-;-164     KernelInt();
-
- call KernelInt
-;-165     asm mov [vAX], ax
-
- mov [vAX], ax
-;-166     cputs(" KernelVer:");
-
- push main_1
- call cputs
- add  sp, 2
-;-167     printhex4(vAX);
-
- push word [vAX]
- call printhex4
- add  sp, 2
-;-168     putch('.');
-
- push 46
- call putch
- add  sp, 2
-;-169     vAX=vAX >>8;
-
- mov ax, [vAX]
- shr ax, 8
- mov word [vAX], ax
-;-170     printunsign(vAX);
-
- push word [vAX]
- call printunsign
- add  sp, 2
-;-171 
-
-;-172     ah=0x99;//test error function not found
-
- mov  ah, 153
-;-173     KernelInt();
-
- call KernelInt
-;-174 
-
-;-175     cputs(" count18h=");
-
- push main_2
- call cputs
- add  sp, 2
-;-176     printunsign(count18h);
+;-197     printunsign(count18h);
 
  push word [count18h]
  call printunsign
  add  sp, 2
-;-177 }
+;-198 }
 
  ret
-main_0 db "Int18h=",0
-main_1 db " KernelVer:",0
-main_2 db " count18h=",0
+main_0 db " c18h=",0
 ENDP
-;Glob. variables:7 (300), Functions:16 (300), Lines:178
-;Constant: 76 (3000), stacksize: 40536
+;Glob. variables:7 (300), Functions:17 (300), Lines:199
+;Constant: 43 (3000), stacksize: 40536

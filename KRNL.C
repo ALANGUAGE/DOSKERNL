@@ -144,6 +144,23 @@ int GetIntVec(char c) {
     asm pop es
 }
 
+int GetDate() {
+    int year;char month;char day;char dayofweek;
+    ah=0x2A;
+    DosInt();
+    asm mov [bp-2], cx; year
+    asm mov [bp-4], dh; month
+    asm mov [bp-6], dl; day
+    asm mov [bp-8], al; dayofweek
+    printunsign(dayofweek);
+    putch(':');
+    printunsign(day);
+    putch('.');
+    printunsign(month);
+    putch('.');
+    printunsign(year);
+}
+
 int main() {
     count18h=0;
     //set Int Vec to KERNEL_START
@@ -152,14 +169,18 @@ int main() {
 //    DosInt();
     KernelInt();
 
-    GetIntVec(0x18);
+    GetDate();
+//    cputs(datestr);
+//    putch(' ');
+
+/*    GetIntVec(0x18);
     cputs("Int18h=");
     printhex16(VecOldSeg);
     putch(':');
     printhex16(VecOldOfs);
+*/
 
-
-
+/*
     ah=0x30;
     KernelInt();
     asm mov [vAX], ax
@@ -168,10 +189,10 @@ int main() {
     putch('.');
     vAX=vAX >>8;
     printunsign(vAX);
+*/
+//    ah=0x99;//test error function not found
+//    KernelInt();
 
-    ah=0x99;//test error function not found
-    KernelInt();
-
-    cputs(" count18h=");
+    cputs(" c18h=");
     printunsign(count18h);
 }
