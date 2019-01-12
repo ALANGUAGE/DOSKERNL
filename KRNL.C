@@ -159,6 +159,94 @@ int GetDate() {
     printunsign(month);
     putch('.');
     printunsign(year);
+    putch(' ');
+}
+int RTCDate() {
+    char year;char month;char day;char cent;
+    cputs(" RTC:");
+    ah=4;
+    inth 0x1A;
+    __emit__(0x73, 04); //jnc over KERNEL_ERR++
+    KERNEL_ERR++;
+
+    asm mov [bp-2], cl; year
+    asm mov [bp-4], dh; month
+    asm mov [bp-6], dl; day
+    asm mov [bp-8], ch; cent
+    if (KERNEL_ERR > 0) cputs("ERROR no RTC");
+//    printunsign(day);
+    printhex8(day);
+    putch('.');
+//    printunsign(month);
+    printhex8(month);
+    putch('.');
+    printhex8(cent);
+//    printunsign(year);
+    printhex8(year);
+    putch(' ');
+}
+
+char datestr[20];
+int Int1ADate(char *s) {
+    char year;char month;char day;char y20;
+    ah=4;
+    inth 0x1A;
+    __emit__(0x73, 04); //jnc over KERNEL_ERR++
+    KERNEL_ERR++;
+    asm mov [bp-2], cl; year
+    asm mov [bp-4], dh; month
+    asm mov [bp-6], dl; day
+    asm mov [bp-8], ch; y20
+
+  *s=year / 10; *s=*s+'0'; s++;
+  *s=year % 10; *s=*s+'0'; s++;
+  *s='.'; s++;
+  *s=month/ 10; *s=*s+'0'; s++;
+  *s=month% 10; *s=*s+'0'; s++;
+  *s='.'; s++;
+  *s=day  / 10; *s=*s+'0'; s++;
+  *s=day  % 10; *s=*s+'0'; s++;
+  *s=' '; s++;
+  *s=0;
+}
+
+int GetTime() {
+    char hour; char min; char sec; char h100;
+    ah=0x2C;
+    DosInt();
+    asm mov [bp-2], ch; hour
+    asm mov [bp-4], cl; min
+    asm mov [bp-6], dh; sec
+    asm mov [bp-8], dl; h100
+    printunsign(hour);
+    putch(':');
+    printunsign(min);
+    putch(':');
+    printunsign(sec);
+    putch('-');
+    printunsign(h100);
+}
+int GetTicker() {
+    cputs(" GetTi.LO/HI:");
+    ah=0;
+    inth 0x1A;
+    printunsign(dx);
+    putch(':');
+    printunsign(cx);
+}
+int BiosTicks() {
+    cputs(" BiosTi.LO/HI:");
+    asm push es
+    ax=0x40;
+    es=ax;
+    __emit__(0x26);// ES:
+    asm mov ax, [108]; 6Ch
+    printunsign(ax);
+    putch(':');
+    __emit__(0x26);// ES:
+    asm mov ax, [110]; 6Eh
+    printunsign(ax);
+    asm pop es
 }
 
 int main() {
@@ -170,6 +258,12 @@ int main() {
     KernelInt();
 
     GetDate();
+    RTCDate();
+    Int1ADate(datestr);
+    cputs(datestr);
+    GetTime();
+    GetTicker();
+    BiosTicks();
 //    cputs(datestr);
 //    putch(' ');
 
