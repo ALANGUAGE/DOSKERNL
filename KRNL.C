@@ -143,75 +143,73 @@ int GetIntVec(char c) {
     asm mov [VecOldSeg], es
     asm pop es
 }
+int GetIntVecDos(char c) {
+    asm push es
+    al=c;
+    ah=0x35;
+    DosInt();
+    asm mov [VecOldOfs], bx
+    asm mov [VecOldSeg], es
+    asm pop es
+}
 
-int GetDate() {
-    int year;char month;char day;char dayofweek;
+int RTCDate() {
+    char cent;char year;char month;char day;
+    cputs(" RTC Date:");
+    ah=4;
+    inth 0x1A;
+    __emit__(0x73, 04); //jnc over KERNEL_ERR++
+    KERNEL_ERR++;
+    asm mov [bp-2], ch; cent
+    asm mov [bp-4], cl; year
+    asm mov [bp-6], dh; month
+    asm mov [bp-8], dl; day
+    if (KERNEL_ERR > 0) cputs("ERROR no RTC");
+    printhex8(day);
+    putch('.');
+    printhex8(month);
+    putch('.');
+    printhex8(cent);
+    printhex8(year);
+}
+int GetDateDos() {
+    int year;char month;char day;int dayofweek;
+    cputs(" DosDate:");
     ah=0x2A;
     DosInt();
     asm mov [bp-2], cx; year
     asm mov [bp-4], dh; month
     asm mov [bp-6], dl; day
     asm mov [bp-8], al; dayofweek
-    printunsign(dayofweek);
-    putch(':');
+//    printunsign(dayofweek);
+//    putch('-');
     printunsign(day);
     putch('.');
     printunsign(month);
     putch('.');
     printunsign(year);
-    putch(' ');
 }
-int RTCDate() {
-    char year;char month;char day;char cent;
-    cputs(" RTC:");
-    ah=4;
+
+int GetRTCTime() {
+    char hour; char min; char sec;
+    cputs(" RTCTime:");
+    ah=2;
     inth 0x1A;
     __emit__(0x73, 04); //jnc over KERNEL_ERR++
     KERNEL_ERR++;
-
-    asm mov [bp-2], cl; year
-    asm mov [bp-4], dh; month
-    asm mov [bp-6], dl; day
-    asm mov [bp-8], ch; cent
+    asm mov [bp-2], ch; hour
+    asm mov [bp-4], cl; min
+    asm mov [bp-6], dh; sec
     if (KERNEL_ERR > 0) cputs("ERROR no RTC");
-//    printunsign(day);
-    printhex8(day);
-    putch('.');
-//    printunsign(month);
-    printhex8(month);
-    putch('.');
-    printhex8(cent);
-//    printunsign(year);
-    printhex8(year);
-    putch(' ');
+    printhex8(hour);
+    putch(':');
+    printhex8(min);
+    putch(':');
+    printhex8(sec);
 }
-
-char datestr[20];
-int Int1ADate(char *s) {
-    char year;char month;char day;char y20;
-    ah=4;
-    inth 0x1A;
-    __emit__(0x73, 04); //jnc over KERNEL_ERR++
-    KERNEL_ERR++;
-    asm mov [bp-2], cl; year
-    asm mov [bp-4], dh; month
-    asm mov [bp-6], dl; day
-    asm mov [bp-8], ch; y20
-
-  *s=year / 10; *s=*s+'0'; s++;
-  *s=year % 10; *s=*s+'0'; s++;
-  *s='.'; s++;
-  *s=month/ 10; *s=*s+'0'; s++;
-  *s=month% 10; *s=*s+'0'; s++;
-  *s='.'; s++;
-  *s=day  / 10; *s=*s+'0'; s++;
-  *s=day  % 10; *s=*s+'0'; s++;
-  *s=' '; s++;
-  *s=0;
-}
-
-int GetTime() {
+int GetTimeDos() {
     char hour; char min; char sec; char h100;
+    cputs(" DosTime:");
     ah=0x2C;
     DosInt();
     asm mov [bp-2], ch; hour
@@ -223,19 +221,21 @@ int GetTime() {
     printunsign(min);
     putch(':');
     printunsign(sec);
-    putch('-');
-    printunsign(h100);
+//    putch('-');
+//    printunsign(h100);
 }
-int GetTicker() {
-    cputs(" GetTi.LO/HI:");
+
+int GetTickerBios() {
+    cputs(" BiosTicker LO/HI:");
     ah=0;
     inth 0x1A;
     printunsign(dx);
     putch(':');
     printunsign(cx);
 }
+/*
 int BiosTicks() {
-    cputs(" BiosTi.LO/HI:");
+    cputs(" Ticks 40:6C LO/HI:");
     asm push es
     ax=0x40;
     es=ax;
@@ -248,42 +248,43 @@ int BiosTicks() {
     printunsign(ax);
     asm pop es
 }
-
+*/
 int main() {
     count18h=0;
+//    GetIntVecDos(0x18);//new In18h is not connected
+//    cputs("Int18h old=");
+//    printhex16(VecOldSeg);
+//    putch(':');
+//    printhex16(VecOldOfs);
+
     //set Int Vec to KERNEL_START
     asm mov dx, KERNEL_START
     ax=0x2518;
-//    DosInt();
-    KernelInt();
+    DosInt();//new In18h is not connected
 
-    GetDate();
+//    GetIntVec(0x18);
+//    cputs(" Int18h new=");
+//    printhex16(VecOldSeg);
+//    putch(':');
+//    printhex16(VecOldOfs);
+
     RTCDate();
-    Int1ADate(datestr);
-    cputs(datestr);
-    GetTime();
-    GetTicker();
-    BiosTicks();
-//    cputs(datestr);
-//    putch(' ');
+    GetDateDos();
+    GetRTCTime();
+    GetTimeDos();
+    GetTickerBios();
 
-/*    GetIntVec(0x18);
-    cputs("Int18h=");
-    printhex16(VecOldSeg);
-    putch(':');
-    printhex16(VecOldOfs);
-*/
 
-/*
-    ah=0x30;
-    KernelInt();
-    asm mov [vAX], ax
-    cputs(" KernelVer:");
-    printhex4(vAX);
-    putch('.');
-    vAX=vAX >>8;
-    printunsign(vAX);
-*/
+
+//    ah=0x30;
+//    KernelInt();
+//    asm mov [vAX], ax
+//    cputs(" KernelVer:");
+//    printhex4(vAX);
+//    putch('.');
+//    vAX=vAX >>8;
+//    printunsign(vAX);
+
 //    ah=0x99;//test error function not found
 //    KernelInt();
 
