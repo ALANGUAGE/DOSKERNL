@@ -3,6 +3,8 @@ char DOS_ERR=0;
 char KERNEL_ERR=0;
 unsigned int count18h=0;
 unsigned int vAX;
+char cent;char year;char month;char day;
+char hour; char min; char sec;
 
 int writetty()     {//char in AL
     ah=0x0E;
@@ -75,6 +77,41 @@ int kbdEcho() {
     writetty();
 }
 
+int BCDtoChar(char BCD) {// converts 2 digit packed BCD
+    char LowNibble;
+    LowNibble = BCD & 0xF;// save ones digit
+    BCD >> 4;// extract tens digit, result in AX
+    asm push dx
+    dl = 10;
+    asm mul dl; result in AX
+    asm pop dx
+    al += LowNibble;
+    ah=0;//result is byte
+}
+int GetRTCDate() {
+//    cputs(" RTC Date:");
+    ah=4;
+    inth 0x1A;
+    __emit__(0x73, 04); //jnc over KERNEL_ERR++
+    KERNEL_ERR++;
+    asm mov [cent], ch; cent ... are used by GetDate
+    asm mov [year], cl
+    asm mov [month],dh
+    asm mov [day],  dl
+    if (KERNEL_ERR > 0) cputs("ERROR no RTC");
+}
+int GetRTCTime() {
+//    cputs(" RTCTime:");
+    ah=2;
+    inth 0x1A;
+    __emit__(0x73, 04); //jnc over KERNEL_ERR++
+    KERNEL_ERR++;
+    asm mov [hour], ch
+    asm mov [min],  cl
+    asm mov [sec],  dh
+    if (KERNEL_ERR > 0) cputs("ERROR no RTC");
+}
+
 int DosInt() {
     inth 0x21;
     __emit__(0x73, 04); //jnc over DOS_ERR++
@@ -112,6 +149,30 @@ int KERNEL_START() {
         asm sti;set int enable, turn ON int
         asm iret
     }
+    if (ah==0x2A) {//GetDate
+        GetRTCDate();// get Date in BCD
+        cent=BCDtoChar(cent);
+        year=BCDtoChar(year);
+        month=BCDtoChar(month);
+        day=BCDtoChar(day);
+        ch=0;
+        cl=year;
+        asm add cx, 2000; add century
+        dh=month;
+        dl=day;
+        asm iret
+    }
+    if (ah==0x2C) {//GetTime, NO 1/100 sec
+        GetRTCTime();
+        hour=BCDtoChar(hour);
+        min=BCDtoChar(min);
+        sec=BCDtoChar(sec);
+        ch=hour;
+        cl=min;
+        dh=sec;
+        dl=0;// NO 1/100 sec
+        asm iret
+    }
     if (ah==0x30) {//getDosVer
         ax=0x1E03; //Ver 3.30
         asm iret
@@ -128,7 +189,16 @@ int KERNEL_START() {
         asm sti; set int enable, turn ON int
         asm iret
     }
-    cputs(" FUNC 18h not impl.");
+    if (ah==0x4C) {//Terminate
+        al=0;//returncode
+        inth 0x21;
+        // asm iret
+    }
+
+    asm mov [vAX], ah
+    cputs(" FUNC ");
+    printhex8(vAX);
+    cputs(" not impl.");
     asm iret
 }
 unsigned int VecOldOfs;
@@ -153,25 +223,7 @@ int GetIntVecDos(char c) {
     asm pop es
 }
 
-int RTCDate() {
-    char cent;char year;char month;char day;
-    cputs(" RTC Date:");
-    ah=4;
-    inth 0x1A;
-    __emit__(0x73, 04); //jnc over KERNEL_ERR++
-    KERNEL_ERR++;
-    asm mov [bp-2], ch; cent
-    asm mov [bp-4], cl; year
-    asm mov [bp-6], dh; month
-    asm mov [bp-8], dl; day
-    if (KERNEL_ERR > 0) cputs("ERROR no RTC");
-    printhex8(day);
-    putch('.');
-    printhex8(month);
-    putch('.');
-    printhex8(cent);
-    printhex8(year);
-}
+/*
 int GetDateDos() {
     int year;char month;char day;int dayofweek;
     cputs(" DosDate:");
@@ -189,24 +241,8 @@ int GetDateDos() {
     putch('.');
     printunsign(year);
 }
-
-int GetRTCTime() {
-    char hour; char min; char sec;
-    cputs(" RTCTime:");
-    ah=2;
-    inth 0x1A;
-    __emit__(0x73, 04); //jnc over KERNEL_ERR++
-    KERNEL_ERR++;
-    asm mov [bp-2], ch; hour
-    asm mov [bp-4], cl; min
-    asm mov [bp-6], dh; sec
-    if (KERNEL_ERR > 0) cputs("ERROR no RTC");
-    printhex8(hour);
-    putch(':');
-    printhex8(min);
-    putch(':');
-    printhex8(sec);
-}
+*/
+/*
 int GetTimeDos() {
     char hour; char min; char sec; char h100;
     cputs(" DosTime:");
@@ -224,7 +260,7 @@ int GetTimeDos() {
 //    putch('-');
 //    printunsign(h100);
 }
-
+*/
 int GetTickerBios() {
     cputs(" BiosTicker LO/HI:");
     ah=0;
@@ -233,8 +269,8 @@ int GetTickerBios() {
     putch(':');
     printunsign(cx);
 }
-/*
-int BiosTicks() {
+
+int RAM046CTicks() {
     cputs(" Ticks 40:6C LO/HI:");
     asm push es
     ax=0x40;
@@ -248,7 +284,29 @@ int BiosTicks() {
     printunsign(ax);
     asm pop es
 }
-*/
+
+int printDateTime() {
+    day=BCDtoChar(day);
+    printunsign(day);
+    putch('.');
+    month=BCDtoChar(month);
+    printunsign(month);
+    putch('.');
+    cent=BCDtoChar(cent);
+    printunsign(cent);
+    year=BCDtoChar(year);
+    printunsign(year);
+    putch(' ');
+    hour=BCDtoChar(hour);
+    printunsign(hour);
+    putch(':');
+    min=BCDtoChar(min);
+    printunsign(min);
+    putch(':');
+    sec=BCDtoChar(sec);
+    printunsign(sec);
+    putch(' ');
+}
 int main() {
     count18h=0;
 //    GetIntVecDos(0x18);//new In18h is not connected
@@ -268,12 +326,29 @@ int main() {
 //    putch(':');
 //    printhex16(VecOldOfs);
 
-    RTCDate();
-    GetDateDos();
-    GetRTCTime();
-    GetTimeDos();
-    GetTickerBios();
+//    RTCDate();
+//    GetRTCTime();
+//    printDateTime();
+//    RAM046CTicks();
 
+    ah=0x2A;
+    KernelInt();
+    printunsign(day);
+    putch('.');
+    printunsign(month);
+    putch('.');
+    printunsign(cent);
+    printunsign(year);
+    putch(' ');
+
+    ah=0x2C;
+    KernelInt();
+    printunsign(hour);
+    putch(':');
+    printunsign(min);
+    putch(':');
+    printunsign(sec);
+    putch(' ');
 
 
 //    ah=0x30;
@@ -287,7 +362,8 @@ int main() {
 
 //    ah=0x99;//test error function not found
 //    KernelInt();
-
+    ah=0x4C;//Terminate
+    KernelInt();
     cputs(" c18h=");
     printunsign(count18h);
 }
