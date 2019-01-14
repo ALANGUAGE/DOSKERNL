@@ -134,6 +134,29 @@ int GetIntVec(char c) {
 int KERNEL_START() {
     count18h++;
     asm sti; set interrupt enable
+
+    if (ah==0x01) {//Read Keyboard and Echo
+        kbdEcho();
+        asm iret
+    }
+    if (ah==0x02) {//Display Character
+        al=dl;
+        writetty();
+        asm iret
+    }
+    if (ah==0x06) {//Direct Console I/O
+        if (dl == 0xFF) {// then read character
+            getch();
+            asm iret
+        }
+        al=dl;           // else display character
+        writetty();
+        asm iret
+    }
+    if (ah==0x07) {//Direct Console Input
+        getch();
+        asm iret
+    }
     if (ah==0x09) {//display string in DS:DX
         asm push si
         si=dx;
@@ -197,6 +220,11 @@ int KERNEL_START() {
         ax=0x1E03; //Ver 3.30
         asm iret
     }
+    if (ah==0x33) {//Control C Check (break)
+        al=0xFF;// error for all subcodes
+        dl=0;// always off
+        asm iret
+    }
     if (ah==0x35) {//getIntVec in AL to ES:BX
         asm cli; clear int enable, turn OFF int
         asm push ds
@@ -214,11 +242,16 @@ int KERNEL_START() {
         inth 0x21;
         // asm iret
     }
+    if (ah==0x54) {//GetVerifyState
+        al=0;// always off
+        asm iret
+    }
     // function not implemented
     asm mov [vAX], ah
     cputs(" FUNC ");
     printhex8(vAX);
     cputs(" not impl.");
+    inth 3;// break
     asm iret
 }// END OF TSR
 
