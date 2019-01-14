@@ -1,12 +1,11 @@
 ;PLA compiler A.COM V0.9.6, Input: KRNL.C, Output: KRNL.S
 org  256 
 jmp main
-;-1 char Version1[]="KERNEL.COM V0.1";
+;-1 char Version1[]="KERNEL.COM V0.1b";
 
-Version1 db "KERNEL.COM V0.1",0
-;-2 char DOS_ERR=0;
+Version1 db "KERNEL.COM V0.1b",0
+;-2 //---------------------------- Kernel Data Area ---------------------
 
-DOS_ERR db 0
 ;-3 char KERNEL_ERR=0;
 
 KERNEL_ERR db 0
@@ -27,7 +26,7 @@ day db 0
 hour db 0
 min db 0
 sec db 0
-;-8 
+;-8 //--------------------------- Bios Routines I/O ---------------------
 
 ;-9 int writetty()     {//char in AL
 
@@ -328,15 +327,15 @@ kbdEcho: PROC
  call writetty
 ;-78 }
 
-;-79 
+;-79 // ------------------------- Bios Functions -------------------------
 
-;-80 int BCDtoChar(char BCD) {// converts 2 digit packed BCD
+;-80 int BCDtoChar(char BCD) { // converts 2 digit packed BCD
 
  ret
 ENDP
 
 BCDtoChar: PROC
-;-81     char LowNibble;
+;-81     char LowNibble;       // to Integer
 
 ;-82     LowNibble = BCD & 0xF;// save ones digit
 ;
@@ -453,134 +452,158 @@ GetRTCTime: PROC
 ;-113 }
 
 .GetRTCTime8:
-;-114 
+;-114 //--------------------------- Kernel Routines -----------------------
 
-;-115 int DosInt() {
+;-115 int KernelInt() {
 
  ret
 GetRTCTime_0 db "ERROR no RTC",0
 ENDP
 
-DosInt: PROC
-;-116     inth 0x21;
+KernelInt: PROC
+;-116     inth 0x18;
 
- int  33
-;-117     __emit__(0x73, 04); //jnc over DOS_ERR++
+ int  24
+;-117     __emit__(0x73, 04); //jnc over KERNEL_ERR++
 
  db 115,4
-;-118     DOS_ERR++;
+;-118     KERNEL_ERR++;
 
- inc  byte[DOS_ERR]
+ inc  byte[KERNEL_ERR]
 ;-119 }
 
-;-120 int KernelInt() {
+;-120 unsigned int VecOldOfs;
 
  ret
 ENDP
+VecOldOfs dw 0
+;-121 unsigned int VecOldSeg;
 
-KernelInt: PROC
-;-121     inth 0x18;
+VecOldSeg dw 0
+;-122 
 
- int  24
-;-122     __emit__(0x73, 04); //jnc over KERNEL_ERR++
+;-123 int GetIntVec(char c) {
 
- db 115,4
-;-123     KERNEL_ERR++;
 
- inc  byte[KERNEL_ERR]
-;-124 }
+GetIntVec: PROC
+;-124     asm push es
+;
+ ENTER  0,0
+ push es
+;-125     al=c;
 
-;-125 
+ mov  al, [bp+4]
+;-126     ah=0x35;
 
-;-126 int KERNEL_START() {
+ mov  ah, 53
+;-127     KernelInt();
 
+ call KernelInt
+;-128     asm mov [VecOldOfs], bx
+
+ mov [VecOldOfs], bx
+;-129     asm mov [VecOldSeg], es
+
+ mov [VecOldSeg], es
+;-130     asm pop es
+
+ pop es
+;-131 }
+
+;-132 
+
+;-133 //--------------------------- Start of new Interrupt 18h ------------
+
+;-134 int KERNEL_START() {
+
+ LEAVE
  ret
 ENDP
 
 KERNEL_START: PROC
-;-127     count18h++;
+;-135     count18h++;
 
  inc  word[count18h]
-;-128     asm sti; set int enable
+;-136     asm sti; set int enable
 
  sti; set int enable
-;-129 
+;-137 
 
-;-130     if (ah==0x25) {//setIntVec in AL from DS:DX
+;-138     if (ah==0x25) {//setIntVec in AL from DS:DX
 
  cmp  ah, 37
  jne .KERNEL_START9
-;-131         asm cli; clear int enable, turn OFF int
+;-139         asm cli; clear int enable, turn OFF int
 
  cli; clear int enable, turn OFF int
-;-132         asm push ax
+;-140         asm push ax
 
  push ax
-;-133         asm push es
+;-141         asm push es
 
  push es
-;-134         asm push di
+;-142         asm push di
 
  push di
-;-135         asm push ds; later pop ax
+;-143         asm push ds; later pop ax
 
  push ds; later pop ax
-;-136         ax << 2;
+;-144         ax << 2;
 
  shl  ax, 2
-;-137         ah=0;
+;-145         ah=0;
 
  mov  ah, 0
-;-138         di=ax;
+;-146         di=ax;
 
  mov  di, ax
-;-139         ax=0;
+;-147         ax=0;
 
  mov  ax, 0
-;-140         es=ax;//segment 0
+;-148         es=ax;//segment 0
 
  mov  es, ax
-;-141         ax=dx;
+;-149         ax=dx;
 
  mov  ax, dx
-;-142         asm cld; clear direction, Up
+;-150         asm cld; clear direction, Up
 
  cld; clear direction, Up
-;-143         asm stosw; ofs in DX to ES:DI
+;-151         asm stosw; ofs in DX to ES:DI
 
  stosw; ofs in DX to ES:DI
-;-144         asm pop ax; get DS
+;-152         asm pop ax; get DS
 
  pop ax; get DS
-;-145         asm stosw; seg (DS) to ES:DI+2
+;-153         asm stosw; seg (DS) to ES:DI+2
 
  stosw; seg (DS) to ES:DI+2
-;-146         asm pop di
+;-154         asm pop di
 
  pop di
-;-147         asm pop es
+;-155         asm pop es
 
  pop es
-;-148         asm pop ax
+;-156         asm pop ax
 
  pop ax
-;-149         asm sti;set int enable, turn ON int
+;-157         asm sti;set int enable, turn ON int
 
  sti;set int enable, turn ON int
-;-150         asm iret
+;-158         asm iret
 
  iret
-;-151     }
+;-159     }
 
-;-152     if (ah==0x2A) {//GetDate
+;-160     if (ah==0x2A) {//GetDate
 
 .KERNEL_START9:
  cmp  ah, 42
  jne .KERNEL_START10
-;-153         GetRTCDate();// get Date in BCD
+;-161         GetRTCDate();// get Date in BCD
 
  call GetRTCDate
-;-154         cent=BCDtoChar(cent);
+;-162         cent=BCDtoChar(cent);
 
  mov al, byte [cent]
  mov ah, 0
@@ -588,7 +611,7 @@ KERNEL_START: PROC
  call BCDtoChar
  add  sp, 2
  mov byte [cent], al
-;-155         year=BCDtoChar(year);
+;-163         year=BCDtoChar(year);
 
  mov al, byte [year]
  mov ah, 0
@@ -596,7 +619,7 @@ KERNEL_START: PROC
  call BCDtoChar
  add  sp, 2
  mov byte [year], al
-;-156         month=BCDtoChar(month);
+;-164         month=BCDtoChar(month);
 
  mov al, byte [month]
  mov ah, 0
@@ -604,7 +627,7 @@ KERNEL_START: PROC
  call BCDtoChar
  add  sp, 2
  mov byte [month], al
-;-157         day=BCDtoChar(day);
+;-165         day=BCDtoChar(day);
 
  mov al, byte [day]
  mov ah, 0
@@ -612,35 +635,35 @@ KERNEL_START: PROC
  call BCDtoChar
  add  sp, 2
  mov byte [day], al
-;-158         ch=0;
+;-166         ch=0;
 
  mov  ch, 0
-;-159         cl=year;
+;-167         cl=year;
 
  mov  cl, [year]
-;-160         asm add cx, 2000; add century
+;-168         asm add cx, 2000; add century
 
  add cx, 2000; add century
-;-161         dh=month;
+;-169         dh=month;
 
  mov  dh, [month]
-;-162         dl=day;
+;-170         dl=day;
 
  mov  dl, [day]
-;-163         asm iret
+;-171         asm iret
 
  iret
-;-164     }
+;-172     }
 
-;-165     if (ah==0x2C) {//GetTime, NO 1/100 sec
+;-173     if (ah==0x2C) {//GetTime, NO 1/100 sec
 
 .KERNEL_START10:
  cmp  ah, 44
  jne .KERNEL_START11
-;-166         GetRTCTime();
+;-174         GetRTCTime();
 
  call GetRTCTime
-;-167         hour=BCDtoChar(hour);
+;-175         hour=BCDtoChar(hour);
 
  mov al, byte [hour]
  mov ah, 0
@@ -648,7 +671,7 @@ KERNEL_START: PROC
  call BCDtoChar
  add  sp, 2
  mov byte [hour], al
-;-168         min=BCDtoChar(min);
+;-176         min=BCDtoChar(min);
 
  mov al, byte [min]
  mov ah, 0
@@ -656,7 +679,7 @@ KERNEL_START: PROC
  call BCDtoChar
  add  sp, 2
  mov byte [min], al
-;-169         sec=BCDtoChar(sec);
+;-177         sec=BCDtoChar(sec);
 
  mov al, byte [sec]
  mov ah, 0
@@ -664,695 +687,399 @@ KERNEL_START: PROC
  call BCDtoChar
  add  sp, 2
  mov byte [sec], al
-;-170         ch=hour;
+;-178         ch=hour;
 
  mov  ch, [hour]
-;-171         cl=min;
+;-179         cl=min;
 
  mov  cl, [min]
-;-172         dh=sec;
+;-180         dh=sec;
 
  mov  dh, [sec]
-;-173         dl=0;// NO 1/100 sec
+;-181         dl=0;// NO 1/100 sec
 
  mov  dl, 0
-;-174         asm iret
+;-182         asm iret
 
  iret
-;-175     }
+;-183     }
 
-;-176     if (ah==0x30) {//getDosVer
+;-184     if (ah==0x30) {//getDosVer
 
 .KERNEL_START11:
  cmp  ah, 48
  jne .KERNEL_START12
-;-177         ax=0x1E03; //Ver 3.30
+;-185         ax=0x1E03; //Ver 3.30
 
  mov  ax, 7683
-;-178         asm iret
+;-186         asm iret
 
  iret
-;-179     }
+;-187     }
 
-;-180     if (ah==0x35) {//getIntVec in AL to ES:BX
+;-188     if (ah==0x35) {//getIntVec in AL to ES:BX
 
 .KERNEL_START12:
  cmp  ah, 53
  jne .KERNEL_START13
-;-181         asm cli; clear int enable, turn OFF int
+;-189         asm cli; clear int enable, turn OFF int
 
  cli; clear int enable, turn OFF int
-;-182         asm push ds
+;-190         asm push ds
 
  push ds
-;-183         bx=0;
+;-191         bx=0;
 
  mov  bx, 0
-;-184         ds=bx;  //Int table starts at 0000
+;-192         ds=bx;  //Int table starts at 0000
 
  mov  ds, bx
-;-185         bl=al;
+;-193         bl=al;
 
  mov  bl, al
-;-186         bx << 2;//int is 4 bytes long
+;-194         bx << 2;//int is 4 bytes long
 
  shl  bx, 2
-;-187         asm les bx, [bx]; ofs in bx, seg in es
+;-195         asm les bx, [bx]; ofs in bx, seg in es
 
  les bx, [bx]; ofs in bx, seg in es
-;-188         asm pop ds
+;-196         asm pop ds
 
  pop ds
-;-189         asm sti; set int enable, turn ON int
+;-197         asm sti; set int enable, turn ON int
 
  sti; set int enable, turn ON int
-;-190         asm iret
+;-198         asm iret
 
  iret
-;-191     }
+;-199     }
 
-;-192     if (ah==0x4C) {//Terminate
+;-200     if (ah==0x4C) {//Terminate
 
 .KERNEL_START13:
  cmp  ah, 76
  jne .KERNEL_START14
-;-193         al=0;//returncode
+;-201         al=0;//returncode
 
  mov  al, 0
-;-194         inth 0x21;
+;-202         inth 0x21;
 
  int  33
-;-195         // asm iret
+;-203         // asm iret
 
-;-196     }
+;-204     }
 
-;-197 
+;-205     // function not implemented
 
-;-198     asm mov [vAX], ah
+;-206     asm mov [vAX], ah
 
 .KERNEL_START14:
  mov [vAX], ah
-;-199     cputs(" FUNC ");
+;-207     cputs(" FUNC ");
 
  push KERNEL_START_0
  call cputs
  add  sp, 2
-;-200     printhex8(vAX);
+;-208     printhex8(vAX);
 
  push word [vAX]
  call printhex8
  add  sp, 2
-;-201     cputs(" not impl.");
+;-209     cputs(" not impl.");
 
  push KERNEL_START_1
  call cputs
  add  sp, 2
-;-202     asm iret
+;-210     asm iret
 
  iret
-;-203 }
+;-211 }// END OF TSR
 
-;-204 unsigned int VecOldOfs;
+;-212 
+
+;-213 //--------------------------- Kernel Programs for separate use
+
+;-214 int GetTickerBios() {
 
  ret
 KERNEL_START_0 db " FUNC ",0
 KERNEL_START_1 db " not impl.",0
 ENDP
-VecOldOfs dw 0
-;-205 unsigned int VecOldSeg;
-
-VecOldSeg dw 0
-;-206 
-
-;-207 int GetIntVec(char c) {
-
-
-GetIntVec: PROC
-;-208     asm push es
-;
- ENTER  0,0
- push es
-;-209     al=c;
-
- mov  al, [bp+4]
-;-210     ah=0x35;
-
- mov  ah, 53
-;-211     KernelInt();
-
- call KernelInt
-;-212     asm mov [VecOldOfs], bx
-
- mov [VecOldOfs], bx
-;-213     asm mov [VecOldSeg], es
-
- mov [VecOldSeg], es
-;-214     asm pop es
-
- pop es
-;-215 }
-
-;-216 int GetIntVecDos(char c) {
-
- LEAVE
- ret
-ENDP
-
-GetIntVecDos: PROC
-;-217     asm push es
-;
- ENTER  0,0
- push es
-;-218     al=c;
-
- mov  al, [bp+4]
-;-219     ah=0x35;
-
- mov  ah, 53
-;-220     DosInt();
-
- call DosInt
-;-221     asm mov [VecOldOfs], bx
-
- mov [VecOldOfs], bx
-;-222     asm mov [VecOldSeg], es
-
- mov [VecOldSeg], es
-;-223     asm pop es
-
- pop es
-;-224 }
-
-;-225 
-
-;-226 /*
-
-;-227 int GetDateDos() {
-
-;-228     int year;char month;char day;int dayofweek;
-
-;-229     cputs(" DosDate:");
-
-;-230     ah=0x2A;
-
-;-231     DosInt();
-
-;-232     asm mov [bp-2], cx; year
-
-;-233     asm mov [bp-4], dh; month
-
-;-234     asm mov [bp-6], dl; day
-
-;-235     asm mov [bp-8], al; dayofweek
-
-;-236 //    printunsign(dayofweek);
-
-;-237 //    putch('-');
-
-;-238     printunsign(day);
-
-;-239     putch('.');
-
-;-240     printunsign(month);
-
-;-241     putch('.');
-
-;-242     printunsign(year);
-
-;-243 }
-
-;-244 */
-
-;-245 /*
-
-;-246 int GetTimeDos() {
-
-;-247     char hour; char min; char sec; char h100;
-
-;-248     cputs(" DosTime:");
-
-;-249     ah=0x2C;
-
-;-250     DosInt();
-
-;-251     asm mov [bp-2], ch; hour
-
-;-252     asm mov [bp-4], cl; min
-
-;-253     asm mov [bp-6], dh; sec
-
-;-254     asm mov [bp-8], dl; h100
-
-;-255     printunsign(hour);
-
-;-256     putch(':');
-
-;-257     printunsign(min);
-
-;-258     putch(':');
-
-;-259     printunsign(sec);
-
-;-260 //    putch('-');
-
-;-261 //    printunsign(h100);
-
-;-262 }
-
-;-263 */
-
-;-264 int GetTickerBios() {
-
- LEAVE
- ret
-ENDP
 
 GetTickerBios: PROC
-;-265     cputs(" BiosTicker LO/HI:");
+;-215     cputs(" BiosTicker LO/HI:");
 
  push GetTickerBios_0
  call cputs
  add  sp, 2
-;-266     ah=0;
+;-216     ah=0;
 
  mov  ah, 0
-;-267     inth 0x1A;
+;-217     inth 0x1A;
 
  int  26
-;-268     printunsign(dx);
+;-218     printunsign(dx);
 
  push dx
  call printunsign
  add  sp, 2
-;-269     putch(':');
+;-219     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-270     printunsign(cx);
+;-220     printunsign(cx);
 
  push cx
  call printunsign
  add  sp, 2
-;-271 }
+;-221 }
 
-;-272 
+;-222 
 
-;-273 int RAM046CTicks() {
+;-223 int RAM046CTicks() {
 
  ret
 GetTickerBios_0 db " BiosTicker LO/HI:",0
 ENDP
 
 RAM046CTicks: PROC
-;-274     cputs(" Ticks 40:6C LO/HI:");
+;-224     cputs(" Ticks @40:6C LO/HI:");
 
  push RAM046CTicks_0
  call cputs
  add  sp, 2
-;-275     asm push es
+;-225     asm push es
 
  push es
-;-276     ax=0x40;
+;-226     ax=0x40;
 
  mov  ax, 64
-;-277     es=ax;
+;-227     es=ax;
 
  mov  es, ax
-;-278     __emit__(0x26);// ES:
+;-228     __emit__(0x26);// ES:
 
  db 38
-;-279     asm mov ax, [108]; 6Ch
+;-229     asm mov ax, [108]; 6Ch
 
  mov ax, [108]; 6Ch
-;-280     printunsign(ax);
+;-230     printunsign(ax);
 
  push ax
  call printunsign
  add  sp, 2
-;-281     putch(':');
+;-231     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-282     __emit__(0x26);// ES:
+;-232     __emit__(0x26);// ES:
 
  db 38
-;-283     asm mov ax, [110]; 6Eh
+;-233     asm mov ax, [110]; 6Eh
 
  mov ax, [110]; 6Eh
-;-284     printunsign(ax);
+;-234     printunsign(ax);
 
  push ax
  call printunsign
  add  sp, 2
-;-285     asm pop es
+;-235     asm pop es
 
  pop es
-;-286 }
+;-236 }
 
-;-287 
+;-237 
 
-;-288 int printDateTime() {
+;-238 int printDateTime() {
 
  ret
-RAM046CTicks_0 db " Ticks 40:6C LO/HI:",0
+RAM046CTicks_0 db " Ticks @40:6C LO/HI:",0
 ENDP
 
 printDateTime: PROC
-;-289     day=BCDtoChar(day);
+;-239     ah=0x2A;
 
- mov al, byte [day]
- mov ah, 0
- push ax
- call BCDtoChar
- add  sp, 2
- mov byte [day], al
-;-290     printunsign(day);
+ mov  ah, 42
+;-240     KernelInt();
+
+ call KernelInt
+;-241     printunsign(day);
 
  mov al, byte [day]
  mov ah, 0
  push ax
  call printunsign
  add  sp, 2
-;-291     putch('.');
+;-242     putch('.');
 
  push 46
  call putch
  add  sp, 2
-;-292     month=BCDtoChar(month);
-
- mov al, byte [month]
- mov ah, 0
- push ax
- call BCDtoChar
- add  sp, 2
- mov byte [month], al
-;-293     printunsign(month);
+;-243     printunsign(month);
 
  mov al, byte [month]
  mov ah, 0
  push ax
  call printunsign
  add  sp, 2
-;-294     putch('.');
+;-244     putch('.');
 
  push 46
  call putch
  add  sp, 2
-;-295     cent=BCDtoChar(cent);
-
- mov al, byte [cent]
- mov ah, 0
- push ax
- call BCDtoChar
- add  sp, 2
- mov byte [cent], al
-;-296     printunsign(cent);
+;-245     printunsign(cent);
 
  mov al, byte [cent]
  mov ah, 0
  push ax
  call printunsign
  add  sp, 2
-;-297     year=BCDtoChar(year);
-
- mov al, byte [year]
- mov ah, 0
- push ax
- call BCDtoChar
- add  sp, 2
- mov byte [year], al
-;-298     printunsign(year);
+;-246     printunsign(year);
 
  mov al, byte [year]
  mov ah, 0
  push ax
  call printunsign
  add  sp, 2
-;-299     putch(' ');
+;-247     putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-300     hour=BCDtoChar(hour);
+;-248 
 
- mov al, byte [hour]
- mov ah, 0
- push ax
- call BCDtoChar
- add  sp, 2
- mov byte [hour], al
-;-301     printunsign(hour);
+;-249     ah=0x2C;
+
+ mov  ah, 44
+;-250     KernelInt();
+
+ call KernelInt
+;-251     printunsign(hour);
 
  mov al, byte [hour]
  mov ah, 0
  push ax
  call printunsign
  add  sp, 2
-;-302     putch(':');
+;-252     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-303     min=BCDtoChar(min);
-
- mov al, byte [min]
- mov ah, 0
- push ax
- call BCDtoChar
- add  sp, 2
- mov byte [min], al
-;-304     printunsign(min);
+;-253     printunsign(min);
 
  mov al, byte [min]
  mov ah, 0
  push ax
  call printunsign
  add  sp, 2
-;-305     putch(':');
+;-254     putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-306     sec=BCDtoChar(sec);
-
- mov al, byte [sec]
- mov ah, 0
- push ax
- call BCDtoChar
- add  sp, 2
- mov byte [sec], al
-;-307     printunsign(sec);
+;-255     printunsign(sec);
 
  mov al, byte [sec]
  mov ah, 0
  push ax
  call printunsign
  add  sp, 2
-;-308     putch(' ');
+;-256 }
 
- push 32
- call putch
- add  sp, 2
-;-309 }
-
-;-310 int main() {
+;-257 int printVersion() {
 
  ret
 ENDP
 
+printVersion: PROC
+;-258     ah=0x30;
+
+ mov  ah, 48
+;-259     KernelInt();
+
+ call KernelInt
+;-260     asm mov [vAX], ax
+
+ mov [vAX], ax
+;-261     cputs(" KernelVer:");
+
+ push printVersion_0
+ call cputs
+ add  sp, 2
+;-262     printhex4(vAX);
+
+ push word [vAX]
+ call printhex4
+ add  sp, 2
+;-263     putch('.');
+
+ push 46
+ call putch
+ add  sp, 2
+;-264     vAX=vAX >>8;
+
+ mov ax, [vAX]
+ shr ax, 8
+ mov word [vAX], ax
+;-265     printunsign(vAX);
+
+ push word [vAX]
+ call printunsign
+ add  sp, 2
+;-266 }
+
+;-267 int main() {
+
+ ret
+printVersion_0 db " KernelVer:",0
+ENDP
+
 main: PROC
-;-311     count18h=0;
+;-268     count18h=0;
 
  mov ax, 0
  mov word [count18h], ax
-;-312 //    GetIntVecDos(0x18);//new In18h is not connected
+;-269     //set Int Vec to KERNEL_START
 
-;-313 //    cputs("Int18h old=");
-
-;-314 //    printhex16(VecOldSeg);
-
-;-315 //    putch(':');
-
-;-316 //    printhex16(VecOldOfs);
-
-;-317 
-
-;-318     //set Int Vec to KERNEL_START
-
-;-319     asm mov dx, KERNEL_START
+;-270     asm mov dx, KERNEL_START
 
  mov dx, KERNEL_START
-;-320     ax=0x2518;
+;-271     ax=0x2518;
 
  mov  ax, 9496
-;-321     DosInt();//new In18h is not connected
+;-272     inth 0x21;//new In18h is not connected
 
- call DosInt
-;-322 
+ int  33
+;-273 
 
-;-323 //    GetIntVec(0x18);
+;-274     printDateTime();
 
-;-324 //    cputs(" Int18h new=");
+ call printDateTime
+;-275 
 
-;-325 //    printhex16(VecOldSeg);
-
-;-326 //    putch(':');
-
-;-327 //    printhex16(VecOldOfs);
-
-;-328 
-
-;-329 //    RTCDate();
-
-;-330 //    GetRTCTime();
-
-;-331 //    printDateTime();
-
-;-332 //    RAM046CTicks();
-
-;-333 
-
-;-334     ah=0x2A;
-
- mov  ah, 42
-;-335     KernelInt();
-
- call KernelInt
-;-336     printunsign(day);
-
- mov al, byte [day]
- mov ah, 0
- push ax
- call printunsign
- add  sp, 2
-;-337     putch('.');
-
- push 46
- call putch
- add  sp, 2
-;-338     printunsign(month);
-
- mov al, byte [month]
- mov ah, 0
- push ax
- call printunsign
- add  sp, 2
-;-339     putch('.');
-
- push 46
- call putch
- add  sp, 2
-;-340     printunsign(cent);
-
- mov al, byte [cent]
- mov ah, 0
- push ax
- call printunsign
- add  sp, 2
-;-341     printunsign(year);
-
- mov al, byte [year]
- mov ah, 0
- push ax
- call printunsign
- add  sp, 2
-;-342     putch(' ');
-
- push 32
- call putch
- add  sp, 2
-;-343 
-
-;-344     ah=0x2C;
-
- mov  ah, 44
-;-345     KernelInt();
-
- call KernelInt
-;-346     printunsign(hour);
-
- mov al, byte [hour]
- mov ah, 0
- push ax
- call printunsign
- add  sp, 2
-;-347     putch(':');
-
- push 58
- call putch
- add  sp, 2
-;-348     printunsign(min);
-
- mov al, byte [min]
- mov ah, 0
- push ax
- call printunsign
- add  sp, 2
-;-349     putch(':');
-
- push 58
- call putch
- add  sp, 2
-;-350     printunsign(sec);
-
- mov al, byte [sec]
- mov ah, 0
- push ax
- call printunsign
- add  sp, 2
-;-351     putch(' ');
-
- push 32
- call putch
- add  sp, 2
-;-352 
-
-;-353 
-
-;-354 //    ah=0x30;
-
-;-355 //    KernelInt();
-
-;-356 //    asm mov [vAX], ax
-
-;-357 //    cputs(" KernelVer:");
-
-;-358 //    printhex4(vAX);
-
-;-359 //    putch('.');
-
-;-360 //    vAX=vAX >>8;
-
-;-361 //    printunsign(vAX);
-
-;-362 
-
-;-363 //    ah=0x99;//test error function not found
-
-;-364 //    KernelInt();
-
-;-365     ah=0x4C;//Terminate
-
- mov  ah, 76
-;-366     KernelInt();
-
- call KernelInt
-;-367     cputs(" c18h=");
+;-276     cputs(" c18h=");
 
  push main_0
  call cputs
  add  sp, 2
-;-368     printunsign(count18h);
+;-277     printunsign(count18h);
 
  push word [count18h]
  call printunsign
  add  sp, 2
-;-369 }
+;-278     ah=0x4C;//Terminate
+
+ mov  ah, 76
+;-279     KernelInt();
+
+ call KernelInt
+;-280 }
 
  ret
 main_0 db " c18h=",0
 ENDP
-;Glob. variables:14 (300), Functions:23 (300), Lines:370
+;Glob. variables:13 (300), Functions:22 (300), Lines:281
 ;Constant: 64 (3000), stacksize: 40536

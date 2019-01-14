@@ -1,11 +1,11 @@
-char Version1[]="KERNEL.COM V0.1";
-char DOS_ERR=0;
+char Version1[]="KERNEL.COM V0.1b";
+//---------------------------- Kernel Data Area ---------------------
 char KERNEL_ERR=0;
 unsigned int count18h=0;
 unsigned int vAX;
 char cent;char year;char month;char day;
 char hour; char min; char sec;
-
+//--------------------------- Bios Routines I/O ---------------------
 int writetty()     {//char in AL
     ah=0x0E;
     bx=0;     //page
@@ -76,9 +76,9 @@ int kbdEcho() {
     getkey();
     writetty();
 }
-
-int BCDtoChar(char BCD) {// converts 2 digit packed BCD
-    char LowNibble;
+// ------------------------- Bios Functions -------------------------
+int BCDtoChar(char BCD) { // converts 2 digit packed BCD
+    char LowNibble;       // to Integer
     LowNibble = BCD & 0xF;// save ones digit
     BCD >> 4;// extract tens digit, result in AX
     asm push dx
@@ -111,18 +111,26 @@ int GetRTCTime() {
     asm mov [sec],  dh
     if (KERNEL_ERR > 0) cputs("ERROR no RTC");
 }
-
-int DosInt() {
-    inth 0x21;
-    __emit__(0x73, 04); //jnc over DOS_ERR++
-    DOS_ERR++;
-}
+//--------------------------- Kernel Routines -----------------------
 int KernelInt() {
     inth 0x18;
     __emit__(0x73, 04); //jnc over KERNEL_ERR++
     KERNEL_ERR++;
 }
+unsigned int VecOldOfs;
+unsigned int VecOldSeg;
 
+int GetIntVec(char c) {
+    asm push es
+    al=c;
+    ah=0x35;
+    KernelInt();
+    asm mov [VecOldOfs], bx
+    asm mov [VecOldSeg], es
+    asm pop es
+}
+
+//--------------------------- Start of new Interrupt 18h ------------
 int KERNEL_START() {
     count18h++;
     asm sti; set int enable
@@ -194,73 +202,15 @@ int KERNEL_START() {
         inth 0x21;
         // asm iret
     }
-
+    // function not implemented
     asm mov [vAX], ah
     cputs(" FUNC ");
     printhex8(vAX);
     cputs(" not impl.");
     asm iret
-}
-unsigned int VecOldOfs;
-unsigned int VecOldSeg;
+}// END OF TSR
 
-int GetIntVec(char c) {
-    asm push es
-    al=c;
-    ah=0x35;
-    KernelInt();
-    asm mov [VecOldOfs], bx
-    asm mov [VecOldSeg], es
-    asm pop es
-}
-int GetIntVecDos(char c) {
-    asm push es
-    al=c;
-    ah=0x35;
-    DosInt();
-    asm mov [VecOldOfs], bx
-    asm mov [VecOldSeg], es
-    asm pop es
-}
-
-/*
-int GetDateDos() {
-    int year;char month;char day;int dayofweek;
-    cputs(" DosDate:");
-    ah=0x2A;
-    DosInt();
-    asm mov [bp-2], cx; year
-    asm mov [bp-4], dh; month
-    asm mov [bp-6], dl; day
-    asm mov [bp-8], al; dayofweek
-//    printunsign(dayofweek);
-//    putch('-');
-    printunsign(day);
-    putch('.');
-    printunsign(month);
-    putch('.');
-    printunsign(year);
-}
-*/
-/*
-int GetTimeDos() {
-    char hour; char min; char sec; char h100;
-    cputs(" DosTime:");
-    ah=0x2C;
-    DosInt();
-    asm mov [bp-2], ch; hour
-    asm mov [bp-4], cl; min
-    asm mov [bp-6], dh; sec
-    asm mov [bp-8], dl; h100
-    printunsign(hour);
-    putch(':');
-    printunsign(min);
-    putch(':');
-    printunsign(sec);
-//    putch('-');
-//    printunsign(h100);
-}
-*/
+//--------------------------- Kernel Programs for separate use
 int GetTickerBios() {
     cputs(" BiosTicker LO/HI:");
     ah=0;
@@ -271,7 +221,7 @@ int GetTickerBios() {
 }
 
 int RAM046CTicks() {
-    cputs(" Ticks 40:6C LO/HI:");
+    cputs(" Ticks @40:6C LO/HI:");
     asm push es
     ax=0x40;
     es=ax;
@@ -286,51 +236,6 @@ int RAM046CTicks() {
 }
 
 int printDateTime() {
-    day=BCDtoChar(day);
-    printunsign(day);
-    putch('.');
-    month=BCDtoChar(month);
-    printunsign(month);
-    putch('.');
-    cent=BCDtoChar(cent);
-    printunsign(cent);
-    year=BCDtoChar(year);
-    printunsign(year);
-    putch(' ');
-    hour=BCDtoChar(hour);
-    printunsign(hour);
-    putch(':');
-    min=BCDtoChar(min);
-    printunsign(min);
-    putch(':');
-    sec=BCDtoChar(sec);
-    printunsign(sec);
-    putch(' ');
-}
-int main() {
-    count18h=0;
-//    GetIntVecDos(0x18);//new In18h is not connected
-//    cputs("Int18h old=");
-//    printhex16(VecOldSeg);
-//    putch(':');
-//    printhex16(VecOldOfs);
-
-    //set Int Vec to KERNEL_START
-    asm mov dx, KERNEL_START
-    ax=0x2518;
-    DosInt();//new In18h is not connected
-
-//    GetIntVec(0x18);
-//    cputs(" Int18h new=");
-//    printhex16(VecOldSeg);
-//    putch(':');
-//    printhex16(VecOldOfs);
-
-//    RTCDate();
-//    GetRTCTime();
-//    printDateTime();
-//    RAM046CTicks();
-
     ah=0x2A;
     KernelInt();
     printunsign(day);
@@ -348,22 +253,28 @@ int main() {
     printunsign(min);
     putch(':');
     printunsign(sec);
-    putch(' ');
-
-
-//    ah=0x30;
-//    KernelInt();
-//    asm mov [vAX], ax
-//    cputs(" KernelVer:");
-//    printhex4(vAX);
-//    putch('.');
-//    vAX=vAX >>8;
-//    printunsign(vAX);
-
-//    ah=0x99;//test error function not found
-//    KernelInt();
-    ah=0x4C;//Terminate
+}
+int printVersion() {
+    ah=0x30;
     KernelInt();
+    asm mov [vAX], ax
+    cputs(" KernelVer:");
+    printhex4(vAX);
+    putch('.');
+    vAX=vAX >>8;
+    printunsign(vAX);
+}
+int main() {
+    count18h=0;
+    //set Int Vec to KERNEL_START
+    asm mov dx, KERNEL_START
+    ax=0x2518;
+    inth 0x21;//new In18h is not connected
+
+    printDateTime();
+
     cputs(" c18h=");
     printunsign(count18h);
+    ah=0x4C;//Terminate
+    KernelInt();
 }
