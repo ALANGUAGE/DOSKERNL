@@ -133,7 +133,19 @@ int GetIntVec(char c) {
 //--------------------------- Start of new Interrupt 18h ------------
 int KERNEL_START() {
     count18h++;
-    asm sti; set int enable
+    asm sti; set interrupt enable
+    if (ah==0x09) {//display string in DS:DX
+        asm push si
+        si=dx;
+        asm cld; clear direction, string up
+        asm lodsb; from DS:SI to AL
+        while (al != '$') {
+            writetty();
+            asm lodsb
+        }
+        asm pop si
+        asm iret
+    }
 
     if (ah==0x25) {//setIntVec in AL from DS:DX
         asm cli; clear int enable, turn OFF int
@@ -147,7 +159,7 @@ int KERNEL_START() {
         ax=0;
         es=ax;//segment 0
         ax=dx;
-        asm cld; clear direction, Up
+        asm cld; clear direction, string up
         asm stosw; ofs in DX to ES:DI
         asm pop ax; get DS
         asm stosw; seg (DS) to ES:DI+2
