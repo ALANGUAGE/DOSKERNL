@@ -1,10 +1,4 @@
 char Version1[]="KERNEL.COM V0.1b";
-//---------------------------- Kernel Data Area ---------------------
-char KERNEL_ERR=0;
-unsigned int count18h=0;
-unsigned int vAX;
-char cent;char year;char month;char day;
-char hour; char min; char sec;
 //--------------------------- Bios Routines I/O ---------------------
 int writetty()     {//char in AL
     ah=0x0E;
@@ -88,29 +82,13 @@ int BCDtoChar(char BCD) { // converts 2 digit packed BCD
     al += LowNibble;
     ah=0;//result is byte
 }
-int GetRTCDate() {
-//    cputs(" RTC Date:");
-    ah=4;
-    inth 0x1A;
-    __emit__(0x73, 04); //jnc over KERNEL_ERR++
-    KERNEL_ERR++;
-    asm mov [cent], ch; cent ... are used by GetDate
-    asm mov [year], cl
-    asm mov [month],dh
-    asm mov [day],  dl
-    if (KERNEL_ERR > 0) cputs("ERROR no RTC");
-}
-int GetRTCTime() {
-//    cputs(" RTCTime:");
-    ah=2;
-    inth 0x1A;
-    __emit__(0x73, 04); //jnc over KERNEL_ERR++
-    KERNEL_ERR++;
-    asm mov [hour], ch
-    asm mov [min],  cl
-    asm mov [sec],  dh
-    if (KERNEL_ERR > 0) cputs("ERROR no RTC");
-}
+//---------------------------- Kernel Data Area ---------------------
+char KERNEL_ERR=0;
+unsigned int count18h=0;// counts all interrups calls
+char cent;char year;char month;char day;
+char hour; char min; char sec;
+unsigned int mode_IOData=0x8280;
+
 //--------------------------- Kernel Routines -----------------------
 int KernelInt() {
     inth 0x18;
@@ -125,7 +103,9 @@ int GetIntVec(char c) {
     al=c;
     ah=0x35;
     KernelInt();
+    __emit__(0x2E);//CS override
     asm mov [VecOldOfs], bx
+    __emit__(0x2E);//CS override
     asm mov [VecOldSeg], es
     asm pop es
 }
@@ -193,7 +173,15 @@ int KERNEL_START() {
         asm iret
     }
     if (ah==0x2A) {//GetDate
-        GetRTCDate();// get Date in BCD
+        ah=4;
+        inth 0x1A;
+        __emit__(0x73, 04); //jnc over KERNEL_ERR++
+        KERNEL_ERR++;
+        asm mov [cent], ch; cent ... are used by GetDate
+        asm mov [year], cl
+        asm mov [month],dh
+        asm mov [day],  dl
+        if (KERNEL_ERR > 0) cputs("ERROR no RTC");
         cent=BCDtoChar(cent);
         year=BCDtoChar(year);
         month=BCDtoChar(month);
@@ -206,7 +194,14 @@ int KERNEL_START() {
         asm iret
     }
     if (ah==0x2C) {//GetTime, NO 1/100 sec
-        GetRTCTime();
+        ah=2;
+        inth 0x1A;
+        __emit__(0x73, 04); //jnc over KERNEL_ERR++
+        KERNEL_ERR++;
+        asm mov [hour], ch
+        asm mov [min],  cl
+        asm mov [sec],  dh
+        if (KERNEL_ERR > 0) cputs("ERROR no RTC");
         hour=BCDtoChar(hour);
         min=BCDtoChar(min);
         sec=BCDtoChar(sec);
@@ -237,6 +232,79 @@ int KERNEL_START() {
         asm sti; set int enable, turn ON int
         asm iret
     }
+
+    if (ah==0x3F) {//read file or device
+        if (bx == 0) {//handle = stdin
+            asm push cx;later pop ax, byte read
+            asm push bx;buffer in DS:DX
+            // cooked or raw
+
+
+
+
+            bx=dx;//set offset to index register, loose handle
+            while (cx > 0) {//number to read
+
+
+
+                asm push bx
+                getch();
+                asm pop bx
+                asm mov [bx], al;//DS:BX is buffer
+
+
+                asm dec cx;
+            }
+            asm pop bx
+            asm pop ax; from CX, byte read
+            asm iret
+        }
+        ax=6;//error handle invalid
+        asm stc
+        asm iret
+    }
+    if (ah==0x40) {//write to file or device
+        if (bx <= 2) {//handle = stdin,stdout,error device
+            asm push cx;later pop ax, byte written
+            asm push bx
+            bx=dx;//set offset to index register, loose handle
+            while (cx > 0) {//number to write
+                asm mov al, [bx];//DS:BX is buffer
+                writetty();
+                asm mov al, [bx]
+                if (al  == 10) {//add CR to LF
+                    al=13;
+                    writetty();
+                }
+                asm dec cx;
+            }
+            asm pop bx
+            asm pop ax; from CX, byte written
+            asm iret
+        }
+        ax=6;//error handle invalid
+        asm stc
+        asm iret
+    }
+
+    if (ah==0x44) {//IOCTL Data
+        if (al == 0) {// 0=get data
+            if (bx == 0) {//handle:sdtin
+                dx=mode_IOData;//8080=cooked, 8280=raw
+                asm iret
+            }
+        }
+        if (al == 1) {//set data
+            if (bx == 0) {//handle:sdtin
+                asm mov [mode_IOData], dx;//8080=cooked, 8280=raw
+                asm iret
+            }
+        }
+            ax=15;//error unvalid Data
+            asm stc; set carry flag
+            asm iret
+        // IOCTL function not supported,fall through to error
+    }
     if (ah==0x4C) {//Terminate
         al=0;//returncode
         inth 0x21;
@@ -246,16 +314,19 @@ int KERNEL_START() {
         al=0;// always off
         asm iret
     }
+
     // function not implemented
-    asm mov [vAX], ah
+    asm push ax
     cputs(" FUNC ");
-    printhex8(vAX);
-    cputs(" not impl.");
-    inth 3;// break
+    asm pop ax
+    ax >> 8;
+    printhex8(ax);
+    cputs("h not supported");
+//    inth 3;// break, call debug
     asm iret
 }// END OF TSR
 
-//--------------------------- Kernel Programs for separate use
+//--------------------------- Kernel Programs for separate use ------
 int GetTickerBios() {
     cputs(" BiosTicker LO/HI:");
     ah=0;
@@ -290,7 +361,6 @@ int printDateTime() {
     printunsign(cent);
     printunsign(year);
     putch(' ');
-
     ah=0x2C;
     KernelInt();
     printunsign(hour);
@@ -300,24 +370,26 @@ int printDateTime() {
     printunsign(sec);
 }
 int printVersion() {
+    int vAX;
     ah=0x30;
     KernelInt();
-    asm mov [vAX], ax
+    asm mov [bp-2], ax;
     cputs(" KernelVer:");
     printhex4(vAX);
     putch('.');
-    vAX=vAX >>8;
+    vAX=vAX >> 8;
     printunsign(vAX);
 }
 int main() {
     count18h=0;
-    //set Int Vec to KERNEL_START
-    asm mov dx, KERNEL_START
+    asm mov dx, KERNEL_START;set Int Vec
     ax=0x2518;
-    inth 0x21;//new In18h is not connected
+    inth 0x21;//new In18h is not yet connected
 
     printDateTime();
-
+    printVersion();
+ah=0x99;
+KernelInt();
     cputs(" c18h=");
     printunsign(count18h);
     ah=0x4C;//Terminate
