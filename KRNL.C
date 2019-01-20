@@ -2,12 +2,14 @@ char Version1[]="KERNEL.COM V0.1b";
 //--------------------------- Bios Routines I/O ---------------------
 int writetty()     {//char in AL
     ah=0x0E;
-    bx=0;     //page
+    asm push bx
+    bx=0;     //page in BH
     inth 0x10;
+    asm pop bx
 }
 int putch(char c)  {
-    if (c==10)  {
-        al=13;
+    if (c==10)  {// LF
+        al=13;   // CR, write CR first and then LF
         writetty();
     }
     al=c;
@@ -68,7 +70,7 @@ int getkey() {
 }
 int kbdEcho() {
     getkey();
-    writetty();
+    writetty();//destroys AH
 }
 // ------------------------- Bios Functions -------------------------
 int BCDtoChar(char BCD) { // converts 2 digit packed BCD
@@ -88,6 +90,8 @@ unsigned int count18h=0;// counts all interrups calls
 char cent;char year;char month;char day;
 char hour; char min; char sec;
 unsigned int mode_IOData=0x8280;
+char Buf[]="123456789012345678";
+
 
 //--------------------------- Kernel Routines -----------------------
 int KernelInt() {
@@ -97,6 +101,7 @@ int KernelInt() {
 }
 unsigned int VecOldOfs;
 unsigned int VecOldSeg;
+unsigned int count=0;
 
 int GetIntVec(char c) {
     asm push es
@@ -233,50 +238,62 @@ int KERNEL_START() {
         asm iret
     }
 
-    if (ah==0x3F) {//read file or device
-        if (bx == 0) {//handle = stdin
-            asm push cx;later pop ax, byte read
+//todo backspace not counting correct
+    if (ah==0x3F) {   //read file or device
+        if (bx == 0) {//BX = handle = stdin only
+                      //CX = bytes to Read
+                      //DS:DX buffer
             asm push bx;buffer in DS:DX
-            // cooked or raw
-
-
-
-
+            count=0;
             bx=dx;//set offset to index register, loose handle
             while (cx > 0) {//number to read
-
-
-
-                asm push bx
-                getch();
-                asm pop bx
+                getkey();
+                //check for extended code AH=1
                 asm mov [bx], al;//DS:BX is buffer
-
-
-                asm dec cx;
+                writetty();
+                asm inc bx
+                asm dec cx;count down of bytes to read
+                count++;
+                // use as a cooked input stream
+                if (al ==  8) {//Backspace, delete 1 character
+                    if (count > 0) {// at least 1 character
+                        //putch(8); already written 7 lines up
+                        putch(' ');
+                        putch(8);
+                        asm inc cx; remove the dec cx above
+                        asm inc cx; 1 more char to read
+                        asm dec bx; remove the inc bx above
+                        asm dec bx;remove 1 char from input string
+                        count-=2;
+                    }
+                }
+                if (al == 13) {//send LF=10 after CR=13
+                    al=10;
+                    asm mov [bx], al;//DS:BX is buffer
+                    writetty();
+                    asm inc bx
+                    cx=0;// leave the while loop
+                    count++;
+                }
             }
             asm pop bx
-            asm pop ax; from CX, byte read
-            asm iret
+            ax=count;//bytes read
+            asm iret;   carry=error
         }
-        ax=6;//error handle invalid
+        ax=6;//error handle invalid, not 0
         asm stc
         asm iret
     }
     if (ah==0x40) {//write to file or device
         if (bx <= 2) {//handle = stdin,stdout,error device
             asm push cx;later pop ax, byte written
-            asm push bx
+            asm push bx;save bx, because we use it
             bx=dx;//set offset to index register, loose handle
             while (cx > 0) {//number to write
                 asm mov al, [bx];//DS:BX is buffer
-                writetty();
-                asm mov al, [bx]
-                if (al  == 10) {//add CR to LF
-                    al=13;
-                    writetty();
-                }
-                asm dec cx;
+                writetty();//write raw stream
+                asm dec cx
+                asm inc bx
             }
             asm pop bx
             asm pop ax; from CX, byte written
@@ -380,16 +397,32 @@ int printVersion() {
     vAX=vAX >> 8;
     printunsign(vAX);
 }
+int readDevice() {
+    bx=0;
+    cx=8;//max character
+    asm lea dx, [Buf]
+    ah=0x3F;
+    KernelInt();//return: AX bytes read
+    dx=Buf;//asm mov dx, [Buf]
+    printunsign(ax);
+}
+int writeDevice() {
+    bx=1;//handle
+    cx=16;//length
+    asm lea dx, [Buf]; dx=Buf;
+    ah=0x40;
+    KernelInt();//return: AX bytes written
+}
 int main() {
     count18h=0;
     asm mov dx, KERNEL_START;set Int Vec
     ax=0x2518;
-    inth 0x21;//new In18h is not yet connected
+    inth 0x21;
+    //new In18h is not yet connected
 
-    printDateTime();
-    printVersion();
-ah=0x99;
-KernelInt();
+readDevice();
+writeDevice();
+
     cputs(" c18h=");
     printunsign(count18h);
     ah=0x4C;//Terminate
