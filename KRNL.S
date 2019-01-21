@@ -1506,57 +1506,237 @@ writeDevice: PROC
  call KernelInt
 ;-415 }
 
-;-416 int main() {
+;-416 
+
+;-417 int getFirstMCB() {
 
  ret
 ENDP
 
+getFirstMCB: PROC
+;-418     ah=0x52;//DOS list of lists
+
+ mov  ah, 82
+;-419     inth 0x21;// out= ES:BX ptr to list of lists
+
+ int  33
+;-420     __emit__(0x26);// ES: Praefix
+
+ db 38
+;-421     asm mov es, [bx-2];mov es, [es:bx-2]
+
+ mov es, [bx-2];mov es, [es:bx-2]
+;-422     //first memory control block in ES:
+
+;-423 }
+
+;-424 char memSignature;
+
+ ret
+ENDP
+memSignature db 0
+;-425 unsigned int memOwner;
+
+memOwner dw 0
+;-426 unsigned int memSize;
+
+memSize dw 0
+;-427 
+
+;-428 int domem() {
+
+
+domem: PROC
+;-429     getFirstMCB();
+
+ call getFirstMCB
+;-430     do {
+
+.domem41:
+;-431         putch(10);
+
+ push 10
+ call putch
+ add  sp, 2
+;-432         cputs("Start:");
+
+ push domem_0
+ call cputs
+ add  sp, 2
+;-433         printhex16(es);
+
+ push es
+ call printhex16
+ add  sp, 2
+;-434         if (es >= 0xA000) cputs(" MCB in UMB");
+
+ cmp  es, 40960 ;unsigned : 0
+ jb  .domem42
+ push domem_1
+ call cputs
+ add  sp, 2
+;-435 //        asm mov al, [es:0]// M or Z
+
+;-436         __emit__(0x26,0xA0,0,0);
+
+.domem42:
+ db 38,160,0,0
+;-437         asm mov [memSignature], al
+
+ mov [memSignature], al
+;-438         cputs(", ");
+
+ push domem_2
+ call cputs
+ add  sp, 2
+;-439         putch(memSignature);
+
+ mov al, byte [memSignature]
+ mov ah, 0
+ push ax
+ call putch
+ add  sp, 2
+;-440 //        asm mov ax, [es:1]//program segment prefix
+
+;-441         __emit__(0x26,0xA1,1,0);
+
+ db 38,161,1,0
+;-442         asm mov [memOwner], ax
+
+ mov [memOwner], ax
+;-443         cputs(", PSP:");
+
+ push domem_3
+ call cputs
+ add  sp, 2
+;-444         printhex16(memOwner);
+
+ push word [memOwner]
+ call printhex16
+ add  sp, 2
+;-445 //        asm mov ax, [es:3]//size in para
+
+;-446         __emit__(0x26,0xA1,3,0);
+
+ db 38,161,3,0
+;-447         asm mov [memSize], ax
+
+ mov [memSize], ax
+;-448         cputs(", Size:");
+
+ push domem_4
+ call cputs
+ add  sp, 2
+;-449         printhex16(memSize);
+
+ push word [memSize]
+ call printhex16
+ add  sp, 2
+;-450         if (memOwner == 0) cputs(" free");
+
+ mov ax, [memOwner]
+ cmp ax, 0
+ jne .domem43
+ push domem_5
+ call cputs
+ add  sp, 2
+;-451         if (memOwner == 8) cputs(" DOS ");
+
+.domem43:
+ mov ax, [memOwner]
+ cmp ax, 8
+ jne .domem44
+ push domem_6
+ call cputs
+ add  sp, 2
+;-452     //es += memSize;
+
+;-453     ax=es;
+
+.domem44:
+ mov  ax, es
+;-454     ax += memSize;
+
+ add  ax, [memSize]
+;-455     asm inc ax; ax+=1;
+
+ inc ax; ax+=1;
+;-456     es=ax;
+
+ mov  es, ax
+;-457     }
+
+;-458     while (memSignature == 'M');
+
+ mov al, [memSignature]
+ cmp al, 77
+ jne .domem45
+ jmp .domem41
+.domem45:
+;-459     putch(10);
+
+ push 10
+ call putch
+ add  sp, 2
+;-460 }
+
+;-461 
+
+;-462 int main() {
+
+ ret
+domem_0 db "Start:",0
+domem_1 db " MCB in UMB",0
+domem_2 db ", ",0
+domem_3 db ", PSP:",0
+domem_4 db ", Size:",0
+domem_5 db " free",0
+domem_6 db " DOS ",0
+ENDP
+
 main: PROC
-;-417     count18h=0;
+;-463     count18h=0;
 
  mov ax, 0
  mov word [count18h], ax
-;-418     asm mov dx, KERNEL_START;set Int Vec
+;-464     asm mov dx, KERNEL_START;set Int Vec
 
  mov dx, KERNEL_START;set Int Vec
-;-419     ax=0x2518;
+;-465     ax=0x2518;
 
  mov  ax, 9496
-;-420     inth 0x21;
+;-466     inth 0x21;
 
  int  33
-;-421     //new In18h is not yet connected
+;-467     //new In18h is not yet connected
 
-;-422 
+;-468 
 
-;-423 readDevice();
+;-469 domem();
 
- call readDevice
-;-424 writeDevice();
+ call domem
+;-470 
 
- call writeDevice
-;-425 
-
-;-426     cputs(" c18h=");
+;-471     cputs(" c18h=");
 
  push main_0
  call cputs
  add  sp, 2
-;-427     printunsign(count18h);
+;-472     printunsign(count18h);
 
  push word [count18h]
  call printunsign
  add  sp, 2
-;-428     ah=0x4C;//Terminate
+;-473     ah=0x4C;//Terminate
 
  mov  ah, 76
-;-429     KernelInt();
+;-474     KernelInt();
 
  call KernelInt
-;-430 }
+;-475 }
 
  ret
 main_0 db " c18h=",0
 ENDP
-;Glob. variables:15 (300), Functions:22 (300), Lines:431
-;Constant: 141 (3000), stacksize: 40536
+;Glob. variables:18 (300), Functions:24 (300), Lines:476
+;Constant: 161 (3000), stacksize: 40536

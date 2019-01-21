@@ -413,6 +413,52 @@ int writeDevice() {
     ah=0x40;
     KernelInt();//return: AX bytes written
 }
+
+int getFirstMCB() {
+    ah=0x52;//DOS list of lists
+    inth 0x21;// out= ES:BX ptr to list of lists
+    __emit__(0x26);// ES: Praefix
+    asm mov es, [bx-2];mov es, [es:bx-2]
+    //first memory control block in ES:
+}
+char memSignature;
+unsigned int memOwner;
+unsigned int memSize;
+
+int domem() {
+    getFirstMCB();
+    do {
+        putch(10);
+        cputs("Start:");
+        printhex16(es);
+        if (es >= 0xA000) cputs(" MCB in UMB");
+//        asm mov al, [es:0]// M or Z
+        __emit__(0x26,0xA0,0,0);
+        asm mov [memSignature], al
+        cputs(", ");
+        putch(memSignature);
+//        asm mov ax, [es:1]//program segment prefix
+        __emit__(0x26,0xA1,1,0);
+        asm mov [memOwner], ax
+        cputs(", PSP:");
+        printhex16(memOwner);
+//        asm mov ax, [es:3]//size in para
+        __emit__(0x26,0xA1,3,0);
+        asm mov [memSize], ax
+        cputs(", Size:");
+        printhex16(memSize);
+        if (memOwner == 0) cputs(" free");
+        if (memOwner == 8) cputs(" DOS ");
+    //es += memSize;
+    ax=es;
+    ax += memSize;
+    asm inc ax; ax+=1;
+    es=ax;
+    }
+    while (memSignature == 'M');
+    putch(10);
+}
+
 int main() {
     count18h=0;
     asm mov dx, KERNEL_START;set Int Vec
@@ -420,8 +466,7 @@ int main() {
     inth 0x21;
     //new In18h is not yet connected
 
-readDevice();
-writeDevice();
+domem();
 
     cputs(" c18h=");
     printunsign(count18h);
