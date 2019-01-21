@@ -1547,7 +1547,7 @@ memSize dw 0
 
 
 domem: PROC
-;-429     getFirstMCB();
+;-429     getFirstMCB();//with Int21h
 
  call getFirstMCB
 ;-430     do {
@@ -1649,40 +1649,31 @@ domem: PROC
  push domem_6
  call cputs
  add  sp, 2
-;-452     //es += memSize;
-
-;-453     ax=es;
+;-452     ax=es;
 
 .domem44:
  mov  ax, es
-;-454     ax += memSize;
+;-453     ax += memSize;
 
  add  ax, [memSize]
-;-455     asm inc ax; ax+=1;
+;-454     asm inc ax; ax+=1;
 
  inc ax; ax+=1;
-;-456     es=ax;
+;-455     es=ax;
 
  mov  es, ax
-;-457     }
+;-456     }
 
-;-458     while (memSignature == 'M');
+;-457     while (memSignature == 'M');
 
  mov al, [memSignature]
  cmp al, 77
  jne .domem45
  jmp .domem41
 .domem45:
-;-459     putch(10);
+;-458 }
 
- push 10
- call putch
- add  sp, 2
-;-460 }
-
-;-461 
-
-;-462 int main() {
+;-459 char DOS_ERR=0;
 
  ret
 domem_0 db "Start:",0
@@ -1693,50 +1684,273 @@ domem_4 db ", Size:",0
 domem_5 db " free",0
 domem_6 db " DOS ",0
 ENDP
+DOS_ERR db 0
+;-460 unsigned int vAX;
 
-main: PROC
-;-463     count18h=0;
+vAX dw 0
+;-461 unsigned int vBX;
 
- mov ax, 0
- mov word [count18h], ax
-;-464     asm mov dx, KERNEL_START;set Int Vec
+vBX dw 0
+;-462 
 
- mov dx, KERNEL_START;set Int Vec
-;-465     ax=0x2518;
+;-463 int DosInt() {
 
- mov  ax, 9496
-;-466     inth 0x21;
+
+DosInt: PROC
+;-464     inth 0x21;
 
  int  33
-;-467     //new In18h is not yet connected
+;-465     __emit__(0x73, 04); //jnc over DOS_ERR++
+
+ db 115,4
+;-466     DOS_ERR++;
+
+ inc  byte[DOS_ERR]
+;-467 }
 
 ;-468 
 
-;-469 domem();
+;-469 int setBlockDos(unsigned int i) {
+
+ ret
+ENDP
+
+setBlockDos: PROC
+;-470     bx=i;
+;
+ ENTER  0,0
+ mov  bx, [bp+4]
+;-471     ax=cs;
+
+ mov  ax, cs
+;-472     es=ax;
+
+ mov  es, ax
+;-473     ax=0x4A00;
+
+ mov  ax, 18944
+;-474     DosInt();
+
+ call DosInt
+;-475 //modify memory Allocation. IN: ES=Block Seg, BX=size in para
+
+;-476     asm mov [vAX], ax; error code or segment addr
+
+ mov [vAX], ax; error code or segment addr
+;-477     asm mov [vBX], bx; free para
+
+ mov [vBX], bx; free para
+;-478     if (DOS_ERR) cputs(" ***Error Alloc Mem***");
+
+ mov al, [DOS_ERR]
+ or  al, al
+ je .setBlockDos46
+ push setBlockDos_0
+ call cputs
+ add  sp, 2
+;-479 //    7=MCB destroyed, 8=Insufficient memory, 9=ES is wrong
+
+;-480 //    BX=Max mem available, if CF & AX=8
+
+;-481     cputs(" setBlock AX:"); printhex16(vAX);
+
+.setBlockDos46:
+ push setBlockDos_1
+ call cputs
+ add  sp, 2
+ push word [vAX]
+ call printhex16
+ add  sp, 2
+;-482     cputs(",BX:"); printhex16(vBX);
+
+ push setBlockDos_2
+ call cputs
+ add  sp, 2
+ push word [vBX]
+ call printhex16
+ add  sp, 2
+;-483 }
+
+;-484 int AllocMemDos(unsigned int i) {// in para
+
+ LEAVE
+ ret
+setBlockDos_0 db " ***Error Alloc Mem***",0
+setBlockDos_1 db " setBlock AX:",0
+setBlockDos_2 db ",BX:",0
+ENDP
+
+AllocMemDos: PROC
+;-485     bx=i;
+;
+ ENTER  0,0
+ mov  bx, [bp+4]
+;-486     ah=0x48;
+
+ mov  ah, 72
+;-487     DosInt();
+
+ call DosInt
+;-488     asm mov [vAX], ax; error code
+
+ mov [vAX], ax; error code
+;-489     asm mov [vBX], bx; free para
+
+ mov [vBX], bx; free para
+;-490     if (DOS_ERR) cputs(" ***Error Set Block***");
+
+ mov al, [DOS_ERR]
+ or  al, al
+ je .AllocMemDos47
+ push AllocMemDos_0
+ call cputs
+ add  sp, 2
+;-491 //    7=MCB destroyed, 8=Insufficient memory
+
+;-492 //    BX=Max mem available, if CF & AX=8
+
+;-493     cputs(" AllocMem AX:"); printhex16(vAX);
+
+.AllocMemDos47:
+ push AllocMemDos_1
+ call cputs
+ add  sp, 2
+ push word [vAX]
+ call printhex16
+ add  sp, 2
+;-494     cputs(",BX:"); printhex16(vBX);
+
+ push AllocMemDos_2
+ call cputs
+ add  sp, 2
+ push word [vBX]
+ call printhex16
+ add  sp, 2
+;-495 }
+
+;-496 int FreeMemDos(unsigned int i) {// segment addr
+
+ LEAVE
+ ret
+AllocMemDos_0 db " ***Error Set Block***",0
+AllocMemDos_1 db " AllocMem AX:",0
+AllocMemDos_2 db ",BX:",0
+ENDP
+
+FreeMemDos: PROC
+;-497     es=i;//todo
+;
+ ENTER  0,0
+ mov  es, [bp+4]
+;-498     ax=i;
+
+ mov  ax, [bp+4]
+;-499     es=ax;
+
+ mov  es, ax
+;-500     ah=0x49;
+
+ mov  ah, 73
+;-501     DosInt();
+
+ call DosInt
+;-502     asm mov [vAX], ax; error code
+
+ mov [vAX], ax; error code
+;-503     if (DOS_ERR) {
+
+ mov al, [DOS_ERR]
+ or  al, al
+ je .FreeMemDos48
+;-504         cputs(" ***Error Free Mem***");
+
+ push FreeMemDos_0
+ call cputs
+ add  sp, 2
+;-505 //    7=MCB destroyed, 9=ES is wromg
+
+;-506         cputs(" FreeMem AX:"); 
+
+ push FreeMemDos_1
+ call cputs
+ add  sp, 2
+;-507         printhex16(vAX);
+
+ push word [vAX]
+ call printhex16
+ add  sp, 2
+;-508     }
+
+;-509 }
+
+.FreeMemDos48:
+;-510 
+
+;-511 int main() {
+
+ LEAVE
+ ret
+FreeMemDos_0 db " ***Error Free Mem***",0
+FreeMemDos_1 db " FreeMem AX:",0
+ENDP
+
+main: PROC
+;-512     count18h=0;
+
+ mov ax, 0
+ mov word [count18h], ax
+;-513     asm mov dx, KERNEL_START;set Int Vec
+
+ mov dx, KERNEL_START;set Int Vec
+;-514     ax=0x2518;
+
+ mov  ax, 9496
+;-515     inth 0x21;//new In18h is not yet connected
+
+ int  33
+;-516 setBlockDos(4096);//reduce COM-Prg to 64 KByte
+
+ push 4096
+ call setBlockDos
+ add  sp, 2
+;-517 AllocMemDos(0x20);
+
+ push 32
+ call AllocMemDos
+ add  sp, 2
+;-518 domem();
 
  call domem
-;-470 
+;-519 FreeMemDos(vAX);
 
-;-471     cputs(" c18h=");
+ push word [vAX]
+ call FreeMemDos
+ add  sp, 2
+;-520 domem();
+
+ call domem
+;-521 
+
+;-522     cputs(" c18h=");
 
  push main_0
  call cputs
  add  sp, 2
-;-472     printunsign(count18h);
+;-523     printunsign(count18h);
 
  push word [count18h]
  call printunsign
  add  sp, 2
-;-473     ah=0x4C;//Terminate
+;-524     ah=0x4C;//Terminate
 
  mov  ah, 76
-;-474     KernelInt();
+;-525     KernelInt();
 
  call KernelInt
-;-475 }
+;-526 }
 
  ret
 main_0 db " c18h=",0
 ENDP
-;Glob. variables:18 (300), Functions:24 (300), Lines:476
+;Glob. variables:21 (300), Functions:28 (300), Lines:527
 ;Constant: 161 (3000), stacksize: 40536

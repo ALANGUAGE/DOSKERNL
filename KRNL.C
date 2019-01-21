@@ -426,7 +426,7 @@ unsigned int memOwner;
 unsigned int memSize;
 
 int domem() {
-    getFirstMCB();
+    getFirstMCB();//with Int21h
     do {
         putch(10);
         cputs("Start:");
@@ -449,23 +449,74 @@ int domem() {
         printhex16(memSize);
         if (memOwner == 0) cputs(" free");
         if (memOwner == 8) cputs(" DOS ");
-    //es += memSize;
     ax=es;
     ax += memSize;
     asm inc ax; ax+=1;
     es=ax;
     }
     while (memSignature == 'M');
-    putch(10);
+}
+char DOS_ERR=0;
+unsigned int vAX;
+unsigned int vBX;
+
+int DosInt() {
+    inth 0x21;
+    __emit__(0x73, 04); //jnc over DOS_ERR++
+    DOS_ERR++;
+}
+
+int setBlockDos(unsigned int i) {
+    bx=i;
+    ax=cs;
+    es=ax;
+    ax=0x4A00;
+    DosInt();
+//modify memory Allocation. IN: ES=Block Seg, BX=size in para
+    asm mov [vAX], ax; error code or segment addr
+    asm mov [vBX], bx; free para
+    if (DOS_ERR) cputs(" ***Error Alloc Mem***");
+//    7=MCB destroyed, 8=Insufficient memory, 9=ES is wrong
+//    BX=Max mem available, if CF & AX=8
+    cputs(" setBlock AX:"); printhex16(vAX);
+    cputs(",BX:"); printhex16(vBX);
+}
+int AllocMemDos(unsigned int i) {// in para
+    bx=i;
+    ah=0x48;
+    DosInt();
+    asm mov [vAX], ax; error code
+    asm mov [vBX], bx; free para
+    if (DOS_ERR) cputs(" ***Error Set Block***");
+//    7=MCB destroyed, 8=Insufficient memory
+//    BX=Max mem available, if CF & AX=8
+    cputs(" AllocMem AX:"); printhex16(vAX);
+    cputs(",BX:"); printhex16(vBX);
+}
+int FreeMemDos(unsigned int i) {// segment addr
+    es=i;//todo
+    ax=i;
+    es=ax;
+    ah=0x49;
+    DosInt();
+    asm mov [vAX], ax; error code
+    if (DOS_ERR) {
+        cputs(" ***Error Free Mem***");
+//    7=MCB destroyed, 9=ES is wromg
+        cputs(" FreeMem AX:"); 
+        printhex16(vAX);
+    }
 }
 
 int main() {
     count18h=0;
     asm mov dx, KERNEL_START;set Int Vec
     ax=0x2518;
-    inth 0x21;
-    //new In18h is not yet connected
-
+    inth 0x21;//new In18h is not yet connected
+setBlockDos(4096);//reduce COM-Prg to 64 KByte
+AllocMemDos(0x20);
+domem();
+FreeMemDos(vAX);
 domem();
 
     cputs(" c18h=");
