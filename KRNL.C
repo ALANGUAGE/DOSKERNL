@@ -447,8 +447,27 @@ int domem() {
         asm mov [memSize], ax
         cputs(", Size:");
         printhex16(memSize);
+        if (memOwner == 8) cputs(" DOS");
         if (memOwner == 0) cputs(" free");
-        if (memOwner == 8) cputs(" DOS ");
+        else {
+            putch(' ');
+            __emit__(0x26,0xA1,8,0);//
+            writetty();
+            __emit__(0x26,0xA1,9,0);//
+            writetty();
+            __emit__(0x26,0xA1,10,0);//
+            writetty();
+            __emit__(0x26,0xA1,11,0);//
+            writetty();
+            __emit__(0x26,0xA1,12,0);//
+            writetty();
+            __emit__(0x26,0xA1,13,0);//
+            writetty();
+            __emit__(0x26,0xA1,14,0);//
+            writetty();
+            __emit__(0x26,0xA1,15,0);//
+            writetty();
+        }
     ax=es;
     ax += memSize;
     asm inc ax; ax+=1;
@@ -503,7 +522,7 @@ int FreeMemDos(unsigned int i) {// segment addr
     if (DOS_ERR) {
         cputs(" ***Error Free Mem***");
 //    7=MCB destroyed, 9=ES is wromg
-        cputs(" FreeMem AX:"); 
+        cputs(" FreeMem AX:");
         printhex16(vAX);
     }
 }
@@ -513,10 +532,7 @@ int main() {
     asm mov dx, KERNEL_START;set Int Vec
     ax=0x2518;
     inth 0x21;//new In18h is not yet connected
-setBlockDos(4096);//reduce COM-Prg to 64 KByte
-AllocMemDos(0x20);
-domem();
-FreeMemDos(vAX);
+    setBlockDos(4096);//reduce COM-Prg to 64 KByte
 domem();
 
     cputs(" c18h=");
