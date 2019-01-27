@@ -486,9 +486,9 @@ int DosInt() {
 }
 
 int setBlockDos(unsigned int i) {
-    bx=i;
+    bx=i;//number para wanted
     ax=cs;
-    es=ax;
+    es=ax;//seg addr
     ax=0x4A00;
     DosInt();
 //modify memory Allocation. IN: ES=Block Seg, BX=size in para
@@ -504,7 +504,7 @@ int AllocMemDos(unsigned int i) {// in para
     bx=i;
     ah=0x48;
     DosInt();
-    asm mov [vAX], ax; error code
+    asm mov [vAX], ax; seg addr or error code
     asm mov [vBX], bx; free para
     if (DOS_ERR) cputs(" ***Error Set Block***");
 //    7=MCB destroyed, 8=Insufficient memory
@@ -513,9 +513,9 @@ int AllocMemDos(unsigned int i) {// in para
     cputs(",BX:"); printhex16(vBX);
 }
 int FreeMemDos(unsigned int i) {// segment addr
-    es=i;//todo
-    ax=i;
-    es=ax;
+    es=i;
+//    ax=i;
+//    es=ax;
     ah=0x49;
     DosInt();
     asm mov [vAX], ax; error code

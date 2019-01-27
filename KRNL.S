@@ -1897,55 +1897,61 @@ AllocMemDos_2 db ",BX:",0
 ENDP
 
 FreeMemDos: PROC
-;-516     es=i;//todo
+;-516     dx=i;
 ;
  ENTER  0,0
+ mov  dx, [bp+4]
+;-517     bx=i;
+
+ mov  bx, [bp+4]
+;-518     es=i;//todo
+
  mov  es, [bp+4]
-;-517     ax=i;
+;-519     ax=i;
 
  mov  ax, [bp+4]
-;-518     es=ax;
+;-520     es=ax;
 
  mov  es, ax
-;-519     ah=0x49;
+;-521     ah=0x49;
 
  mov  ah, 73
-;-520     DosInt();
+;-522     DosInt();
 
  call DosInt
-;-521     asm mov [vAX], ax; error code
+;-523     asm mov [vAX], ax; error code
 
  mov [vAX], ax; error code
-;-522     if (DOS_ERR) {
+;-524     if (DOS_ERR) {
 
  mov al, [DOS_ERR]
  or  al, al
  je .FreeMemDos49
-;-523         cputs(" ***Error Free Mem***");
+;-525         cputs(" ***Error Free Mem***");
 
  push FreeMemDos_0
  call cputs
  add  sp, 2
-;-524 //    7=MCB destroyed, 9=ES is wromg
+;-526 //    7=MCB destroyed, 9=ES is wromg
 
-;-525         cputs(" FreeMem AX:");
+;-527         cputs(" FreeMem AX:");
 
  push FreeMemDos_1
  call cputs
  add  sp, 2
-;-526         printhex16(vAX);
+;-528         printhex16(vAX);
 
  push word [vAX]
  call printhex16
  add  sp, 2
-;-527     }
+;-529     }
 
-;-528 }
+;-530 }
 
 .FreeMemDos49:
-;-529 
+;-531 
 
-;-530 int main() {
+;-532 int main() {
 
  LEAVE
  ret
@@ -1954,49 +1960,49 @@ FreeMemDos_1 db " FreeMem AX:",0
 ENDP
 
 main: PROC
-;-531     count18h=0;
+;-533     count18h=0;
 
  mov ax, 0
  mov word [count18h], ax
-;-532     asm mov dx, KERNEL_START;set Int Vec
+;-534     asm mov dx, KERNEL_START;set Int Vec
 
  mov dx, KERNEL_START;set Int Vec
-;-533     ax=0x2518;
+;-535     ax=0x2518;
 
  mov  ax, 9496
-;-534     inth 0x21;//new In18h is not yet connected
+;-536     inth 0x21;//new In18h is not yet connected
 
  int  33
-;-535     setBlockDos(4096);//reduce COM-Prg to 64 KByte
+;-537     setBlockDos(4096);//reduce COM-Prg to 64 KByte
 
  push 4096
  call setBlockDos
  add  sp, 2
-;-536 domem();
+;-538 domem();
 
  call domem
-;-537 
+;-539 
 
-;-538     cputs(" c18h=");
+;-540     cputs(" c18h=");
 
  push main_0
  call cputs
  add  sp, 2
-;-539     printunsign(count18h);
+;-541     printunsign(count18h);
 
  push word [count18h]
  call printunsign
  add  sp, 2
-;-540     ah=0x4C;//Terminate
+;-542     ah=0x4C;//Terminate
 
  mov  ah, 76
-;-541     KernelInt();
+;-543     KernelInt();
 
  call KernelInt
-;-542 }
+;-544 }
 
  ret
 main_0 db " c18h=",0
 ENDP
-;Glob. variables:21 (300), Functions:28 (300), Lines:543
+;Glob. variables:21 (300), Functions:28 (300), Lines:545
 ;Constant: 160 (3000), stacksize: 40536
