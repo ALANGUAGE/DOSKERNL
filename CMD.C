@@ -1,7 +1,28 @@
-char Version1[]="CMD V0.5";//Command.com for 1OS        
-int writetty()     { ah=0x0E; bx=0; __emit__(0xCD,0x10); }
-int putch(char c)  {if (c==10) {al=13; writetty();} al=c; writetty(); }
-int cputs(char *s) {char c;  while(*s) { c=*s; putch(c); s++; } }
+char Version1[]="CMD V0.5.1";//Command.com for 1OS
+//--------------------------- Bios Routines I/O ---------------------
+int writetty()     {//char in AL
+    ah=0x0E;
+    asm push bx
+    bx=0;     //page in BH
+    inth 0x10;
+    asm pop bx
+}
+int putch(char c)  {
+    if (c==10)  {// LF
+        al=13;   // CR, write CR first and then LF
+        writetty();
+    }
+    al=c;
+    writetty();
+}
+int cputs(char *s) {//only with correct DS !!!
+    char c;
+    while(*s) {
+        c=*s;
+        putch(c);
+        s++;
+    }
+}
 
 int gotoxy (char x, char y) {
     ah=2;
@@ -19,17 +40,27 @@ int clrscr()    {
     gotoxy(0,0);
 }
 
-
-int getch()  { ah=0x10; __emit__(0xCD,0x16); }
-int waitkey(){ ah=0x11; __emit__(0xCD,0x16); __emit__(0x74,0xFA); }
-int GetKey() {
-    int i;
-    waitkey();
-    i=getch() & 255;
-    if(i==0)i=getch()+256;
-        ax=i;
+int getch() {
+    ah=0x10;//MF2-KBD read char
+    inth 0x16;//AH=Scan code, AL=char
 }
-int getche() { GetKey(); writetty();}
+int waitkey() {
+    ah=0x11;//get kbd status
+    inth 0x16;//AH:Scan code, AL:char read, resting in buffer
+    //zero flag: 0=IS char, 1=NO char
+    __emit__(0x74,0xFA);// jz back 2 bytes until char read
+}
+int getkey() {
+    waitkey();
+    getch();
+    ah=0;//clear scan code
+    if (al == 0) getch() + 0x100;
+    //put ext code in AX
+}
+int kbdEcho() {
+    getkey();
+    writetty();//destroys AH
+}
 
 unsigned int vAX;
 unsigned int vBX;
@@ -45,8 +76,8 @@ int DOS_NoBytes;        //number of bytes read (0 or 1)
 char DOS_ByteRead;      //the byte just read by DOS
 
 int DosInt() {
-    __emit__(0xCD,0x21);//int 0x21;
-    __emit__(0x73, 04); //ifcarry DOS_ERR++;
+    inth 0x21;
+    __emit__(0x73, 04); //jnc over DOS_ERR++
     DOS_ERR++;
 }
 int openR (char *s) { dx=s;       ax=0x3D02; DosInt(); }
@@ -437,7 +468,7 @@ int Prompt1(unsigned char *s) {
     unsigned char *startstr;
     startstr=s;
     do {
-        c=GetKey();
+        c=getkey();
         if (c == 27)    exitR(1);//good bye
         if (c==8) {
             if (s > startstr){

@@ -86,7 +86,7 @@ int BCDtoChar(char BCD) { // converts 2 digit packed BCD
 }
 //---------------------------- Kernel Data Area ---------------------
 char KERNEL_ERR=0;
-unsigned int count18h=0;// counts all interrups calls
+unsigned int count18h=0;// counts all interrups calls in CS:
 char cent;char year;char month;char day;
 char hour; char min; char sec;
 unsigned int mode_IOData=0x8280;
@@ -99,25 +99,23 @@ int KernelInt() {
     __emit__(0x73, 04); //jnc over KERNEL_ERR++
     KERNEL_ERR++;
 }
-unsigned int VecOldOfs;
-unsigned int VecOldSeg;
-unsigned int count=0;
+unsigned int VecOldOfs;// in CS:
+unsigned int VecOldSeg;// in CS:
+unsigned int count=0;  // in CS:
 
 int GetIntVec(char c) {
     asm push es
     al=c;
     ah=0x35;
     KernelInt();
-    __emit__(0x2E);//CS override
-    asm mov [VecOldOfs], bx
-    __emit__(0x2E);//CS override
-    asm mov [VecOldSeg], es
+    asm mov [cs:VecOldOfs], bx
+    asm mov [cs:VecOldSeg], es
     asm pop es
 }
 
 //--------------------------- Start of new Interrupt 18h ------------
 int KERNEL_START() {
-    count18h++;
+    asm inc  word[cs:count18h]; count18h++;
     asm sti; set interrupt enable
 
     if (ah==0x01) {//Read Keyboard and Echo
@@ -417,8 +415,9 @@ int writeDevice() {
 int getFirstMCB() {
     ah=0x52;//DOS list of lists
     inth 0x21;// out= ES:BX ptr to list of lists
-    __emit__(0x26);// ES: Praefix
-    asm mov es, [bx-2];mov es, [es:bx-2]
+    //__emit__(0x26);// ES: Praefix
+    //asm mov es, [bx-2]; mov es, [es:bx-2]
+    asm mov es, [es:bx-2]
     //first memory control block in ES:
 }
 char memSignature;
@@ -432,17 +431,17 @@ int domem() {
         cputs("Start:");
         printhex16(es);
         if (es >= 0xA000) cputs(" MCB in UMB");
-//        asm mov al, [es:0]// M or Z
+        //asm mov al, [es:0]; M or Z ERROR***********
         __emit__(0x26,0xA0,0,0);
         asm mov [memSignature], al
         cputs(", ");
         putch(memSignature);
-//        asm mov ax, [es:1]//program segment prefix
+//        asm mov ax, [es:1];psp ERROR*****
         __emit__(0x26,0xA1,1,0);
         asm mov [memOwner], ax
         cputs(", PSP:");
         printhex16(memOwner);
-//        asm mov ax, [es:3]//size in para
+//        asm mov ax, [es:3]//size in para ERROR*******
         __emit__(0x26,0xA1,3,0);
         asm mov [memSize], ax
         cputs(", Size:");
@@ -528,14 +527,17 @@ int FreeMemDos(unsigned int i) {// segment addr
 }
 
 int main() {
-    count18h=0;
+    asm mov word [cs:count18h], 0
     asm mov dx, KERNEL_START;set Int Vec
     ax=0x2518;
     inth 0x21;//new In18h is not yet connected
     setBlockDos(4096);//reduce COM-Prg to 64 KByte
 domem();
+printVersion();
+printDateTime();
 
     cputs(" c18h=");
+    __emit__(0x2E);// CS: prefix for next count18h
     printunsign(count18h);
     ah=0x4C;//Terminate
     KernelInt();
