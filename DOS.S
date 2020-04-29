@@ -1,106 +1,115 @@
-;PLA compiler A.COM V0.9.6, Input: DOS.C, Output: DOS.S
+;PLA compiler A.COM V1.0.1, Input: DOS.C, Output: DOS.S
 org  256 
 jmp main
-;-1 char Version1[]="DOS.COM V0.1.1";//IO.SYS and MSDS.SYS for 1OS
+;-1 char Version1[]="DOS.COM V0.1.2";//test bed
 
-Version1 db "DOS.COM V0.1.1",0
+Version1 db "DOS.COM V0.1.2",0
 ;-2 //todo: resize and take own stack
 
-;-3 unsigned int vAX;
+;-3 #define ORGDATA		4000//start of arrays
+
+;-4 unsigned int vAX;
 
 vAX dw 0
-;-4 unsigned int vBX;
+;-5 unsigned int vBX;
 
 vBX dw 0
-;-5 unsigned int vCX;
+;-6 unsigned int vCX;
 
 vCX dw 0
-;-6 unsigned int vDX;
+;-7 unsigned int vDX;
 
 vDX dw 0
-;-7 unsigned int vSP;
+;-8 unsigned int vSP;
 
 vSP dw 0
-;-8 unsigned int vBP;
+;-9 unsigned int vBP;
 
 vBP dw 0
-;-9 unsigned int vCS;
+;-10 unsigned int vCS;
 
 vCS dw 0
-;-10 unsigned int vDS;
+;-11 unsigned int vDS;
 
 vDS dw 0
-;-11 unsigned int vSS;
+;-12 unsigned int vSS;
 
 vSS dw 0
-;-12 unsigned int vES;
+;-13 unsigned int vES;
 
 vES dw 0
-;-13 
+;-14 
 
-;-14 char DOS_ERR=0;
+;-15 char DOS_ERR=0;
 
 DOS_ERR db 0
-;-15 unsigned int count21h=0;
+;-16 unsigned int count21h=0;
 
 count21h dw 0
-;-16 
+;-17 
 
-;-17 int writetty()     {
+;-18 int writetty()     {
 
 
 writetty: PROC
-;-18     ah=0x0E;
+;-19     ah=0x0E;
 
  mov  ah, 14
-;-19     bx=0;
+;-20     bx=0;
 
  mov  bx, 0
-;-20     asm int 16
+;-21     asm int 16
 
  int 16
-;-21 }
+;-22 }
 
-;-22 int putch(char c)  {
+;-23 int putch(char c)  {
 
  ret
 ENDP
 
 putch: PROC
-;-23     if (c==10)  {
-;
+;-24     if (c==10)  {
+
+;Function : putch, Number local Var: 1
+; # type sign width local variables
+;14 var sign byte c = bp+4;
  ENTER  0,0
  mov al, [bp+4]
  cmp al, 10
  jne .putch1
-;-24         al=13;
+;-25         al=13;
 
  mov  al, 13
-;-25         writetty();
+;-26         writetty();
 
  call writetty
-;-26     }
+;-27     }
 
-;-27     al=c;
+;-28     al=c;
 
 .putch1:
  mov  al, [bp+4]
-;-28     writetty();
+;-29     writetty();
 
  call writetty
-;-29 }
+;-30 }
 
-;-30 int cputs(char *s) {
+;-31 int cputs(char *s) {
 
  LEAVE
  ret
 ENDP
 
 cputs: PROC
-;-31     char c;
+;-32     char c;
 
-;-32     while(*s) {
-;
+;-33     while(*s) {
+
+;Function : cputs, Number local Var: 2
+; # type sign width local variables
+;14 ptr sign byte s = bp+4
+;15 var sign byte c = bp-2;
  ENTER  2,0
 .cputs2:
  mov bx, [bp+4]
@@ -108,48 +117,51 @@ cputs: PROC
  mov ah, 0
  or  al, al
  je .cputs3
-;-33         c=*s;
+;-34         c=*s;
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-34         putch(c);
+;-35         putch(c);
 
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call putch
  add  sp, 2
-;-35         s++;
+;-36         s++;
 
  inc  word[bp+4]
-;-36     }
+;-37     }
 
-;-37 }
+;-38 }
 
  jmp .cputs2
 .cputs3:
-;-38 
+;-39 
 
-;-39 int printhex4(unsigned char c) {
+;-40 int printhex4(unsigned char c) {
 
  LEAVE
  ret
 ENDP
 
 printhex4: PROC
-;-40     c += 48;
-;
+;-41     c += 48;
+
+;Function : printhex4, Number local Var: 1
+; # type sign width local variables
+;14 var unsg byte c = bp+4;
  ENTER  0,0
  add  byte[bp+4], 48
-;-41     if (c > 57) c += 7;
+;-42     if (c > 57) c += 7;
 
  mov al, [bp+4]
  cmp al, 57
  jle .printhex44
  add  byte[bp+4], 7
-;-42     putch(c);
+;-43     putch(c);
 
 .printhex44:
  mov al, byte [bp+4]
@@ -157,19 +169,23 @@ printhex4: PROC
  push ax
  call putch
  add  sp, 2
-;-43 }
+;-44 }
 
-;-44 int printhex8(unsigned char c) {
+;-45 int printhex8(unsigned char c) {
 
  LEAVE
  ret
 ENDP
 
 printhex8: PROC
-;-45     unsigned char nib;
+;-46     unsigned char nib;
 
-;-46     nib = c >> 4; printhex4(nib);
-;
+;-47     nib = c >> 4; printhex4(nib);
+
+;Function : printhex8, Number local Var: 2
+; # type sign width local variables
+;14 var unsg byte c = bp+4
+;15 var unsg byte nib = bp-2;
  ENTER  2,0
  mov al, [bp+4]
  shr al, 4
@@ -179,7 +195,7 @@ printhex8: PROC
  push ax
  call printhex4
  add  sp, 2
-;-47     nib = c & 15; printhex4(nib);
+;-48     nib = c & 15; printhex4(nib);
 
  mov al, [bp+4]
  and al, 15
@@ -189,19 +205,23 @@ printhex8: PROC
  push ax
  call printhex4
  add  sp, 2
-;-48 }
+;-49 }
 
-;-49 int printhex16(unsigned int i) {
+;-50 int printhex16(unsigned int i) {
 
  LEAVE
  ret
 ENDP
 
 printhex16: PROC
-;-50     unsigned int half;
+;-51     unsigned int half;
 
-;-51     half = i >>  8; printhex8(half);
-;
+;-52     half = i >>  8; printhex8(half);
+
+;Function : printhex16, Number local Var: 2
+; # type sign width local variables
+;14 var unsg word i = bp+4
+;15 var unsg word half = bp-2;
  ENTER  2,0
  mov ax, [bp+4]
  shr ax, 8
@@ -209,7 +229,7 @@ printhex16: PROC
  push word [bp-2]
  call printhex8
  add  sp, 2
-;-52     half = i & 255; printhex8(half);
+;-53     half = i & 255; printhex8(half);
 
  mov ax, [bp+4]
  and ax, 255
@@ -217,40 +237,44 @@ printhex16: PROC
  push word [bp-2]
  call printhex8
  add  sp, 2
-;-53 }
+;-54 }
 
-;-54 
+;-55 
 
-;-55 int printunsign(unsigned int n) {
+;-56 int printunsign(unsigned int n) {
 
  LEAVE
  ret
 ENDP
 
 printunsign: PROC
-;-56     unsigned int e;
+;-57     unsigned int e;
 
-;-57     if (n >= 10) {
-;
+;-58     if (n >= 10) {
+
+;Function : printunsign, Number local Var: 2
+; # type sign width local variables
+;14 var unsg word n = bp+4
+;15 var unsg word e = bp-2;
  ENTER  2,0
  mov ax, [bp+4]
  cmp ax, 10 ;unsigned : 0
  jb  .printunsign5
-;-58         e=n/10;
+;-59         e=n/10;
 
  mov ax, [bp+4]
  mov bx, 10
  mov dx, 0
  div bx
  mov [bp-2], ax
-;-59         printunsign(e);
+;-60         printunsign(e);
 
  push word [bp-2]
  call printunsign
  add  sp, 2
-;-60         }
+;-61         }
 
-;-61     n=n%10;
+;-62     n=n%10;
 
 .printunsign5:
  mov ax, [bp+4]
@@ -259,73 +283,73 @@ printunsign: PROC
  div bx
  mov ax, dx
  mov [bp+4], ax
-;-62     n+='0';
+;-63     n+='0';
 
  add  word[bp+4], 48
-;-63     putch(n);
+;-64     putch(n);
 
  push word [bp+4]
  call putch
  add  sp, 2
-;-64 }
+;-65 }
 
-;-65 
+;-66 
 
-;-66 int ShowRegister() {
+;-67 int ShowRegister() {
 
  LEAVE
  ret
 ENDP
 
 ShowRegister: PROC
-;-67     asm mov [vAX], ax
+;-68     asm mov [vAX], ax
 
  mov [vAX], ax
-;-68     asm mov [vBX], bx
+;-69     asm mov [vBX], bx
 
  mov [vBX], bx
-;-69     asm mov [vCX], cx
+;-70     asm mov [vCX], cx
 
  mov [vCX], cx
-;-70     asm mov [vDX], dx
+;-71     asm mov [vDX], dx
 
  mov [vDX], dx
-;-71     asm mov [vSP], sp
+;-72     asm mov [vSP], sp
 
  mov [vSP], sp
-;-72     asm mov [vBP], bp
+;-73     asm mov [vBP], bp
 
  mov [vBP], bp
-;-73     asm mov ax, cs
+;-74     asm mov ax, cs
 
  mov ax, cs
-;-74     asm mov [vCS], ax
+;-75     asm mov [vCS], ax
 
  mov [vCS], ax
-;-75     asm mov ax, ds
+;-76     asm mov ax, ds
 
  mov ax, ds
-;-76     asm mov [vDS], ax
+;-77     asm mov [vDS], ax
 
  mov [vDS], ax
-;-77     asm mov ax, ss
+;-78     asm mov ax, ss
 
  mov ax, ss
-;-78     asm mov [vSS], ax
+;-79     asm mov [vSS], ax
 
  mov [vSS], ax
-;-79     asm mov ax, es
+;-80     asm mov ax, es
 
  mov ax, es
-;-80     asm mov [vES], ax
+;-81     asm mov [vES], ax
 
  mov [vES], ax
-;-81     putch(10);
+;-82     putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-82     cputs( "AX="); printhex16(vAX);
+;-83     cputs( "AX="); printhex16(vAX);
 
  push ShowRegister_0
  call cputs
@@ -333,7 +357,7 @@ ShowRegister: PROC
  push word [vAX]
  call printhex16
  add  sp, 2
-;-83     cputs(",BX="); printhex16(vBX);
+;-84     cputs(",BX="); printhex16(vBX);
 
  push ShowRegister_1
  call cputs
@@ -341,7 +365,7 @@ ShowRegister: PROC
  push word [vBX]
  call printhex16
  add  sp, 2
-;-84     cputs(",CX="); printhex16(vCX);
+;-85     cputs(",CX="); printhex16(vCX);
 
  push ShowRegister_2
  call cputs
@@ -349,7 +373,7 @@ ShowRegister: PROC
  push word [vCX]
  call printhex16
  add  sp, 2
-;-85     cputs(",DX="); printhex16(vDX);
+;-86     cputs(",DX="); printhex16(vDX);
 
  push ShowRegister_3
  call cputs
@@ -357,7 +381,7 @@ ShowRegister: PROC
  push word [vDX]
  call printhex16
  add  sp, 2
-;-86     cputs(",SP="); printhex16(vSP);
+;-87     cputs(",SP="); printhex16(vSP);
 
  push ShowRegister_4
  call cputs
@@ -365,7 +389,7 @@ ShowRegister: PROC
  push word [vSP]
  call printhex16
  add  sp, 2
-;-87     cputs(",BP="); printhex16(vBP);
+;-88     cputs(",BP="); printhex16(vBP);
 
  push ShowRegister_5
  call cputs
@@ -373,7 +397,7 @@ ShowRegister: PROC
  push word [vBP]
  call printhex16
  add  sp, 2
-;-88     cputs(",CS="); printhex16(vCS);
+;-89     cputs(",CS="); printhex16(vCS);
 
  push ShowRegister_6
  call cputs
@@ -381,7 +405,7 @@ ShowRegister: PROC
  push word [vCS]
  call printhex16
  add  sp, 2
-;-89     cputs(",DS="); printhex16(vDS);
+;-90     cputs(",DS="); printhex16(vDS);
 
  push ShowRegister_7
  call cputs
@@ -389,7 +413,7 @@ ShowRegister: PROC
  push word [vDS]
  call printhex16
  add  sp, 2
-;-90     cputs(",SS="); printhex16(vSS);
+;-91     cputs(",SS="); printhex16(vSS);
 
  push ShowRegister_8
  call cputs
@@ -397,7 +421,7 @@ ShowRegister: PROC
  push word [vSS]
  call printhex16
  add  sp, 2
-;-91     cputs(",ES="); printhex16(vES);
+;-92     cputs(",ES="); printhex16(vES);
 
  push ShowRegister_9
  call cputs
@@ -405,15 +429,15 @@ ShowRegister: PROC
  push word [vES]
  call printhex16
  add  sp, 2
-;-92 }
+;-93 }
 
-;-93 
+;-94 
 
-;-94 //Int = pushf + call far
+;-95 //Int = pushf + call far
 
-;-95 //Int = pushf + push cs + push offset DOS_START + jmp far cs:VecOldOfs
+;-96 //Int = pushf + push cs + push offset DOS_START + jmp far cs:VecOldOfs
 
-;-96 int DosInt() {
+;-97 int DosInt() {
 
  ret
 ShowRegister_0 db "AX=",0
@@ -429,216 +453,222 @@ ShowRegister_9 db ",ES=",0
 ENDP
 
 DosInt: PROC
-;-97     asm int 33; 21h
+;-98     inth 0x21;
 
- int 33; 21h
-;-98     __emit__(0x73, 04); //jnc over DOS_ERR++
+ int  33
+;-99     __emit__(0x73, 04); //jnc over DOS_ERR++
 
  db 115,4
-;-99     DOS_ERR++;
+;-100     DOS_ERR++;
 
  inc  byte[DOS_ERR]
-;-100 }
+;-101 }
 
-;-101 
+;-102 
 
-;-102 unsigned char JmpFarHook=0xEA;//start struct
+;-103 unsigned char JmpFarHook=0xEA;//start struct
 
  ret
 ENDP
 JmpFarHook db 234
-;-103 unsigned int VecOldOfs;
+;-104 unsigned int VecOldOfs;
 
 VecOldOfs dw 0
-;-104 unsigned int VecOldSeg;//end struct
+;-105 unsigned int VecOldSeg;//end struct
 
 VecOldSeg dw 0
-;-105 
+;-106 
 
-;-106 int GetIntVec(char c) {
+;-107 int GetIntVec(char c) {
 
 
 GetIntVec: PROC
-;-107     asm push es
-;
+;-108     asm push es
+
+;Function : GetIntVec, Number local Var: 1
+; # type sign width local variables
+;17 var sign byte c = bp+4;
  ENTER  0,0
  push es
-;-108     al=c;
+;-109     al=c;
 
  mov  al, [bp+4]
-;-109     ah=0x35;
+;-110     ah=0x35;
 
  mov  ah, 53
-;-110     DosInt();
+;-111     DosInt();
 
  call DosInt
-;-111     asm mov [VecOldOfs], bx
+;-112     asm mov [VecOldOfs], bx
 
  mov [VecOldOfs], bx
-;-112     asm mov [VecOldSeg], es
+;-113     asm mov [VecOldSeg], es
 
  mov [VecOldSeg], es
-;-113     asm pop es
+;-114     asm pop es
 
  pop es
-;-114 }
+;-115 }
 
-;-115 
+;-116 
 
-;-116 unsigned int VecNewOfs;
+;-117 unsigned int VecNewOfs;
 
  LEAVE
  ret
 ENDP
 VecNewOfs dw 0
-;-117 unsigned int VecNewSeg;
+;-118 unsigned int VecNewSeg;
 
 VecNewSeg dw 0
-;-118 
+;-119 
 
-;-119 int GetIntVecNew(char c) {
+;-120 int GetIntVecNew(char c) {
 
 
 GetIntVecNew: PROC
-;-120     asm push es
-;
+;-121     asm push es
+
+;Function : GetIntVecNew, Number local Var: 1
+; # type sign width local variables
+;19 var sign byte c = bp+4;
  ENTER  0,0
  push es
-;-121     al=c;
+;-122     al=c;
 
  mov  al, [bp+4]
-;-122     ah=0x35;
+;-123     ah=0x35;
 
  mov  ah, 53
-;-123     DosInt();
+;-124     DosInt();
 
  call DosInt
-;-124     asm mov [VecNewOfs], bx
+;-125     asm mov [VecNewOfs], bx
 
  mov [VecNewOfs], bx
-;-125     asm mov [VecNewSeg], es
+;-126     asm mov [VecNewSeg], es
 
  mov [VecNewSeg], es
-;-126     asm pop es
+;-127     asm pop es
 
  pop es
-;-127 }
+;-128 }
 
-;-128 /*
+;-129 /*
 
-;-129 int SetIntVecDos(char *adr) {
+;-130 int SetIntVecDos(char *adr) {
 
-;-130     asm push ds
+;-131     asm push ds
 
-;-131     ax=cs;
+;-132     ax=cs;
 
-;-132     ds=ax;
+;-133     ds=ax;
 
-;-133 //    dx= &adr; is mov instead of lea
+;-134 //    dx= &adr; is mov instead of lea
 
-;-134     asm lea dx, [bp+4]; *adr
+;-135     asm lea dx, [bp+4]; *adr
 
-;-135     ax=0x2521;//new addr in ds:dx
+;-136     ax=0x2521;//new addr in ds:dx
 
-;-136     DosInt();
+;-137     DosInt();
 
-;-137     asm pop ds
+;-138     asm pop ds
 
-;-138 }
+;-139 }
 
-;-139 */
+;-140 */
 
-;-140 unsigned int DS_old;
+;-141 unsigned int DS_old;
 
  LEAVE
  ret
 ENDP
 DS_old dw 0
-;-141 
+;-142 
 
-;-142 int DOS_START() {
+;-143 int DOS_START() {
 
 
 DOS_START: PROC
-;-143     count21h++;
+;-144     count21h++;
 
  inc  word[count21h]
-;-144     if (ah != 0x80) {
+;-145     if (ah != 0x80) {
 
  cmp  ah, 128
  je  .DOS_START6
-;-145         asm jmp JmpFarHook; goto old kernel
+;-146         asm jmp JmpFarHook; goto old kernel
 
  jmp JmpFarHook; goto old kernel
-;-146     }
+;-147     }
 
-;-147         ax=ds;
+;-148         ax=ds;
 
 .DOS_START6:
  mov  ax, ds
-;-148         __emit__(0x2E);//cs seg for next instruction
+;-149         __emit__(0x2E);//cs seg for next instruction
 
  db 46
-;-149         asm mov [DS_old], ax
+;-150         asm mov [DS_old], ax
 
  mov [DS_old], ax
-;-150         ax=cs;// cs seg is the only seg we know the value
+;-151         ax=cs;// cs seg is the only seg we know the value
 
  mov  ax, cs
-;-151         ds=ax;
+;-152         ds=ax;
 
  mov  ds, ax
-;-152 
+;-153 
 
-;-153         asm sti; enable interrupts
+;-154         asm sti; enable interrupts
 
  sti; enable interrupts
-;-154         cputs("Inside DOS_START:");
+;-155         cputs("Inside DOS_START:");
 
  push DOS_START_0
  call cputs
  add  sp, 2
-;-155         ShowRegister();
+;-156         ShowRegister();
 
  call ShowRegister
-;-156 
+;-157 
 
-;-157         cputs(" count21h=");
+;-158         cputs(" count21h=");
 
  push DOS_START_1
  call cputs
  add  sp, 2
-;-158         printunsign(count21h);
+;-159         printunsign(count21h);
 
  push word [count21h]
  call printunsign
  add  sp, 2
-;-159         cputs(" DS: old=");
+;-160         cputs(" DS: old=");
 
  push DOS_START_2
  call cputs
  add  sp, 2
-;-160         printunsign(DS_old);
+;-161         printunsign(DS_old);
 
  push word [DS_old]
  call printunsign
  add  sp, 2
-;-161 
+;-162 
 
-;-162         ax=DS_old;//restore ds Seg
+;-163         ax=DS_old;//restore ds Seg
 
  mov  ax, [DS_old]
-;-163         ds=ax;
+;-164         ds=ax;
 
  mov  ds, ax
-;-164         asm iret
+;-165         asm iret
 
  iret
-;-165 }
+;-166 }
 
-;-166 
+;-167 
 
-;-167 int setblock(unsigned int i) {
+;-168 int setblock(unsigned int i) {
 
  ret
 DOS_START_0 db "Inside DOS_START:",0
@@ -647,35 +677,38 @@ DOS_START_2 db " DS: old=",0
 ENDP
 
 setblock: PROC
-;-168     DOS_ERR=0;
-;
+;-169     DOS_ERR=0;
+
+;Function : setblock, Number local Var: 1
+; # type sign width local variables
+;20 var unsg word i = bp+4;
  ENTER  0,0
  mov ax, 0
  mov byte [DOS_ERR], al
-;-169     bx=i;
+;-170     bx=i;
 
  mov  bx, [bp+4]
-;-170     ax=cs;
+;-171     ax=cs;
 
  mov  ax, cs
-;-171     es=ax;
+;-172     es=ax;
 
  mov  es, ax
-;-172     ax=0x4A00;
+;-173     ax=0x4A00;
 
  mov  ax, 18944
-;-173     //modify mem Alloc. IN: ES=Block Seg, BX=size in para
+;-174     //modify mem Alloc. IN: ES=Block Seg, BX=size in para
 
-;-174     DosInt();
+;-175     DosInt();
 
  call DosInt
-;-175     asm mov [vAX], ax
+;-176     asm mov [vAX], ax
 
  mov [vAX], ax
-;-176     asm mov [vBX], bx
+;-177     asm mov [vBX], bx
 
  mov [vBX], bx
-;-177     if (DOS_ERR) cputs(" ***Error SetBlock***");
+;-178     if (DOS_ERR) cputs(" ***Error SetBlock***");
 
  mov al, [DOS_ERR]
  or  al, al
@@ -683,7 +716,7 @@ setblock: PROC
  push setblock_0
  call cputs
  add  sp, 2
-;-178     cputs("SetBlock AX:"); printhex16(vAX);
+;-179     cputs("SetBlock AX:"); printhex16(vAX);
 
 .setblock7:
  push setblock_1
@@ -692,7 +725,7 @@ setblock: PROC
  push word [vAX]
  call printhex16
  add  sp, 2
-;-179     cputs(",BX:"); printhex16(vBX);
+;-180     cputs(",BX:"); printhex16(vBX);
 
  push setblock_2
  call cputs
@@ -700,11 +733,13 @@ setblock: PROC
  push word [vBX]
  call printhex16
  add  sp, 2
-;-180 }
+;-181 }
 
-;-181 
+;-182 
 
-;-182 int main() {
+;-183 //-------------------  disk IO  -----------------
+
+;-184 char BIOS_ERR=0;
 
  LEAVE
  ret
@@ -712,131 +747,445 @@ setblock_0 db " ***Error SetBlock***",0
 setblock_1 db "SetBlock AX:",0
 setblock_2 db ",BX:",0
 ENDP
+BIOS_ERR db 0
+;-185 int  BIOS_Status=0;
+
+BIOS_Status dw 0
+;-186 char DiskBuf[512];
+
+section .bss
+absolute 4000
+DiskBuf resb 512
+section .text
+;-187 char Drive;
+
+Drive db 0
+;-188 int  Cylinders;
+
+Cylinders dw 0
+;-189 int  Sectors;
+
+Sectors dw 0
+;-190 int  Heads;
+
+Heads dw 0
+;-191 char Attached;
+
+Attached db 0
+;-192 int  ParmTableSeg;
+
+ParmTableSeg dw 0
+;-193 int  ParmTableOfs;
+
+ParmTableOfs dw 0
+;-194 char DriveType;
+
+DriveType db 0
+;-195 
+
+;-196 int Int13hError() {
+
+
+Int13hError: PROC
+;-197 	cputs("*** disk error #(hex) :");
+
+ push Int13hError_0
+ call cputs
+ add  sp, 2
+;-198 	printhex16(BIOS_Status);	
+
+ push word [BIOS_Status]
+ call printhex16
+ add  sp, 2
+;-199 }	
+
+;-200 int Int13hRawIO(char drive, char function) {
+
+ ret
+Int13hError_0 db "*** disk error #(hex) :",0
+ENDP
+
+Int13hRawIO: PROC
+;-201 	BIOS_ERR=0;	
+
+;Function : Int13hRawIO, Number local Var: 2
+; # type sign width local variables
+;31 var sign byte drive = bp+4
+;32 var sign byte function = bp+6;
+ ENTER  0,0
+ mov ax, 0
+ mov byte [BIOS_ERR], al
+;-202 	dl=drive;
+
+ mov  dl, [bp+4]
+;-203 	ah=function;//0=reset, 1=status, 8=parms, 10h=hd status
+
+ mov  ah, [bp+6]
+;-204 	inth 0x13;
+
+ int  19
+;-205     __emit__(0x73, 04); //jnc over BIOS_ERR++
+
+ db 115,4
+;-206 	BIOS_ERR++;//Status or error code in AH
+
+ inc  byte[BIOS_ERR]
+;-207 }
+
+;-208 
+
+;-209 int Int13hRW(char rw, char drive, int head, int cyl, int sector,
+
+ LEAVE
+ ret
+ENDP
+
+Int13hRW: PROC
+;-210 	int count, int BufSeg, int BufOfs) {//CHS max. 8GB
+
+;-211 	BIOS_ERR=0;	
+
+;Function : Int13hRW, Number local Var: 8
+; # type sign width local variables
+;31 var sign byte rw = bp+4
+;32 var sign byte drive = bp+6
+;33 var sign word head = bp+8
+;34 var sign word cyl = bp+10
+;35 var sign word sector = bp+12
+;36 var sign word count = bp+14
+;37 var sign word BufSeg = bp+16
+;38 var sign word BufOfs = bp+18;
+ ENTER  0,0
+ mov ax, 0
+ mov byte [BIOS_ERR], al
+;-212 	dl=drive;
+
+ mov  dl, [bp+6]
+;-213 	dh=head;
+
+ mov  dh, [bp+8]
+;-214 	es=BufSeg;
+
+ mov  es, [bp+16]
+;-215 	bx=BufOfs;
+
+ mov  bx, [bp+18]
+;-216 	cx=cyl;	
+
+ mov  cx, [bp+10]
+;-217 	cx &= 0x300;//2 high bits of cyl
+
+ and  cx, 768
+;-218 	cx >> 2;//in 2 high bits of cl	
+
+ shr  cx, 2
+;-219 	sector &= 0x3F;//only 6 bits for sector
+
+ and  word[bp+12], 63
+;-220 	cl += sector;
+
+ add  cl, [bp+12]
+;-221 	ch=cyl;//low byte of cyl in ch
+
+ mov  ch, [bp+10]
+;-222 	
+
+;-223 	al=count;
+
+ mov  al, [bp+14]
+;-224 	ah=rw;
+
+ mov  ah, [bp+4]
+;-225 	inth 0x13;
+
+ int  19
+;-226     __emit__(0x73, 04); //jnc over BIOS_ERR++
+
+ db 115,4
+;-227 	BIOS_ERR++;
+
+ inc  byte[BIOS_ERR]
+;-228 }
+
+;-229 int Int13hReset() {
+
+ LEAVE
+ ret
+ENDP
+
+Int13hReset: PROC
+;-230 	BIOS_Status=Int13hRawIO(0x80, 0);
+
+ push 0
+ push 128
+ call Int13hRawIO
+ add  sp, 4
+ mov word [BIOS_Status], ax
+;-231 	if (BIOS_ERR) Int13hError();	
+
+ mov al, [BIOS_ERR]
+ or  al, al
+ je .Int13hReset8
+ call Int13hError
+;-232 }
+
+.Int13hReset8:
+;-233 int Int13hStatusRead() {
+
+ ret
+ENDP
+
+Int13hStatusRead: PROC
+;-234 	BIOS_Status=Int13hRawIO(0x80, 1);
+
+ push 1
+ push 128
+ call Int13hRawIO
+ add  sp, 4
+ mov word [BIOS_Status], ax
+;-235 	//AH=Status Floppy, AL=Status fixed disk	
+
+;-236 	if (BIOS_ERR) Int13hError();	
+
+ mov al, [BIOS_ERR]
+ or  al, al
+ je .Int13hStatusRead9
+ call Int13hError
+;-237 	// AL is destroyed but we have AX in BIOS_Status 
+
+;-238 }				 
+
+.Int13hStatusRead9:
+;-239 int Int13hDriveParams() {
+
+ ret
+ENDP
+
+Int13hDriveParams: PROC
+;-240 	BIOS_Status=Int13hRawIO(0x80, 8);
+
+ push 8
+ push 128
+ call Int13hRawIO
+ add  sp, 4
+ mov word [BIOS_Status], ax
+;-241 	asm mov [Sectors],      cl
+
+ mov [Sectors],      cl
+;-242 	Sectors &= 0x3F;
+
+ and  word[Sectors], 63
+;-243 	Sectors++;//1 to 64
+
+ inc  word[Sectors]
+;-244 
+
+;-245 	asm mov [Cylinders],    cl	
+
+ mov [Cylinders],    cl	
+;-246 	Cylinders &= 0xC0;//;bit 9 and 10
+
+ and  word[Cylinders], 192
+;-247 	Cylinders << 2;//compiler flaw: forget to store in Cylinders
+
+ mov ax, [Cylinders]
+ shl ax, 2
+;-248 	asm mov [Cylinders],    ax
+
+ mov [Cylinders],    ax
+;-249 	asm add [Cylinders],    ch;low byte	
+
+ add [Cylinders],    ch;low byte	
+;-250 	Cylinders++;//1 to 1024
+
+ inc  word[Cylinders]
+;-251 
+
+;-252 	asm mov [Heads],        dh
+
+ mov [Heads],        dh
+;-253 	Heads++;//1 to 256
+
+ inc  word[Heads]
+;-254 	asm mov [Attached],     dl
+
+ mov [Attached],     dl
+;-255 	asm mov [ParmTableSeg], es
+
+ mov [ParmTableSeg], es
+;-256 	asm mov [ParmTableOfs], di
+
+ mov [ParmTableOfs], di
+;-257 	asm mov [DriveType],    bl
+
+ mov [DriveType],    bl
+;-258 	if (BIOS_ERR) Int13hError();//the above params are invalid	
+
+ mov al, [BIOS_ERR]
+ or  al, al
+ je .Int13hDriveParams10
+ call Int13hError
+;-259 }	
+
+.Int13hDriveParams10:
+;-260 int Int13hHardDriveStatus() {
+
+ ret
+ENDP
+
+Int13hHardDriveStatus: PROC
+;-261 	BIOS_Status=Int13hRawIO(0x80, 0x10);
+
+ push 16
+ push 128
+ call Int13hRawIO
+ add  sp, 4
+ mov word [BIOS_Status], ax
+;-262 	
+
+;-263 	if (BIOS_ERR) Int13hError();//the above params are invalid			
+
+ mov al, [BIOS_ERR]
+ or  al, al
+ je .Int13hHardDriveStatus11
+ call Int13hError
+;-264 }	
+
+.Int13hHardDriveStatus11:
+;-265 
+
+;-266 int PrintDriveParms() {
+
+ ret
+ENDP
+
+PrintDriveParms: PROC
+;-267 	cputs(" HD Params: Drive :"); 		printhex8(Drive);
+
+ push PrintDriveParms_0
+ call cputs
+ add  sp, 2
+ mov al, byte [Drive]
+ mov ah, 0
+ push ax
+ call printhex8
+ add  sp, 2
+;-268 	cputs(", Cyl :");					printunsign(Cylinders);
+
+ push PrintDriveParms_1
+ call cputs
+ add  sp, 2
+ push word [Cylinders]
+ call printunsign
+ add  sp, 2
+;-269 	cputs(", Sec :");					printunsign(Sectors);
+
+ push PrintDriveParms_2
+ call cputs
+ add  sp, 2
+ push word [Sectors]
+ call printunsign
+ add  sp, 2
+;-270 	cputs(", Hd :");
+
+ push PrintDriveParms_3
+ call cputs
+ add  sp, 2
+;-271 }
+
+;-272 	
+
+;-273 int main() {
+
+ ret
+PrintDriveParms_0 db " HD Params: Drive :",0
+PrintDriveParms_1 db ", Cyl :",0
+PrintDriveParms_2 db ", Sec :",0
+PrintDriveParms_3 db ", Hd :",0
+ENDP
 
 main: PROC
-;-183     DOS_ERR = 0;
+;-274     DOS_ERR = 0;
 
  mov ax, 0
  mov byte [DOS_ERR], al
-;-184     setblock(4096);// 64KB
+;-275     Int13hDriveParams();
 
- push 4096
- call setblock
- add  sp, 2
-;-185 
+ call Int13hDriveParams
+;-276     PrintDriveParms();
 
-;-186     GetIntVec(0x21);
+ call PrintDriveParms
+;-277 /*
 
- push 33
- call GetIntVec
- add  sp, 2
-;-187     cputs(" Main Int21h old=");
+;-278     setblock(4096);// 64KB
 
- push main_0
- call cputs
- add  sp, 2
-;-188     printhex16(VecOldSeg);
+;-279 
 
- push word [VecOldSeg]
- call printhex16
- add  sp, 2
-;-189     putch(':');
+;-280     GetIntVec(0x21);
 
- push 58
- call putch
- add  sp, 2
-;-190     printhex16(VecOldOfs);
+;-281     cputs(" Main Int21h old=");
 
- push word [VecOldOfs]
- call printhex16
- add  sp, 2
-;-191 
+;-282     printhex16(VecOldSeg);
 
-;-192     asm mov dx, DOS_START
+;-283     putch(':');
 
- mov dx, DOS_START
-;-193 //    asm lea dx, [DOS_START]
+;-284     printhex16(VecOldOfs);
 
-;-194     ax=0x2521;
+;-285 
 
- mov  ax, 9505
-;-195     DosInt();
+;-286     asm mov dx, DOS_START
 
- call DosInt
-;-196 //    ShowRegister();
+;-287 //    asm lea dx, [DOS_START]
 
-;-197 
+;-288     ax=0x2521;
 
-;-198     GetIntVecNew(0x21);
+;-289     DosInt();
 
- push 33
- call GetIntVecNew
- add  sp, 2
-;-199     cputs(" Int21h new=");
+;-290 //    ShowRegister();
 
- push main_1
- call cputs
- add  sp, 2
-;-200     printhex16(VecNewSeg);
+;-291 
 
- push word [VecNewSeg]
- call printhex16
- add  sp, 2
-;-201     putch(':');
+;-292     GetIntVecNew(0x21);
 
- push 58
- call putch
- add  sp, 2
-;-202     printhex16(VecNewOfs);
+;-293     cputs(" Int21h new=");
 
- push word [VecNewOfs]
- call printhex16
- add  sp, 2
-;-203 
+;-294     printhex16(VecNewSeg);
 
-;-204     cputs(" count21h=");
+;-295     putch(':');
 
- push main_2
- call cputs
- add  sp, 2
-;-205     printunsign(count21h);
+;-296     printhex16(VecNewOfs);
 
- push word [count21h]
- call printunsign
- add  sp, 2
-;-206     cputs(" end main.");
+;-297 
 
- push main_3
- call cputs
- add  sp, 2
-;-207 
+;-298     cputs(" count21h=");
 
-;-208 //    asm int 32;20h exit
+;-299     printunsign(count21h);
 
-;-209 
+;-300     cputs(" end main.");
 
-;-210     asm mov dx, main;get adr of main in dx//Terminate stay resident
+;-301 
 
- mov dx, main;get adr of main in dx//Terminate stay resident
-;-211     asm shr dx, 4   ;make para
+;-302 //    asm int 32;20h exit
 
- shr dx, 4   ;make para
-;-212     asm add dx, 17  ;PSP in para + align to next para
+;-303 
 
- add dx, 17  ;PSP in para + align to next para
-;-213     ax=0x3100;
+;-304     asm mov dx, main;get adr of main in dx//Terminate stay resident
 
- mov  ax, 12544
-;-214     DosInt();
+;-305     asm shr dx, 4   ;make para
 
- call DosInt
-;-215 }
+;-306     asm add dx, 17  ;PSP in para + align to next para
+
+;-307     ax=0x3100;
+
+;-308     DosInt();
+
+;-309 */
+
+;-310 
+
+;-311 }
 
  ret
-main_0 db " Main Int21h old=",0
-main_1 db " Int21h new=",0
-main_2 db " count21h=",0
-main_3 db " end main.",0
 ENDP
-;Glob. variables:19 (300), Functions:14 (300), Lines:216
-;Constant: 279 (3000), stacksize: 40536
+;Glob. variables:30 (400):228 (4000), Functions:22 (300):249 (3000)
+;Lines:312, Constant: 279 (3000), stacksize: 61023

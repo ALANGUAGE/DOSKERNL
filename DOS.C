@@ -1,5 +1,6 @@
-char Version1[]="DOS.COM V0.1.1";//IO.SYS and MSDS.SYS for 1OS
+char Version1[]="DOS.COM V0.1.2";//test bed
 //todo: resize and take own stack
+#define ORGDATA		4000//start of arrays
 unsigned int vAX;
 unsigned int vBX;
 unsigned int vCX;
@@ -22,7 +23,7 @@ int writetty()     {
 int putch(char c)  {
     if (c==10)  {
         al=13;
-        writett‚y();
+        writetty();
     }
     al=c;
     writetty();
@@ -94,7 +95,7 @@ int ShowRegister() {
 //Int = pushf + call far
 //Int = pushf + push cs + push offset DOS_START + jmp far cs:VecOldOfs
 int DosInt() {
-    asm int 33; 21h
+    inth 0x21;
     __emit__(0x73, 04); //jnc over DOS_ERR++
     DOS_ERR++;
 }
@@ -179,8 +180,101 @@ int setblock(unsigned int i) {
     cputs(",BX:"); printhex16(vBX);
 }
 
+//-------------------  disk IO  -----------------
+char BIOS_ERR=0;
+int  BIOS_Status=0;
+char DiskBuf[512];
+char Drive;
+int  Cylinders;
+int  Sectors;
+int  Heads;
+char Attached;
+int  ParmTableSeg;
+int  ParmTableOfs;
+char DriveType;
+
+int Int13hError() {
+	cputs("*** disk error #(hex) :");
+	printhex16(BIOS_Status);	
+}	
+int Int13hRawIO(char drive, char function) {
+	BIOS_ERR=0;	
+	dl=drive;
+	ah=function;//0=reset, 1=status, 8=parms, 10h=hd status
+	inth 0x13;
+    __emit__(0x73, 04); //jnc over BIOS_ERR++
+	BIOS_ERR++;//Status or error code in AH
+}
+
+int Int13hRW(char rw, char drive, int head, int cyl, int sector,
+	int count, int BufSeg, int BufOfs) {//CHS max. 8GB
+	BIOS_ERR=0;	
+	dl=drive;
+	dh=head;
+	es=BufSeg;
+	bx=BufOfs;
+	cx=cyl;	
+	cx &= 0x300;//2 high bits of cyl
+	cx >> 2;//in 2 high bits of cl	
+	sector &= 0x3F;//only 6 bits for sector
+	cl += sector;
+	ch=cyl;//low byte of cyl in ch
+	
+	al=count;
+	ah=rw;
+	inth 0x13;
+    __emit__(0x73, 04); //jnc over BIOS_ERR++
+	BIOS_ERR++;
+}
+int Int13hReset() {
+	BIOS_Status=Int13hRawIO(0x80, 0);
+	if (BIOS_ERR) Int13hError();	
+}
+int Int13hStatusRead() {
+	BIOS_Status=Int13hRawIO(0x80, 1);
+	//AH=Status Floppy, AL=Status fixed disk	
+	if (BIOS_ERR) Int13hError();	
+	// AL is destroyed but we have AX in BIOS_Status 
+}				 
+int Int13hDriveParams() {
+	BIOS_Status=Int13hRawIO(0x80, 8);
+	asm mov [Sectors],      cl
+	Sectors &= 0x3F;
+	Sectors++;//1 to 64
+
+	asm mov [Cylinders],    cl	
+	Cylinders &= 0xC0;//;bit 9 and 10
+	Cylinders << 2;//compiler flaw: forget to store in Cylinders
+	asm mov [Cylinders],    ax
+	asm add [Cylinders],    ch;low byte	
+	Cylinders++;//1 to 1024
+
+	asm mov [Heads],        dh
+	Heads++;//1 to 256
+	asm mov [Attached],     dl
+	asm mov [ParmTableSeg], es
+	asm mov [ParmTableOfs], di
+	asm mov [DriveType],    bl
+	if (BIOS_ERR) Int13hError();//the above params are invalid	
+}	
+int Int13hHardDriveStatus() {
+	BIOS_Status=Int13hRawIO(0x80, 0x10);
+	
+	if (BIOS_ERR) Int13hError();//the above params are invalid			
+}	
+
+int PrintDriveParms() {
+	cputs(" HD Params: Drive :"); 		printhex8(Drive);
+	cputs(", Cyl :");					printunsign(Cylinders);
+	cputs(", Sec :");					printunsign(Sectors);
+	cputs(", Hd :");
+}
+	
 int main() {
     DOS_ERR = 0;
+    Int13hDriveParams();
+    PrintDriveParms();
+/*
     setblock(4096);// 64KB
 
     GetIntVec(0x21);
@@ -212,4 +306,6 @@ int main() {
     asm add dx, 17  ;PSP in para + align to next para
     ax=0x3100;
     DosInt();
+*/
+
 }
