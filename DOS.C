@@ -1,6 +1,7 @@
 char Version1[]="DOS.COM V0.1.2";//test bed
 //todo: resize and take own stack
-#define ORGDATA		4000//start of arrays
+//Finder / DOS1.vmdk / Rechtsclick / Öffnen / Parallels Mounter
+#define ORGDATA		8192//start of arrays
 unsigned int vAX;
 unsigned int vBX;
 unsigned int vCX;
@@ -15,10 +16,12 @@ unsigned int vES;
 char DOS_ERR=0;
 unsigned int count21h=0;
 
-int writetty()     {
+int writetty()     {//char in AL
     ah=0x0E;
-    bx=0;
-    asm int 16
+    push bx;
+    bx=0;			//page in BH
+    inth 0x10;		//16
+    pop bx;
 }
 int putch(char c)  {
     if (c==10)  {
@@ -63,7 +66,6 @@ int printunsign(unsigned int n) {
     n+='0';
     putch(n);
 }
-
 int ShowRegister() {
     asm mov [vAX], ax
     asm mov [vBX], bx
@@ -92,121 +94,66 @@ int ShowRegister() {
     cputs(",ES="); printhex16(vES);
 }
 
-//Int = pushf + call far
-//Int = pushf + push cs + push offset DOS_START + jmp far cs:VecOldOfs
-int DosInt() {
-    inth 0x21;
-    __emit__(0x73, 04); //jnc over DOS_ERR++
-    DOS_ERR++;
-}
 
-unsigned char JmpFarHook=0xEA;//start struct
-unsigned int VecOldOfs;
-unsigned int VecOldSeg;//end struct
+//int printbyte()  {
+//	} 
 
-int GetIntVec(char c) {
-    asm push es
-    al=c;
-    ah=0x35;
-    DosInt();
-    asm mov [VecOldOfs], bx
-    asm mov [VecOldSeg], es
-    asm pop es
-}
-
-unsigned int VecNewOfs;
-unsigned int VecNewSeg;
-
-int GetIntVecNew(char c) {
-    asm push es
-    al=c;
-    ah=0x35;
-    DosInt();
-    asm mov [VecNewOfs], bx
-    asm mov [VecNewSeg], es
-    asm pop es
-}
-/*
-int SetIntVecDos(char *adr) {
-    asm push ds
-    ax=cs;
-    ds=ax;
-//    dx= &adr; is mov instead of lea
-    asm lea dx, [bp+4]; *adr
-    ax=0x2521;//new addr in ds:dx
-    DosInt();
-    asm pop ds
-}
-*/
-unsigned int DS_old;
-
-int DOS_START() {
-    count21h++;
-    if (ah != 0x80) {
-        asm jmp JmpFarHook; goto old kernel
-    }
-        ax=ds;
-        __emit__(0x2E);//cs seg for next instruction
-        asm mov [DS_old], ax
-        ax=cs;// cs seg is the only seg we know the value
-        ds=ax;
-
-        asm sti; enable interrupts
-        cputs("Inside DOS_START:");
-        ShowRegister();
-
-        cputs(" count21h=");
-        printunsign(count21h);
-        cputs(" DS: old=");
-        printunsign(DS_old);
-
-        ax=DS_old;//restore ds Seg
-        ds=ax;
-        asm iret
-}
-
-int setblock(unsigned int i) {
-    DOS_ERR=0;
-    bx=i;
-    ax=cs;
-    es=ax;
-    ax=0x4A00;
-    //modify mem Alloc. IN: ES=Block Seg, BX=size in para
-    DosInt();
-    asm mov [vAX], ax
-    asm mov [vBX], bx
-    if (DOS_ERR) cputs(" ***Error SetBlock***");
-    cputs("SetBlock AX:"); printhex16(vAX);
-    cputs(",BX:"); printhex16(vBX);
-}
-
-//-------------------  disk IO  -----------------
+//--------------------------------  disk IO  -------------------
 char BIOS_ERR=0;
 int  BIOS_Status=0;
-char DiskBuf[512];
+char DiskBuf [512];
 char Drive;
 int  Cylinders;
-int  Sectors;
-int  Heads;
+char Sectors;
+char Heads;
 char Attached;
 int  ParmTableSeg;
 int  ParmTableOfs;
 char DriveType;
+//hard disk partition structure
+unsigned char ptBootable;	//80h = active partition, else 00
+unsigned char ptStartHead;	//
+unsigned char ptStartSector;	//bits 0-5
+unsigned int  ptStartCylinder;//bits 8,9 in bits 6,7 of sector
+unsigned char ptFileSystem;	//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=hugePart
+unsigned char ptEndHead;		//
+unsigned char ptEndSector;	//bits 0-5
+unsigned int  ptEndCylinder;	//bits 8,9 in bits 6,7 of sector
+unsigned int ptStartSectorlo;//sectors preceding partition
+unsigned int ptStartSectorhi;
+unsigned int ptPartLenlo;    //length of partition in sectors
+unsigned int ptPartLenhi;
+unsigned long ptLStartSector; //sectors preceding partition
+unsigned long ptLPartLen;	//length of partition in sectors
 
-int Int13hError() {
-	cputs("*** disk error #(hex) :");
-	printhex16(BIOS_Status);	
-}	
-int Int13hRawIO(char drive, char function) {
-	BIOS_ERR=0;	
-	dl=drive;
-	ah=function;//0=reset, 1=status, 8=parms, 10h=hd status
-	inth 0x13;
-    __emit__(0x73, 04); //jnc over BIOS_ERR++
-	BIOS_ERR++;//Status or error code in AH
-}
+/*
+int printLong() { 
+//	asm cmp eax, 10	;works fine	
+//	asm mov eax, 10; compiler stop. todo compiler error
 
-int Int13hRW(char rw, char drive, int head, int cyl, int sector,
+// 	__emit__(0x66);
+//	bx = 10;//remainder.	asm mov ebx, 10
+	asm xor ebx, ebx
+	bl = 10;//divisor
+	cx = 0; //digit count
+/*	
+asm ultoaL1:	
+	asm xor edx, edx;clear high 32 bit
+	asm div ebx		; edx:eax DIV ebx = eax remainder edx
+	dl += '0';	
+	push dx; save each digit
+	asm inc cx		
+	asm cmp eax, 0			
+	asm jnz ultoaL1
+
+asm ultoaL2:
+	pop ax		;get each digit in reverse order
+	asm call writetty	;digit is already in AL
+	asm dec cx
+	asm jnz ultoaL2	
+}*/	
+
+int Int13hRW(char rw, char drive, char head, int cyl, int sector,
 	int count, int BufSeg, int BufOfs) {//CHS max. 8GB
 	BIOS_ERR=0;	
 	dl=drive;
@@ -226,86 +173,223 @@ int Int13hRW(char rw, char drive, int head, int cyl, int sector,
     __emit__(0x73, 04); //jnc over BIOS_ERR++
 	BIOS_ERR++;
 }
-int Int13hReset() {
-	BIOS_Status=Int13hRawIO(0x80, 0);
-	if (BIOS_ERR) Int13hError();	
+int Int13hRawIO(char drive, char function) {
+	BIOS_ERR=0;	
+	dl=drive;
+	ah=function;//0=reset, 1=status, 8=parms
+	inth 0x13;
+    __emit__(0x73, 04); //jnc over BIOS_ERR++
+	BIOS_ERR++;//Status or error code in AX
 }
-int Int13hStatusRead() {
-	BIOS_Status=Int13hRawIO(0x80, 1);
-	//AH=Status Floppy, AL=Status fixed disk	
-	if (BIOS_ERR) Int13hError();	
-	// AL is destroyed but we have AX in BIOS_Status 
-}				 
-int Int13hDriveParams() {
-	BIOS_Status=Int13hRawIO(0x80, 8);
+int Int13hError() {
+	cputs("** DISK ERROR AX=");
+	printhex16(BIOS_Status);
+//	cputs(" BIOS_ERR=");
+//	printunsign(BIOS_ERR);
+	cputs(".  ");
+//	putch(10);
+	BIOS_Status=Int13hRawIO(Drive, 0);//Reset
+	BIOS_ERR=0;
+}	
+
+int Params(drive) {
+	putch(10);	
+	cputs("(AH=08)Drive Params :");
+	BIOS_Status=Int13hRawIO(drive, 8);
+	if (BIOS_ERR) Int13hError();
+	printhex16(BIOS_Status);	
+	asm mov [Heads],        dh
+	asm mov [Attached],     dl
+	asm mov [ParmTableSeg], es
+	asm mov [ParmTableOfs], di
+//	asm mov [DriveType],    bl
+	// CX =       ---CH--- ---CL---
+	// cylinder : 76543210 98
+	// sector   :            543210	
 	asm mov [Sectors],      cl
-	Sectors &= 0x3F;
+	Sectors &= 0x3F;// 63
 	Sectors++;//1 to 64
 
 	asm mov [Cylinders],    cl	
 	Cylinders &= 0xC0;//;bit 9 and 10
-	Cylinders << 2;//compiler flaw: forget to store in Cylinders
-	asm mov [Cylinders],    ax
-	asm add [Cylinders],    ch;low byte	
-	Cylinders++;//1 to 1024
+	Cylinders = Cylinders << 2;//compiler flaw:
+	asm add [Cylinders],    ch;//byte add, low byte is empty	
 
-	asm mov [Heads],        dh
-	Heads++;//1 to 256
-	asm mov [Attached],     dl
-	asm mov [ParmTableSeg], es
-	asm mov [ParmTableOfs], di
-	asm mov [DriveType],    bl
-	if (BIOS_ERR) Int13hError();//the above params are invalid	
-}	
-int Int13hHardDriveStatus() {
-	BIOS_Status=Int13hRawIO(0x80, 0x10);
-	
-	if (BIOS_ERR) Int13hError();//the above params are invalid			
-}	
-
-int PrintDriveParms() {
-	cputs(" HD Params: Drive :"); 		printhex8(Drive);
-	cputs(", Cyl :");					printunsign(Cylinders);
-	cputs(", Sec :");					printunsign(Sectors);
-	cputs(", Hd :");
+	putch(10);
+	cputs("CHS=");				printunsign(Cylinders);
+	putch('/');					printunsign(Heads);
+	putch('/');					printunsign(Sectors);
+	cputs(", NoDrives=");		printhex8(Attached);
+	cputs(", at=");				printhex16(ParmTableSeg);
+	putch(':');					printhex16(ParmTableOfs);
+	putch('.');
 }
+
+int Status(drive) {
+	putch(10);
+	cputs("(1)Status last Op=");
+	BIOS_Status=Int13hRawIO(drive, 1);	
+	if (BIOS_ERR) Int13hError();	
+	printhex16(BIOS_Status);	
+}	
+
+int testDisk(drive) {
+	int i; unsigned int j; char c; 
+	putch(10);
+	cputs("MBR Magic=");	
+	asm mov [ParmTableSeg], ds
+	//Offset is in DiskBuf
+	BIOS_Status=Int13hRW(2,drive,0,0,1,1,ParmTableSeg,DiskBuf);
+	if (BIOS_ERR) Int13hError();	
+//	printhex16(BIOS_Status);	
+	i=510;
+	c = DiskBuf[i];
+	printhex8(c);
+	i++;
+	c = DiskBuf[i];
+	printhex8(c);
 	
-int main() {
-    DOS_ERR = 0;
-    Int13hDriveParams();
-    PrintDriveParms();
+	cputs(",DiskBuf=");
+	printhex16(ParmTableSeg);
+	putch(':');							
+	printhex16(DiskBuf);
+	putch('.');
+
+    putch(10);		
+	i=0;
+	cputs("No=");
+	printunsign(i);
+	j=0x1be;
+	ptBootable=DiskBuf[j];
+	cputs(",Boot=");
+	printhex8(ptBootable);
+	j++;
+	ptStartHead=DiskBuf[j];
+	cputs(",Start HSC=");
+	printunsign(ptStartHead);
+	j++;
+	ptStartSector=DiskBuf[j];
+	ah=0;//next line convert byte to word
+	ptStartCylinder=ptStartSector;//see next 5 line		
+	ptStartSector &= 0x3F;
+	ptStartSector++;//Sector start with 1
+	cputs("/");
+	printunsign(ptStartSector);	
+	ptStartCylinder &= 0xC0;
+	ptStartCylinder = ptStartCylinder << 2;//OK no short cut!	
+	j++;
+	ah=0;//byte 2 word
+	ptStartCylinder=DiskBuf[j] + ptStartCylinder;
+//	byte add, ok because low byte is empty
+//	ptStartCylinder=ptStartCylinder + DiskBuf[j];//OK
+	cputs("/");
+	printunsign(ptStartCylinder);
+	j++;
+	ptFileSystem=DiskBuf[j];
+	cputs(" ID=");
+	printunsign(ptFileSystem);
+	j++;
+	ptEndHead=DiskBuf[j];
+	cputs(", End HSC=");
+	printunsign(ptEndHead);
+	j++;
+	ptEndSector=DiskBuf[j];
+	ah=0;//next line convert byte to word
+	ptEndCylinder=ptEndSector;//see next 5 line		
+	ptEndSector &= 0x3F;
+	ptEndSector++;//Sector start with 1
+	cputs("/");
+	printunsign(ptEndSector);	
+	ptEndCylinder &= 0xC0;
+	ptEndCylinder = ptEndCylinder << 2;//OK no short cut!	
+	j++;
+	ah=0;//byte 2 word
+	ptEndCylinder=DiskBuf[j] + ptEndCylinder;
+//	byte add, ok because low byte is empty
+//	ptStartCylinder=ptStartCylinder + DiskBuf[j];//OK
+	cputs("/");
+	printunsign(ptEndCylinder);
+
+	DiskBuf[j];//al!!
+
+	ptStartSectorlo = ax;
+
+	ptStartSectorlo = DiskBuf[j];
+	j += 2;
+
+
+//	bx=j;//	ptStartSector = DiskBuf[j];
+//	asm mov eax, [DiskBuf + bx]
+//	asm mov [ptLStartSector], eax
+	
+			
+	putch(10);		
+	cputs("Start hex32=");
+	printhex16(ptStartSectorhi);
+	printhex16(ptStartSectorlo);
+	
 /*
-    setblock(4096);// 64KB
+	cputs("Start=");
+	eax = ptLStartSector;//compiler does not have long parameter	
+	printLong();
+	cputs(", Length=");
+	eax = ptLPartLen;		
+	printLong();
+*/		
+}	
 
-    GetIntVec(0x21);
-    cputs(" Main Int21h old=");
-    printhex16(VecOldSeg);
-    putch(':');
-    printhex16(VecOldOfs);
+int Int13hExt(char drive) {
+	putch(10);
+	cputs("Int13h 41hExt AX=");
+	bx=0x55AA;
+	BIOS_Status=Int13hRawIO(0x80, 0x41);	
+	if (BIOS_ERR) Int13hError();
+	//BIOS_Status=ax;01: Extension supported
+	asm mov [vBX], bx;0xAA55 Extension installed
+	asm mov [vCX], cx;=1: AH042h-44h,47h,48h supported 			
+	printhex16(BIOS_Status);
+	cputs(" BX=");		printhex16(vBX);
+	cputs(" CX=");		printhex16(vCX);
+				
+}	
 
-    asm mov dx, DOS_START
-//    asm lea dx, [DOS_START]
-    ax=0x2521;
-    DosInt();
-//    ShowRegister();
+int mdump(unsigned char *adr, unsigned int len ) {
+    unsigned char c;
+    int i;
+    int j;
+    j=0;
+    while (j < len ) {
+        putch(10);
+        printhex16(adr);
+        putch(':');
+        i=0;
+        while (i < 16) {
+            putch(' ');
+            c = *adr;
+            printhex8(c);
+            adr++;
+            i++;
+            j++;
+            }
+        putch(' ');
+        adr -=16;
+        i=0;
+        while(i < 16) {
+            c= *adr;
+            if (c < 32) putch('.');
+                else putch(c);
+            adr++;
+            i++;
+        }
+    }
+}
 
-    GetIntVecNew(0x21);
-    cputs(" Int21h new=");
-    printhex16(VecNewSeg);
-    putch(':');
-    printhex16(VecNewOfs);
+//------------------------------------ main ---------------
+int main() {
+	Drive=0x80;
 
-    cputs(" count21h=");
-    printunsign(count21h);
-    cputs(" end main.");
-
-//    asm int 32;20h exit
-
-    asm mov dx, main;get adr of main in dx//Terminate stay resident
-    asm shr dx, 4   ;make para
-    asm add dx, 17  ;PSP in para + align to next para
-    ax=0x3100;
-    DosInt();
-*/
-
+	Params(Drive);
+	testDisk(Drive);
+//	mdump(DiskBuf, 512);
+	Int13hExt(Drive);
 }
