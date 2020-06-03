@@ -1,5 +1,4 @@
-char Version1[]="DOS.COM V0.1.2";//test bed
-//todo: resize and take own stack
+char Version1[]="DOS.COM V0.1.2";//Int13 branch
 #define ORGDATA		4096//start of arrays
 unsigned int vAX;
 unsigned int vBX;
@@ -97,94 +96,6 @@ int ShowRegister() {
     cputs(",DS="); printhex16(vDS);
     cputs(",SS="); printhex16(vSS);
     cputs(",ES="); printhex16(vES);
-}
-
-//Int = pushf + call far
-//Int = pushf + push cs + push offset DOS_START + jmp far cs:VecOldOfs
-int DosInt() {
-    inth 0x21;
-    __emit__(0x73, 04); //jnc over DOS_ERR++
-    DOS_ERR++;
-}
-
-unsigned char JmpFarHook=0xEA;//start struct
-unsigned int VecOldOfs;
-unsigned int VecOldSeg;//end struct
-
-int GetIntVec(char c) {
-    asm push es
-    al=c;
-    ah=0x35;
-    DosInt();
-    asm mov [VecOldOfs], bx
-    asm mov [VecOldSeg], es
-    asm pop es
-}
-
-unsigned int VecNewOfs;
-unsigned int VecNewSeg;
-
-int GetIntVecNew(char c) {
-    asm push es
-    al=c;
-    ah=0x35;
-    DosInt();
-    asm mov [VecNewOfs], bx
-    asm mov [VecNewSeg], es
-    asm pop es
-}
-/*
-int SetIntVecDos(char *adr) {
-    asm push ds
-    ax=cs;
-    ds=ax;
-//    dx= &adr; is mov instead of lea
-    asm lea dx, [bp+4]; *adr
-    ax=0x2521;//new addr in ds:dx
-    DosInt();
-    asm pop ds
-}
-*/
-unsigned int DS_old;
-
-int DOS_START() {
-    count21h++;
-    if (ah != 0x80) {
-        asm jmp JmpFarHook; goto old kernel
-    }
-        ax=ds;
-        __emit__(0x2E);//cs seg for next instruction
-        asm mov [DS_old], ax
-        ax=cs;// cs seg is the only seg we know the value
-        ds=ax;
-
-        asm sti; enable interrupts
-        cputs("Inside DOS_START:");
-        ShowRegister();
-
-        cputs(" count21h=");
-        printunsign(count21h);
-        cputs(" DS: old=");
-        printunsign(DS_old);
-
-        ax=DS_old;//restore ds Seg
-        ds=ax;
-        asm iret
-}
-
-int setblock(unsigned int i) {
-    DOS_ERR=0;
-    bx=i;
-    ax=cs;
-    es=ax;
-    ax=0x4A00;
-    //modify mem Alloc. IN: ES=Block Seg, BX=size in para
-    DosInt();
-    asm mov [vAX], ax
-    asm mov [vBX], bx
-    if (DOS_ERR) cputs(" ***Error SetBlock***");
-    cputs("SetBlock AX:"); printhex16(vAX);
-    cputs(",BX:"); printhex16(vBX);
 }
 
 
@@ -377,58 +288,10 @@ int testDisk(drive) {
 	
 }	
 
-int mdump(unsigned char *adr, unsigned int len ) {
-    unsigned char c;
-    int i;
-    int j;
-    j=0;
-    while (j < len ) {
-        putch(10);
-        printhex16(adr);
-        putch(':');
-        i=0;
-        while (i < 16) {
-            putch(' ');
-            c = *adr;
-            printhex8(c);
-            adr++;
-            i++;
-            j++;
-            }
-        putch(' ');
-        adr -=16;
-        i=0;
-        while(i < 16) {
-            c= *adr;
-            if (c < 32) putch('.');
-                else putch(c);
-            adr++;
-            i++;
-        }
-    }
-}
-char Dummy[10];
-
-
 //------------------------------------ main ---------------
 int main() {
 //	unsigned int i;
 	Drive=0x80;
-//	i = 0;
-
-//  LabelAddr[LabelMaxIx] = AbsoluteLab;
-
-
-//	asm  mov [DiskBuf+bx], al
-	
-//	asm mov [Dummy+bx], al
-		
-//	DiskBuf [i] = 0;
-	
-//	do {
-//		DiskBuf[i] = 0;
-//		i++;
-//	} while (i < 100);
 
 	Params(Drive);
 	testDisk(Drive);
@@ -457,39 +320,6 @@ int main() {
 	42	EXT Read Sectors
 	43	EXT Write Sectors
 	48	EXT Read Drive Parameter
-*/
-/*
-    setblock(4096);// 64KB
-
-    GetIntVec(0x21);
-    cputs(" Main Int21h old=");
-    printhex16(VecOldSeg);
-    putch(':');
-    printhex16(VecOldOfs);
-
-    asm mov dx, DOS_START
-//    asm lea dx, [DOS_START]
-    ax=0x2521;
-    DosInt();
-//    ShowRegister();
-
-    GetIntVecNew(0x21);
-    cputs(" Int21h new=");
-    printhex16(VecNewSeg);
-    putch(':');
-    printhex16(VecNewOfs);
-
-    cputs(" count21h=");
-    printunsign(count21h);
-    cputs(" end main.");
-
-//    asm int 32;20h exit
-
-    asm mov dx, main;get adr of main in dx//Terminate stay resident
-    asm shr dx, 4   ;make para
-    asm add dx, 17  ;PSP in para + align to next para
-    ax=0x3100;
-    DosInt();
 */
 
 }
