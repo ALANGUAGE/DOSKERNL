@@ -11,16 +11,6 @@ unsigned int vDS;
 unsigned int vSS;
 unsigned int vES;
 
-char DOS_ERR=0;
-unsigned int count21h=0;
-
-#define LABELADRMAX 600
-unsigned int LabelAddr[LABELADRMAX];//addr of each label
-int LabelMaxIx=0;       //actual # of stored labels. 1 to LABELADRMAX-1
-
-unsigned int AbsoluteLab=0;//uninitialised data
-
-
 int writetty()     {
     ah=0x0E;
     bx=0;
