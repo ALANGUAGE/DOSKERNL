@@ -91,9 +91,6 @@ int ShowRegister() {
 
 //Int = pushf + call far
 //Int = pushf + push cs + push offset DOS_START + jmp far cs:VecOldOfs
-char DOS_ERR=0;
-int count21h;
-
 int DosInt() {
     inth 0x21;
     __emit__(0x73, 04); //jnc over DOS_ERR++
@@ -274,9 +271,9 @@ int PrintDriveParms() {
 	cputs(", Hd=");						printunsign(Heads);
 	cputs(", Attached=");				printhex8(Attached);
 	putch(10);	
-//	cputs("DriveType (FL)=");			printhex8(DriveType);
-//	cputs(", ParmTable=");				printhex16(ParmTableSeg);
-//	putch(':');							printhex16(ParmTableOfs);
+	cputs("DriveType (FL)=");			printhex8(DriveType);
+	cputs(", ParmTable=");				printhex16(ParmTableSeg);
+	putch(':');							printhex16(ParmTableOfs);
 	putch('.');
 }
 
