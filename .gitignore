@@ -2,3 +2,6 @@
 *.EXE
 *.LST
 *.LS
+*.S
+*.H
+*.COM

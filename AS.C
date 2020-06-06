@@ -1,4 +1,4 @@
-char Version1[]="ASM.C V1.2";//Assembler like NASM, 11801bytes. 8381 stack
+char Version1[]="ASM.C V1.2.1";//Assembler like NASM, 11912bytes. 8381 stack
 //todo CS:with adr, not implemented: 14,15,16,41,51
 //todo Seg override works for [mem|, not [es:2ch]
 //todo getDigit hex 0x1234
@@ -638,7 +638,7 @@ int writeEA(char xxx) {//value for reg/operand
                 if (disp == 0) xxx |= 0x40;
             }
 
-            if (disp) {
+            if (disp != 0) {//compare word!
                 disploc=disp;
                 if (disploc  < 0) disploc=mkneg(disploc);
                 if (disploc > 127) len=2;
@@ -648,7 +648,6 @@ int writeEA(char xxx) {//value for reg/operand
             }
         }
     }
-
     genCode8(xxx);// gen second byte
     if (len == 1) genCode8 (disp);
     if (len == 2) genCode16(disp);
