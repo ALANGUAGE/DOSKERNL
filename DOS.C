@@ -1,4 +1,4 @@
-char Version1[]="DOS.COM V0.1.2";//test bed
+char Version1[]="DOS.COM V0.1.4";//test bed
 //todo: resize and take own stack
 //Finder / DOS1.vmdk / Rechtsclick / Öffnen / Parallels Mounter
 #define ORGDATA		8192//start of arrays
@@ -88,6 +88,17 @@ int printunsign(unsigned int n) {
     n+='0';
     putch(n);
 }
+
+int memcpy(char *s, char *t, int i) {
+	unsigned int r;
+	r = s;
+	do {
+		*s = *t;
+		s++; t++; i--;
+	} while (i != 0);
+	return r;
+}
+	
 int ShowRegister() {
     asm mov [vAX], ax
     asm mov [vBX], bx
@@ -184,10 +195,10 @@ int Params(char drive) {
 	BIOS_Status=Int13hRaw(drive, 8);
 	if (BIOS_ERR) Int13hError();
 	else {
-		cputs("AH Return Code:");
-		printhex16(BIOS_Status);	
+//		cputs("AH Return Code:");
+//		printhex16(BIOS_Status);	
 		asm mov [Heads],        dh
-		Heads++;
+//		Heads++;
 		asm mov [Attached],     dl
 		// CX =       ---CH--- ---CL---
 		// cylinder : 76543210 98
@@ -201,8 +212,8 @@ int Params(char drive) {
 		Cylinders = Cylinders << 2;//compiler flaw:
 		asm add [Cylinders],    ch;//byte add, low byte is empty	
 	
-		putch(10);
-		cputs("CHS=");				printunsign(Cylinders);
+//		putch(10);
+		cputs("CyHdSc=");			printunsign(Cylinders);
 		putch('/');					printunsign(Heads);
 		putch('/');					printunsign(Sectors);
 		cputs(", NoDrives=");		printhex8(Attached);
@@ -218,17 +229,8 @@ int Status(drive) {
 	printhex16(BIOS_Status);	
 }	
 
-int Init() {
-	int i;
-	i=0;
-	do {
-		DiskBuf[i] = i;
-		i++;
-	} while (i < 512);	
-	}
-	
 int getPartitionData() {
-	unsigned int j; char c; 
+	unsigned int j; char c; char *p;
 	j = PartNo << 4;
 	j = j + 0x1be;			ptBootable=DiskBuf[j];
 	j++;					ptStartHead=DiskBuf[j];
@@ -236,7 +238,7 @@ int getPartitionData() {
 	ah=0;//next line convert byte to word
 	ptStartCylinder=ptStartSector;	
 	ptStartSector &= 0x3F;
-	ptStartSector++;//Sector start with 1
+//	ptStartSector++;//Sector start with 1 todo
 	ptStartCylinder &= 0xC0;
 	ptStartCylinder = ptStartCylinder << 2;//OK no short cut!	
 	j++;
@@ -259,12 +261,12 @@ int getPartitionData() {
 	ptEndCylinder=DiskBuf[j] + ptEndCylinder;
 //	byte add, ok because low byte is empty
 //	ptStartCylinder=ptStartCylinder + DiskBuf[j];//OK
-
-	j++;					ptStartSectorlo = DiskBuf[j];
-	j += 2;					ptStartSectorhi = DiskBuf[j];
-	j += 2;					ptPartLenhi = DiskBuf[j];
-	j += 2;					ptPartLenlo = DiskBuf[j];
-	j += 2;//next partition entry
+	
+	j++;
+	p = j + &DiskBuf;//copy ptStartSector, ptPartLen
+	memcpy(&ptStartSectorlo, p, 8);
+	
+	j += 8;//next partition entry
 }
 	
 int printPartitionData() {
@@ -272,19 +274,21 @@ int printPartitionData() {
 	cputs("No=");			printunsign(PartNo);
 	cputs(",Boot=");		printhex8(ptBootable);
 	cputs(" ID=");			printunsign(ptFileSystem);
-	cputs(",Start HSC=");	printunsign(ptStartHead);
+	cputs(",HdSeCy=");		printunsign(ptStartHead);
 	cputs("/");				printunsign(ptStartSector);	
 	cputs("/");				printunsign(ptStartCylinder);
 	cputs("-");				printunsign(ptEndHead);
 	cputs("/");				printunsign(ptEndSector);	
 	cputs("/");				printunsign(ptEndCylinder);
 //	putch(10);		
-	cputs(",Start=");
-	printhex16(ptStartSectorhi);
-	printhex16(ptStartSectorlo);
+	cputs(",St=");
+	printunsign(ptStartSectorhi);
+	putch(':');
+	printunsign(ptStartSectorlo);
 	cputs(",Len=");
-	printhex16(ptPartLenhi);
-	printhex16(ptPartLenlo);
+	printunsign(ptPartLenhi);
+	putch(':');
+	printunsign(ptPartLenlo);
 }
 	
 int testDisk(drive) {
@@ -376,8 +380,6 @@ int mdump(unsigned char *adr, unsigned int len ) {
 //------------------------------------ main ---------------
 int main() {
 	Drive=0x80;
-	Init();
-	mdump(DiskBuf, 512);
 	
 	Params(Drive);
 	testDisk(Drive);
