@@ -96,8 +96,71 @@ int memcpy(char *s, char *t, int i) {
 		*s = *t;
 		s++; t++; i--;
 	} while (i != 0);
-	return r;
+	ax=r;//	return r;
 }
+
+int printlong(unsigned int lo, unsigned int hi) {
+// DX:AX DIV BX = AX remainder dx
+	dx=hi;
+	ax=lo;
+__asm{	
+  	mov     bx,10          ;CONST
+    push    bx             ;Sentinel
+.a: mov     cx,ax          ;Temporarily store LowDividend in CX
+    mov     ax,dx          ;First divide the HighDividend
+    xor     dx,dx          ;Setup for division DX:AX / BX
+    div     bx             ; -> AX is HighQuotient, Remainder is re-used
+    db		145;=91h xchg ax,cx;Temporarily move it to CX restoring LowDividend
+    div     bx             ; -> AX is LowQuotient, Remainder DX=[0,9]
+    push    dx             ;(1) Save remainder for now
+    mov     dx,cx          ;Build true 32-bit quotient in DX:AX
+    or      cx,ax          ;Is the true 32-bit quotient zero?
+    jnz     .a             ;No, use as next dividend
+    pop     ax             ;(1a) First pop (Is digit for sure)
+.b: add     al, 48;"0"     ;Turn into character [0,9] -> ["0","9"]
+}
+    writetty();
+__asm{
+    pop     ax             ;(1b) All remaining pops
+    cmp     ax,bx          ;Was it the sentinel?
+    jb      .b             ;Not yet	
+}		
+}
+
+char out10[10];
+
+int ultoa2(unsigned int l, unsigned int h, char *s) { int i;
+  i=0;  while(i<10) { *s = '0'; s++; i++; }   *s = 0;   s--;
+/*  
+;Function : ultoa2, Number local Var: 4
+; # type sign width local variables
+;15 var unsg word l = bp+4
+;16 var unsg word h = bp+6
+;17 ptr sign byte s = bp+8
+;18 var sign word i = bp-2;  */
+__asm{
+  	mov eax, dword [bp+4]  ; l   edx:eax DIV ebx = eax Rest edx
+ .ul:xor edx, edx
+ 
+ 	db 102	;66h for 32bit next instruction
+  	mov bx, 10	; BB 0A 00
+ 	db 0		; imm is 4 bytes
+ 	db 0
+;  	mov ebx, 10	;not working, compiler error
+  	
+  	
+ 	div ebx
+  	add dl, 48
+  	mov [bp+8], dl  ; s
+  	mov bx, [bp+8]
+  	mov [bx], dl
+  	dec  word	[bp+8]  ; s--;
+  	cmp eax, 0	;66 83 F8 00 todo???
+  	jnz .ul
+  	mov ax, [bp+8]    
+}
+}
+
 	
 int ShowRegister() {
     asm mov [vAX], ax
@@ -253,7 +316,7 @@ int getPartitionData() {
 	ah=0;//next line convert byte to word
 	ptEndCylinder=ptEndSector;//see next 5 line		
 	ptEndSector &= 0x3F;
-	ptEndSector++;//Sector start with 1
+//	ptEndSector++;//Sector start with 1 todo
 	ptEndCylinder &= 0xC0;
 	ptEndCylinder = ptEndCylinder << 2;//OK no short cut!	
 	j++;
@@ -285,10 +348,15 @@ int printPartitionData() {
 	printunsign(ptStartSectorhi);
 	putch(':');
 	printunsign(ptStartSectorlo);
+	putch('.');
+	printlong(ptStartSectorlo, ptStartSectorhi);
 	cputs(",Len=");
 	printunsign(ptPartLenhi);
 	putch(':');
 	printunsign(ptPartLenlo);
+	
+	putch('.');
+	printlong(ptPartLenlo, ptPartLenhi);
 }
 	
 int testDisk(drive) {
@@ -383,7 +451,7 @@ int main() {
 	
 	Params(Drive);
 	testDisk(Drive);
-	getkey();
-	mdump(DiskBuf, 512);
+//	getkey();
+//	mdump(DiskBuf, 512);
 	Int13hExt(Drive);
 }
