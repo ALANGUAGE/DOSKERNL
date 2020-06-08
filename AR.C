@@ -10,6 +10,92 @@
 /*char dirattr=0;   int  dirzeit=0;  int  dirdatum=0;
   int dirbytlo=0; int  dirbythi=0; char dirdatnam[]={0,0,0,0,0,0,0,0,0,0,0,0,0};
  int pos;   char inp_buf[81];    */
+char DOS_ERR=0;
+unsigned int count21h=0;
+
+int writetty()     {//char in AL
+    ah=0x0E;
+    push bx;
+    bx=0;			//page in BH
+    inth 0x10;		//16
+    pop bx;
+}
+int putch(char c)  {
+    if (c==10)  {
+        al=13;
+        writetty();
+    }
+    al=c;
+    writetty();
+}
+int cputs(char *s) {
+    char c;
+    while(*s) {
+        c=*s;
+        putch(c);
+        s++;
+    }
+}
+
+int getch() {
+    ah=0x10;//MF2-KBD read char
+    inth 0x16;//AH=Scan code, AL=char
+}
+int waitkey() {
+    ah=0x11;//get kbd status
+    inth 0x16;//AH:Scan code, AL:char read, resting in buffer
+    //zero flag: 0=IS char, 1=NO char
+    __emit__(0x74,0xFA);// jz back 2 bytes until char read
+}
+int getkey() {
+    waitkey();
+    getch();
+    ah=0;//clear scan code
+    if (al == 0) getch() + 0x100;
+    //put ext code in AX
+}
+int kbdEcho() {
+    getkey();
+    writetty();//destroys AH
+}
+
+int printhex4(unsigned char c) {
+    c += 48;
+    if (c > 57) c += 7;
+    putch(c);
+}
+int printhex8(unsigned char c) {
+    unsigned char nib;
+    nib = c >> 4; printhex4(nib);
+    nib = c & 15; printhex4(nib);
+}
+int printhex16(unsigned int i) {
+    unsigned int half;
+    half = i >>  8; printhex8(half);
+    half = i & 255; printhex8(half);
+}
+
+int printunsign(unsigned int n) {
+    unsigned int e;
+    if (n >= 10) {
+        e=n/10;
+        printunsign(e);
+        }
+    n=n%10;
+    n+='0';
+    putch(n);
+}
+
+int memcpy(char *s, char *t, int i) {
+	unsigned int r;
+	r = s;
+	do {
+		*s = *t;
+		s++; t++; i--;
+	} while (i != 0);
+	ax=r;//	return r;
+}
+
 int writetty()     { ah=0x0E; bx=0; inth 0x10; }                   //  BSCREEN.C
 int putch(char c)  {if (_ c==10) {al=13; writetty();} al=c; writetty(); }
 int cputs(char *s) {char c;  while(*s) { c=*s; putch(c); s++; } }
@@ -133,15 +219,52 @@ int rdump() { unsigned int rax; unsigned int rbx; unsigned int rcs;
   unsigned int res;     _ rax=ax; _ rbx=bx; _ rcs=cs; _ res=es;
   cputs(" Reg: AX="); printhex16(rax);  cputs(",BX="); printhex16(rbx);
   cputs(",CS="); printhex16(rcs);  cputs(",ES="); printhex16(res);putch(' '); }
-int dodump() { unsigned int i;
+int dodump1() { unsigned int i;
   cputs("Memory dump Startadresse: ");   Prompt1(inp_buf);
   i=atoi(inp_buf); mdump(i, 120); }
-int mdump(unsigned char *adr, unsigned int len ) {unsigned char c; int i; int j;
+int mdump1(unsigned char *adr, unsigned int len ) {unsigned char c; int i; int j;
   j=0; while (j < len ) {
     putch(10);  printhex16(adr); putch(':');
     i=0; while (_ i < 16) {putch(' '); c = *adr; printhex8(c);adr++;i++;j++;}
     putch(' '); adr -=16; i=0; while(_ i < 16) {c= *adr; if (c < 32) putch('.');
     else putch(c); adr++; i++; }  }  }
+int mdump(unsigned char *adr, unsigned int len ) {
+    unsigned char c;
+    int i;
+    int j;
+    int k;
+    j=0;
+    k=0;
+    while (j < len ) {
+	    k++;; 
+	    if (k > 8) {
+		    getkey();
+		    k=1;
+		    }
+        putch(10);
+        printhex16(adr);
+        putch(':');
+        i=0;
+        while (i < 16) {
+            putch(' ');
+            c = *adr;
+            printhex8(c);
+            adr++;
+            i++;
+            j++;
+            }
+        putch(' ');
+        adr -=16;
+        i=0;
+        while(i < 16) {
+            c= *adr;
+            if (c < 32) putch('.');
+                else putch(c);
+            adr++;
+            i++;
+        }
+    }
+}    
 
 int getchaR(){_ ext=0;ax=0x0C08;inth 0x21; ifzero{ext++; ax=0x0800; inth 0x21;}}
 int DosInt() { inth 0x21; ifcarry DOS_ERR++; }
@@ -169,6 +292,116 @@ int tell1(int fd) { /*filelen: IN CX:DX, OUT DX:AX, return low */
 int seek2(int base, int fd, int hi2, int lo2) {
   dx=lo2; cx=hi2; bx=fd; al=base; ah=0x42; DosInt();
   _ lo2=ax; _ hi2=dx; }
+
+int memcpy(char *s, char *t, int i) {
+	unsigned int r;
+	r = s;
+	do {
+		*s = *t;
+		s++; t++; i--;
+	} while (i != 0);
+	ax=r;//	return r;
+}
+
+int printlong(unsigned int lo, unsigned int hi) {
+// DX:AX DIV BX = AX remainder dx
+	dx=hi;
+	ax=lo;
+__asm{	
+  	mov     bx,10          ;CONST
+    push    bx             ;Sentinel
+.a: mov     cx,ax          ;Temporarily store LowDividend in CX
+    mov     ax,dx          ;First divide the HighDividend
+    xor     dx,dx          ;Setup for division DX:AX / BX
+    div     bx             ; -> AX is HighQuotient, Remainder is re-used
+    db		145;=91h xchg ax,cx;Temporarily move it to CX restoring LowDividend
+    div     bx             ; -> AX is LowQuotient, Remainder DX=[0,9]
+    push    dx             ;(1) Save remainder for now
+    mov     dx,cx          ;Build true 32-bit quotient in DX:AX
+    or      cx,ax          ;Is the true 32-bit quotient zero?
+    jnz     .a             ;No, use as next dividend
+    pop     ax             ;(1a) First pop (Is digit for sure)
+.b: add     al, 48;"0"     ;Turn into character [0,9] -> ["0","9"]
+}
+    writetty();
+__asm{
+    pop     ax             ;(1b) All remaining pops
+    cmp     ax,bx          ;Was it the sentinel?
+    jb      .b             ;Not yet	
+}		
+}
+
+char out10[10];//untested todo
+int ultoa2(unsigned int l, unsigned int h, char *s) { int i;
+  i=0;  while(i<10) { *s = '0'; s++; i++; }   *s = 0;   s--;
+/*  
+;Function : ultoa2, Number local Var: 4
+; # type sign width local variables
+;15 var unsg word l = bp+4
+;16 var unsg word h = bp+6
+;17 ptr sign byte s = bp+8
+;18 var sign word i = bp-2;  */
+__asm{
+  	mov eax, dword [bp+4]  ; l   edx:eax DIV ebx = eax Rest edx
+ .ul:xor edx, edx
+ 
+ 	db 102	;66h for 32bit next instruction
+  	mov bx, 10	; BB 0A 00
+ 	db 0		; imm is 4 bytes
+ 	db 0
+;  	mov ebx, 10	;not working, compiler error
+  	
+  	
+ 	div ebx
+  	add dl, 48
+  	mov [bp+8], dl  ; s
+  	mov bx, [bp+8]
+  	mov [bx], dl
+  	dec  word	[bp+8]  ; s--;
+  	cmp eax, 0	;66 83 F8 00 todo???
+  	jnz .ul
+  	mov ax, [bp+8]    
+}
+}
+
+unsigned int vAX;
+unsigned int vBX;
+unsigned int vCX;
+unsigned int vDX;
+unsigned int vSP;
+unsigned int vBP;
+unsigned int vCS;
+unsigned int vDS;
+unsigned int vSS;
+unsigned int vES;
+
+int ShowRegister() {
+    asm mov [vAX], ax
+    asm mov [vBX], bx
+    asm mov [vCX], cx
+    asm mov [vDX], dx
+    asm mov [vSP], sp
+    asm mov [vBP], bp
+    asm mov ax, cs
+    asm mov [vCS], ax
+    asm mov ax, ds
+    asm mov [vDS], ax
+    asm mov ax, ss
+    asm mov [vSS], ax
+    asm mov ax, es
+    asm mov [vES], ax
+    putch(10);
+    cputs( "AX="); printhex16(vAX);
+    cputs(",BX="); printhex16(vBX);
+    cputs(",CX="); printhex16(vCX);
+    cputs(",DX="); printhex16(vDX);
+    cputs(",SP="); printhex16(vSP);
+    cputs(",BP="); printhex16(vBP);
+    cputs(",CS="); printhex16(vCS);
+    cputs(",DS="); printhex16(vDS);
+    cputs(",SS="); printhex16(vSS);
+    cputs(",ES="); printhex16(vES);
+}
 
 int atoi(char *s) { char c; unsigned int i; i=0;
   while (*s) { c=*s; c-=48; i=i*10; i=i+c; s++; }  return i;  }

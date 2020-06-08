@@ -1,6 +1,8 @@
 char Version1[]="DOS.COM V0.1.4";//test bed
 //todo: resize and take own stack
-//Finder / DOS1.vmdk / Rechtsclick / Öffnen / Parallels Mounter
+//Finder /hg/VirtualBox VMs/DOS1/DOS1.vhd (.vmdk) 
+// Rechtsclick / Öffnen / Parallels Mounter
+//Ranish Üart, int8h: CHS 1014/15/63, Start=63,Len=1023057
 #define ORGDATA		8192//start of arrays
 unsigned int vAX;
 unsigned int vBX;
@@ -127,69 +129,6 @@ __asm{
 }		
 }
 
-char out10[10];
-
-int ultoa2(unsigned int l, unsigned int h, char *s) { int i;
-  i=0;  while(i<10) { *s = '0'; s++; i++; }   *s = 0;   s--;
-/*  
-;Function : ultoa2, Number local Var: 4
-; # type sign width local variables
-;15 var unsg word l = bp+4
-;16 var unsg word h = bp+6
-;17 ptr sign byte s = bp+8
-;18 var sign word i = bp-2;  */
-__asm{
-  	mov eax, dword [bp+4]  ; l   edx:eax DIV ebx = eax Rest edx
- .ul:xor edx, edx
- 
- 	db 102	;66h for 32bit next instruction
-  	mov bx, 10	; BB 0A 00
- 	db 0		; imm is 4 bytes
- 	db 0
-;  	mov ebx, 10	;not working, compiler error
-  	
-  	
- 	div ebx
-  	add dl, 48
-  	mov [bp+8], dl  ; s
-  	mov bx, [bp+8]
-  	mov [bx], dl
-  	dec  word	[bp+8]  ; s--;
-  	cmp eax, 0	;66 83 F8 00 todo???
-  	jnz .ul
-  	mov ax, [bp+8]    
-}
-}
-
-	
-int ShowRegister() {
-    asm mov [vAX], ax
-    asm mov [vBX], bx
-    asm mov [vCX], cx
-    asm mov [vDX], dx
-    asm mov [vSP], sp
-    asm mov [vBP], bp
-    asm mov ax, cs
-    asm mov [vCS], ax
-    asm mov ax, ds
-    asm mov [vDS], ax
-    asm mov ax, ss
-    asm mov [vSS], ax
-    asm mov ax, es
-    asm mov [vES], ax
-    putch(10);
-    cputs( "AX="); printhex16(vAX);
-    cputs(",BX="); printhex16(vBX);
-    cputs(",CX="); printhex16(vCX);
-    cputs(",DX="); printhex16(vDX);
-    cputs(",SP="); printhex16(vSP);
-    cputs(",BP="); printhex16(vBP);
-    cputs(",CS="); printhex16(vCS);
-    cputs(",DS="); printhex16(vDS);
-    cputs(",SS="); printhex16(vSS);
-    cputs(",ES="); printhex16(vES);
-}
-
 //--------------------------------  disk IO  -------------------
 char BIOS_ERR=0;
 unsigned int  BIOS_Status=0;
@@ -203,7 +142,7 @@ int  ParmTableSeg;
 int  ParmTableOfs;
 char DriveType;
 int  PartNo;
-//hard disk partition structure
+//start hard disk partition structure 16 bytes
 unsigned char ptBootable;	//80h = active partition, else 00
 unsigned char ptStartHead;	//
 unsigned char ptStartSector;	//bits 0-5
@@ -216,6 +155,7 @@ unsigned int ptStartSectorlo;//sectors preceding partition
 unsigned int ptStartSectorhi;
 unsigned int ptPartLenlo;    //length of partition in sectors
 unsigned int ptPartLenhi;
+//end hard disk partition structure
 
 int Int13hRW(char rw, char drive, char head, int cyl, char sector,
 	char count, int BufSeg, int BufOfs) {//CHS max. 8GB
@@ -229,8 +169,7 @@ int Int13hRW(char rw, char drive, char head, int cyl, char sector,
 	cx >> 2;//in 2 high bits of cl	
 	sector &= 0x3F;//only 6 bits for sector
 	cl += sector;
-	ch=cyl;//low byte of cyl in ch, word 2 byte
-	
+	ch=cyl;//low byte of cyl in ch, word 2 byte	
 	al=count;
 	ah=rw;
 	inth 0x13;
@@ -258,8 +197,6 @@ int Params(char drive) {
 	BIOS_Status=Int13hRaw(drive, 8);
 	if (BIOS_ERR) Int13hError();
 	else {
-//		cputs("AH Return Code:");
-//		printhex16(BIOS_Status);	
 		asm mov [Heads],        dh
 //		Heads++;
 		asm mov [Attached],     dl
@@ -275,7 +212,6 @@ int Params(char drive) {
 		Cylinders = Cylinders << 2;//compiler flaw:
 		asm add [Cylinders],    ch;//byte add, low byte is empty	
 	
-//		putch(10);
 		cputs("CyHdSc=");			printunsign(Cylinders);
 		putch('/');					printunsign(Heads);
 		putch('/');					printunsign(Sectors);
@@ -305,11 +241,9 @@ int getPartitionData() {
 	ptStartCylinder &= 0xC0;
 	ptStartCylinder = ptStartCylinder << 2;//OK no short cut!	
 	j++;
-	ah=0;//byte 2 word
+	ah=0;//byte to word
 	ptStartCylinder=DiskBuf[j] + ptStartCylinder;
 //	byte add, ok because low byte is empty
-//	ptStartCylinder=ptStartCylinder + DiskBuf[j];//OK
-
 	j++;					ptFileSystem=DiskBuf[j];
 	j++;					ptEndHead=DiskBuf[j];
 	j++;					ptEndSector=DiskBuf[j];
@@ -320,11 +254,9 @@ int getPartitionData() {
 	ptEndCylinder &= 0xC0;
 	ptEndCylinder = ptEndCylinder << 2;//OK no short cut!	
 	j++;
-	ah=0;//byte 2 word
+	ah=0;//byte to word
 	ptEndCylinder=DiskBuf[j] + ptEndCylinder;
-//	byte add, ok because low byte is empty
-//	ptStartCylinder=ptStartCylinder + DiskBuf[j];//OK
-	
+//	byte add, ok because low byte is empty	
 	j++;
 	p = j + &DiskBuf;//copy ptStartSector, ptPartLen
 	memcpy(&ptStartSectorlo, p, 8);
@@ -344,18 +276,9 @@ int printPartitionData() {
 	cputs("/");				printunsign(ptEndSector);	
 	cputs("/");				printunsign(ptEndCylinder);
 //	putch(10);		
-	cputs(",St=");
-	printunsign(ptStartSectorhi);
-	putch(':');
-	printunsign(ptStartSectorlo);
-	putch('.');
+	cputs(",Start=");
 	printlong(ptStartSectorlo, ptStartSectorhi);
 	cputs(",Len=");
-	printunsign(ptPartLenhi);
-	putch(':');
-	printunsign(ptPartLenlo);
-	
-	putch('.');
 	printlong(ptPartLenlo, ptPartLenhi);
 }
 	
@@ -390,7 +313,7 @@ int testDisk(drive) {
 
 int Int13hExt(char drive) {
 	putch(10);
-	cputs("Int13h 41hExt AX=");
+	cputs("Int13h 41hExt AX(3000=ERROR)=");
 	bx=0x55AA;
 	BIOS_Status=Int13hRaw(0x80, 0x41);	
 	printhex16(BIOS_Status);
@@ -402,8 +325,8 @@ int Int13hExt(char drive) {
 		cputs(" status=1:supported");
 		asm mov [vBX], bx;0xAA55 Extension installed
 		asm mov [vCX], cx;=1: AH042h-44h,47h,48h supported 			
-		cputs(" BX=");		printhex16(vBX);
-		cputs(" CX=");		printhex16(vCX);
+		cputs(" BX(AA55)=");				printhex16(vBX);
+		cputs(" CX(Interface bitmask)=");	printhex16(vCX);
 		}		
 }	
 
@@ -451,7 +374,6 @@ int main() {
 	
 	Params(Drive);
 	testDisk(Drive);
-//	getkey();
 //	mdump(DiskBuf, 512);
 	Int13hExt(Drive);
 }
