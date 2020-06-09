@@ -15,7 +15,34 @@ unsigned int vDS;
 unsigned int vSS;
 unsigned int vES;
 
-char DOS_ERR=0;
+char DOS_ERR;
+char BIOS_ERR;
+int  BIOS_Status;
+char DiskBuf [512];
+char Drive;
+unsigned int  Cylinders;
+char Sectors;
+char Heads;
+char Attached;
+int  ParmTableSeg;
+int  ParmTableOfs;
+char DriveType;
+int  PartNo;
+//start hard disk partition structure 16 bytes
+unsigned char ptBootable;	//80h = active partition, else 00
+unsigned char ptStartHead;	//
+unsigned char ptStartSector;	//bits 0-5
+unsigned int  ptStartCylinder;//bits 8,9 in bits 6,7 of sector
+unsigned char ptFileSystem;	//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=hugePart
+unsigned char ptEndHead;		//
+unsigned char ptEndSector;	//bits 0-5
+unsigned int  ptEndCylinder;	//bits 8,9 in bits 6,7 of sector
+unsigned int ptStartSectorlo;//sectors preceding partition
+unsigned int ptStartSectorhi;
+unsigned int ptPartLenlo;    //length of partition in sectors
+unsigned int ptPartLenhi;
+//end hard disk partition structure
+
 unsigned int count21h=0;
 
 int writetty()     {//char in AL
@@ -120,42 +147,13 @@ __asm{
     jnz     .a             ;No, use as next dividend
     pop     ax             ;(1a) First pop (Is digit for sure)
 .b: add     al, 48;"0"     ;Turn into character [0,9] -> ["0","9"]
-}
-    writetty();
-__asm{
+}	writetty();		__asm{
     pop     ax             ;(1b) All remaining pops
     cmp     ax,bx          ;Was it the sentinel?
     jb      .b             ;Not yet	
-}		
-}
+} }
 
 //--------------------------------  disk IO  -------------------
-char BIOS_ERR=0;
-unsigned int  BIOS_Status=0;
-char DiskBuf [512];
-char Drive;
-unsigned int  Cylinders;
-char Sectors;
-char Heads;
-char Attached;
-int  ParmTableSeg;
-int  ParmTableOfs;
-char DriveType;
-int  PartNo;
-//start hard disk partition structure 16 bytes
-unsigned char ptBootable;	//80h = active partition, else 00
-unsigned char ptStartHead;	//
-unsigned char ptStartSector;	//bits 0-5
-unsigned int  ptStartCylinder;//bits 8,9 in bits 6,7 of sector
-unsigned char ptFileSystem;	//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=hugePart
-unsigned char ptEndHead;		//
-unsigned char ptEndSector;	//bits 0-5
-unsigned int  ptEndCylinder;	//bits 8,9 in bits 6,7 of sector
-unsigned int ptStartSectorlo;//sectors preceding partition
-unsigned int ptStartSectorhi;
-unsigned int ptPartLenlo;    //length of partition in sectors
-unsigned int ptPartLenhi;
-//end hard disk partition structure
 
 int Int13hRW(char rw, char drive, char head, int cyl, char sector,
 	char count, int BufSeg, int BufOfs) {//CHS max. 8GB
@@ -212,7 +210,7 @@ int Params(char drive) {
 		Cylinders = Cylinders << 2;//compiler flaw:
 		asm add [Cylinders],    ch;//byte add, low byte is empty	
 	
-		cputs("CyHdSc=");			printunsign(Cylinders);
+		cputs("CylHeadSec=");		printunsign(Cylinders);
 		putch('/');					printunsign(Heads);
 		putch('/');					printunsign(Sectors);
 		cputs(", NoDrives=");		printhex8(Attached);
@@ -231,7 +229,7 @@ int Status(drive) {
 int getPartitionData() {
 	unsigned int j; char c; char *p;
 	j = PartNo << 4;
-	j = j + 0x1be;			ptBootable=DiskBuf[j];
+	j = j + 0x1be;			ptBootable=DiskBuf[j];//80H=boot
 	j++;					ptStartHead=DiskBuf[j];
 	j++;					ptStartSector=DiskBuf[j];
 	ah=0;//next line convert byte to word
@@ -243,8 +241,8 @@ int getPartitionData() {
 	j++;
 	ah=0;//byte to word
 	ptStartCylinder=DiskBuf[j] + ptStartCylinder;
-//	byte add, ok because low byte is empty
 	j++;					ptFileSystem=DiskBuf[j];
+//	0=not used, 1=FAT12, 4=FAT16, 5=extended, 6=huge<2GB MS-DOS4.0	
 	j++;					ptEndHead=DiskBuf[j];
 	j++;					ptEndSector=DiskBuf[j];
 	ah=0;//next line convert byte to word
@@ -256,7 +254,6 @@ int getPartitionData() {
 	j++;
 	ah=0;//byte to word
 	ptEndCylinder=DiskBuf[j] + ptEndCylinder;
-//	byte add, ok because low byte is empty	
 	j++;
 	p = j + &DiskBuf;//copy ptStartSector, ptPartLen
 	memcpy(&ptStartSectorlo, p, 8);
@@ -265,6 +262,7 @@ int getPartitionData() {
 }
 	
 int printPartitionData() {
+	unsigned int i; unsigned int j;
 	putch(10);		
 	cputs("No=");			printunsign(PartNo);
 	cputs(",Boot=");		printhex8(ptBootable);
@@ -280,6 +278,12 @@ int printPartitionData() {
 	printlong(ptStartSectorlo, ptStartSectorhi);
 	cputs(",Len=");
 	printlong(ptPartLenlo, ptPartLenhi);
+	cputs(" Sec=");
+	i = ptPartLenhi <<  5;//64KB Sec to MB; >>4 + <<9 = <<5
+	j = ptPartLenlo >> 11;//Sec to MB
+	i = i + j;
+	printunsign(i);
+	cputs(" MByte.");
 }
 	
 int testDisk(drive) {
@@ -306,6 +310,11 @@ int testDisk(drive) {
 		do {
 			getPartitionData();
 			printPartitionData();
+			if (ptBootable == 0x80) {
+				cputs(" boot partition found");
+				if (ptFileSystem == 6) cputs(" huge partition < 2GB");
+				PartNo=99;//end of loop	
+			}
 			PartNo ++;
 		} while (PartNo <4);
 	}	
