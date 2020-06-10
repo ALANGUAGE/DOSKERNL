@@ -24,8 +24,7 @@ unsigned int  Cylinders;
 char Sectors;
 char Heads;
 char Attached;
-int  ParmTableSeg;
-int  ParmTableOfs;
+int  DiskBufSeg;
 char DriveType;
 int  PartNo;
 //start hard disk partition structure 16 bytes
@@ -43,8 +42,37 @@ unsigned int ptPartLenlo;    //length of partition in sectors
 unsigned int ptPartLenhi;
 //end hard disk partition structure
 
-unsigned int count21h=0;
+//start boot ms-dos
+//unsigned char  jmp[3];	/* Must be 0xEB, 0x3C, 0x90		*/
+//unsigned char  sys_id[8];	/* Probably:   "MSDOS5.0"		*/
+unsigned int   sect_size;	/* Sector size in bytes (512)		*/
+unsigned char  clust_size;	/* Sectors per cluster (1,2,4,...,128)	*/
+unsigned int   res_sects;	/* Reserved sectors at the beginning	*/
+unsigned char  num_fats;	/* Number of FAT copies (1 or 2)	*/
+unsigned int   root_entr;	/* Root directory entries		*/
+unsigned int   total_sect;	/* Total sectors (if less 64k)		*/
+unsigned char  media_desc;	/* Media descriptor byte (F8h for HD)	*/
+unsigned int   fat_size;	/* Sectors per fat			*/
+unsigned int   num_sects;	/* Sectors per track			*/
+unsigned int   num_sides;	/* Sides				*/
+unsigned long  hid_sects;	/* Special hidden sectors		*/
+unsigned long  big_total;	/* Big total number of sectors  	*/
+unsigned int   drive_num;	/* Drive number				*/
+unsigned char  ext_signat;	/* Extended Boot Record signature (29h)	*/
+unsigned long  serial_num;	/* Volume serial number			*/
+//unsigned char  label[11];	/* Volume label				*/
+//unsigned char  fs_id[8];	/* File system id			*/
+//unsigned char  xcode[448];	/* Loader executable code		*/
+//unsigned short magic_num;	/* Magic number (Must be 0xAA55) 	*/
+//end boot ms-dos
 
+
+long L1;
+long L2;
+int test() {
+L2 = L1;//OK	
+	}
+	
 int writetty()     {//char in AL
     ah=0x0E;
     push bx;
@@ -288,9 +316,8 @@ int printPartitionData() {
 	
 int testDisk(drive) {
 	char c; int i;
-	asm mov [ParmTableSeg], ds
-	//Offset is in DiskBuf
-	BIOS_Status=Int13hRW(2,drive,0,0,1,1,ParmTableSeg,DiskBuf);
+	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
+	BIOS_Status=Int13hRW(2,drive,0,0,1,1,DiskBufSeg,DiskBuf);
 	if (BIOS_ERR) Int13hError();
 	else {	
 		putch(10);
@@ -301,7 +328,7 @@ int testDisk(drive) {
 		i++;		c = DiskBuf[i];		printhex8(c);
 		
 		cputs(",DiskBuf=");
-		printhex16(ParmTableSeg);
+		printhex16(DiskBufSeg);
 		putch(':');							
 		printhex16(DiskBuf);
 		putch('.');
@@ -318,6 +345,16 @@ int testDisk(drive) {
 			PartNo ++;
 		} while (PartNo <4);
 	}	
+}
+
+int getMBR() {
+	Cylinders=ptStartCylinder;
+	Heads=ptStartHead;
+	Sectors=ptStartSector ; // +1
+	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
+  BIOS_Status=Int13hRW(2,Drive,Heads,Cylinders,Sectors,1,DiskBufSeg,DiskBuf);
+		
+	
 }
 
 int Int13hExt(char drive) {
@@ -383,6 +420,7 @@ int main() {
 	
 	Params(Drive);
 	testDisk(Drive);
-//	mdump(DiskBuf, 512);
-	Int13hExt(Drive);
+//	Int13hExt(Drive);
+	getMBR();
+	mdump(DiskBuf, 512);
 }
