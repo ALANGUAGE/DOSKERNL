@@ -2,7 +2,7 @@ char Version1[]="DOS.COM V0.1.4";//test bed
 //todo: resize and take own stack
 //Finder /hg/VirtualBox VMs/DOS1/DOS1.vhd (.vmdk) 
 // Rechtsclick / Öffnen / Parallels Mounter
-//Ranish Üart, int8h: CHS 1014/15/63, Start=63,Len=1023057
+//Ranish Part, int8h: CHS 1014/15/63, Start=63,Len=1023057
 #define ORGDATA		8192//start of arrays
 unsigned int vAX;
 unsigned int vBX;
@@ -27,52 +27,54 @@ char Attached;
 int  DiskBufSeg;
 char DriveType;
 int  PartNo;
-//start hard disk partition structure 16 bytes
-unsigned char ptBootable;	//80h = active partition, else 00
-unsigned char ptStartHead;	//
+/*     unsigned short disk;
+     unsigned short num_cyls;
+     unsigned short num_heads;
+     unsigned short num_sects;
+     unsigned long  total_sects;
+     unsigned short sect_per_cyl;
+     unsigned short sect_per_track;
+     unsigned short sect_size;
+     unsigned short bios_num_cyls; */
+
+//start hard disk partition structure 16 bytes in MBR
+unsigned char ptBootable;		//80h = active partition, else 00
+unsigned char ptStartHead;
 unsigned char ptStartSector;	//bits 0-5
-unsigned int  ptStartCylinder;//bits 8,9 in bits 6,7 of sector
-unsigned char ptFileSystem;	//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=hugePart
-unsigned char ptEndHead;		//
-unsigned char ptEndSector;	//bits 0-5
+unsigned int  ptStartCylinder;	//bits 8,9 in bits 6,7 of sector
+unsigned char ptFileSystem;		//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=largeFAT16
+unsigned char ptEndHead;
+unsigned char ptEndSector;		//bits 0-5
 unsigned int  ptEndCylinder;	//bits 8,9 in bits 6,7 of sector
-unsigned int ptStartSectorlo;//sectors preceding partition
+unsigned int ptStartSectorlo;	//sectors preceding partition
 unsigned int ptStartSectorhi;
-unsigned int ptPartLenlo;    //length of partition in sectors
+unsigned int ptPartLenlo;    	//length of partition in sectors
 unsigned int ptPartLenhi;
 //end hard disk partition structure
 
-//start boot ms-dos
-//unsigned char  jmp[3];	/* Must be 0xEB, 0x3C, 0x90		*/
-//unsigned char  sys_id[8];	/* Probably:   "MSDOS5.0"		*/
-unsigned int   sect_size;	/* Sector size in bytes (512)		*/
-unsigned char  clust_size;	/* Sectors per cluster (1,2,4,...,128)	*/
-unsigned int   res_sects;	/* Reserved sectors at the beginning	*/
-unsigned char  num_fats;	/* Number of FAT copies (1 or 2)	*/
-unsigned int   root_entr;	/* Root directory entries		*/
-unsigned int   total_sect;	/* Total sectors (if less 64k)		*/
-unsigned char  media_desc;	/* Media descriptor byte (F8h for HD)	*/
-unsigned int   fat_size;	/* Sectors per fat			*/
-unsigned int   num_sects;	/* Sectors per track			*/
-unsigned int   num_sides;	/* Sides				*/
-unsigned long  hid_sects;	/* Special hidden sectors		*/
-unsigned long  big_total;	/* Big total number of sectors  	*/
-unsigned int   drive_num;	/* Drive number				*/
-unsigned char  ext_signat;	/* Extended Boot Record signature (29h)	*/
-unsigned long  serial_num;	/* Volume serial number			*/
-//unsigned char  label[11];	/* Volume label				*/
-//unsigned char  fs_id[8];	/* File system id			*/
-//unsigned char  xcode[448];	/* Loader executable code		*/
-//unsigned short magic_num;	/* Magic number (Must be 0xAA55) 	*/
-//end boot ms-dos
+//start boot BIOS Parameter Block
+unsigned char bs_jmp[]="12";// 00 +LenByte:Must be 0xEB, 0x3C, 0x90
+unsigned char bs_sys_id[]="1234567";// 03 OEM name,version "MSDOS5.0"
+unsigned int  bs_sect_size;	// 11 bytes per sector (512)
+unsigned char bs_clust_size;// 13 sectors per cluster (1,2,4,..,128)
+unsigned int  bs_res_sects;	// 14 reserved sectors starting at 0
+unsigned char bs_num_fats;	// 16 number of FAT (1 or 2)
+unsigned int  bs_root_entr;	// 17 number of root directory entries (512)
+unsigned int  bs_total_sect;// 19 number of total sectors (0 if > 32Mb)
+unsigned char bs_media_desc;// 21 media descriptor byte (F8h for HD)
+unsigned int  bs_fat_size;	// 22 sectors per fat
+unsigned int  bs_num_sects;	// 24 (DOS 3+)sectors per track 
+unsigned int  bs_num_sides;	// 26 (DOS 3+)number of heads   
+unsigned long bs_hid_sects;	// 28 (DOS 3+)number of hidden sectors 
+unsigned long bs_big_total;	// 32 (DOS 4+) number of sectors if ofs 13 is 0
+unsigned char bs_drive_num;	// 36 (DOS 4+) physical drive number
+unsigned char bs_reserved;  // 37 (DOS 4+) for Windows NT check disk
+unsigned char bs_ext_signat;// 38 (DOS 4+) Extended signature,get next 3(29h)
+unsigned long bs_serial_num;// 39 (DOS 4+) Volume serial number random
+unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
+unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
+// 62 end boot BIOS Parameter Block
 
-
-long L1;
-long L2;
-int test() {
-L2 = L1;//OK	
-	}
-	
 int writetty()     {//char in AL
     ah=0x0E;
     push bx;
@@ -180,7 +182,14 @@ __asm{
     cmp     ax,bx          ;Was it the sentinel?
     jb      .b             ;Not yet	
 } }
-
+int printL(char *p) {
+	unsigned int lo; unsigned int hi;
+	lo = *p;
+	p +=2;
+	hi = *p;
+	printlong(lo, hi);
+	}
+	
 //--------------------------------  disk IO  -------------------
 
 int Int13hRW(char rw, char drive, char head, int cyl, char sector,
@@ -301,45 +310,54 @@ int printPartitionData() {
 	cputs("-");				printunsign(ptEndHead);
 	cputs("/");				printunsign(ptEndSector);	
 	cputs("/");				printunsign(ptEndCylinder);
-//	putch(10);		
-	cputs(",Start=");
-	printlong(ptStartSectorlo, ptStartSectorhi);
-	cputs(",Len=");
-	printlong(ptPartLenlo, ptPartLenhi);
+	cputs(",Start=");		printlong(ptStartSectorlo, ptStartSectorhi);
+	cputs(",Len=");			printlong(ptPartLenlo, ptPartLenhi);
 	cputs(" Sec=");
 	i = ptPartLenhi <<  5;//64KB Sec to MB; >>4 + <<9 = <<5
 	j = ptPartLenlo >> 11;//Sec to MB
-	i = i + j;
-	printunsign(i);
+	i = i + j;				printunsign(i);
 	cputs(" MByte.");
 }
+int checkMagicNumber() {
+	char c; char d; int i; char ok;
+	cputs(",magic number=");	
+	i=510;		c = DiskBuf[i];		printhex8(c);
+	i++;		d = DiskBuf[i];		printhex8(d);
+	ok=0;
+	if (c == 0x55) ok=1;
+	if (d == 0xAA) ok=1;
+	if (ok) {
+		cputs(" found");
+		return 1;
+		}
+	else {
+		cputs(" NOT found");
+		return 0;	
+	}
+}	
 	
 int testDisk(drive) {
-	char c; int i;
 	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
 	BIOS_Status=Int13hRW(2,drive,0,0,1,1,DiskBufSeg,DiskBuf);
 	if (BIOS_ERR) Int13hError();
 	else {	
 		putch(10);
-		cputs("Read Partition Status:");
+		cputs("Read partition status:");
 		printhex16(BIOS_Status);	
-		cputs(",MBR Magic=");	
-		i=510;		c = DiskBuf[i];		printhex8(c);
-		i++;		c = DiskBuf[i];		printhex8(c);
-		
 		cputs(",DiskBuf=");
 		printhex16(DiskBufSeg);
 		putch(':');							
 		printhex16(DiskBuf);
 		putch('.');
-	
+		checkMagicNumber();	
 		PartNo=0;
 		do {
 			getPartitionData();
 			printPartitionData();
 			if (ptBootable == 0x80) {
 				cputs(" boot partition found");
-				if (ptFileSystem == 6) cputs(" huge partition < 2GB");
+				if (ptFileSystem == 6) cputs(", large FAT16 part. < 2GB");
+				if (ptFileSystem == 4) cputs(", small FAT16 part. < 32MB");
 				PartNo=99;//end of loop	
 			}
 			PartNo ++;
@@ -347,16 +365,51 @@ int testDisk(drive) {
 	}	
 }
 
-int getMBR() {
+int getBootSector() {
 	Cylinders=ptStartCylinder;
 	Heads=ptStartHead;
 	Sectors=ptStartSector ; // +1
 	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
   BIOS_Status=Int13hRW(2,Drive,Heads,Cylinders,Sectors,1,DiskBufSeg,DiskBuf);
-		
-	
+	if (BIOS_ERR) Int13hError();
+	else {	
+		putch(10);
+		cputs("Read boot sector status:");
+		printhex16(BIOS_Status);	
+		checkMagicNumber();	
+		memcpy(&bs_jmp, &DiskBuf, 61);// todo must be 62
+		putch(10);
+		cputs("OEM name (MSDOS5.0)=");cputs(bs_sys_id);
+		putch(10);
+		cputs("Bytes per sector(512)=");printunsign(bs_sect_size);	
+		cputs(".Sectors per cluster(1,,128)=");printunsign(bs_clust_size);	
+		putch(10);
+		cputs("Reserved sectors=");printunsign(bs_res_sects);	
+		cputs(".Number of FAT(1,2)=");printunsign(bs_num_fats);	
+		putch(10);
+		cputs("Root directory entries(512)=");printunsign(bs_root_entr);
+		cputs(".Total sectors(0 if > 32MB=");printunsign(bs_total_sect);
+		putch(10);
+		cputs("Media descriptor(F8h for HD)=");printhex8(bs_media_desc);
+		cputs(".Sectors per FAT=");printunsign(bs_fat_size);
+		putch(10);
+		cputs("sectors per track=");printunsign(bs_num_sects);
+		cputs(".number of heads=");printunsign(bs_num_sides);
+		putch(10);
+		cputs("hidden sectors(long)=");printL(&bs_hid_sects);
+		cputs(".sectors(long)=");printL(&bs_big_total);
+		putch(10);
+		cputs("physical drive number=");printunsign(bs_drive_num);
+		cputs(".Windows NT check disk=");printunsign(bs_reserved);
+		putch(10);
+		cputs("Extended signature(29h)=");printhex8(bs_ext_signat);
+		cputs(".Volume serial(long)=");printL(&bs_serial_num);
+		putch(10);
+		cputs("Volume label(NO NAME)=");cputs(bs_label);
+		cputs(".File system type(FAT16)=");cputs(bs_fs_id);		
+	}
 }
-
+/*	
 int Int13hExt(char drive) {
 	putch(10);
 	cputs("Int13h 41hExt AX(3000=ERROR)=");
@@ -375,7 +428,7 @@ int Int13hExt(char drive) {
 		cputs(" CX(Interface bitmask)=");	printhex16(vCX);
 		}		
 }	
-
+*/
 int mdump(unsigned char *adr, unsigned int len ) {
     unsigned char c;
     int i;
@@ -421,6 +474,6 @@ int main() {
 	Params(Drive);
 	testDisk(Drive);
 //	Int13hExt(Drive);
-	getMBR();
-	mdump(DiskBuf, 512);
+	getBootSector();
+//	mdump(DiskBuf, 512);
 }
