@@ -1,8 +1,9 @@
-char Version1[]="DOS.COM V0.1.4";//test bed
+char Version1[]="DOS.COM V0.1.5";//test bed
 //todo: resize and take own stack
 //Finder /hg/VirtualBox VMs/DOS1/DOS1.vhd (.vmdk) 
 // Rechtsclick / Öffnen / Parallels Mounter
-//Ranish Part, int8h: CHS 1014/15/63, Start=63,Len=1023057
+//Ranish Part, int8h: CHS 1014/15/63, Start=63,Len=1.023.057
+//Boot Sec=63, head=16, hidden=63, Sec=983.121
 #define ORGDATA		8192//start of arrays
 unsigned int vAX;
 unsigned int vBX;
@@ -98,6 +99,15 @@ int cputs(char *s) {
         s++;
     }
 }
+int cputsLen(char *s, int len) {
+	char c;
+	do {
+		c=*s;
+		putch(c);
+		s++;
+		len--;
+	} while (len > 0);	
+}
 
 int getch() {
     ah=0x10;//MF2-KBD read char
@@ -158,7 +168,7 @@ int memcpy(char *s, char *t, int i) {
 	ax=r;//	return r;
 }
 
-int printlong(unsigned int lo, unsigned int hi) {
+int printlong1(unsigned int lo, unsigned int hi) {
 // DX:AX DIV BX = AX remainder dx
 	dx=hi;
 	ax=lo;
@@ -187,7 +197,7 @@ int printL(char *p) {
 	lo = *p;
 	p +=2;
 	hi = *p;
-	printlong(lo, hi);
+	printlong1(lo, hi);
 	}
 	
 //--------------------------------  disk IO  -------------------
@@ -310,8 +320,8 @@ int printPartitionData() {
 	cputs("-");				printunsign(ptEndHead);
 	cputs("/");				printunsign(ptEndSector);	
 	cputs("/");				printunsign(ptEndCylinder);
-	cputs(",Start=");		printlong(ptStartSectorlo, ptStartSectorhi);
-	cputs(",Len=");			printlong(ptPartLenlo, ptPartLenhi);
+	cputs(",Start=");		printlong1(ptStartSectorlo, ptStartSectorhi);
+	cputs(",Len=");			printlong1(ptPartLenlo, ptPartLenhi);
 	cputs(" Sec=");
 	i = ptPartLenhi <<  5;//64KB Sec to MB; >>4 + <<9 = <<5
 	j = ptPartLenlo >> 11;//Sec to MB
@@ -377,9 +387,9 @@ int getBootSector() {
 		cputs("Read boot sector status:");
 		printhex16(BIOS_Status);	
 		checkMagicNumber();	
-		memcpy(&bs_jmp, &DiskBuf, 61);// todo must be 62
+		memcpy(&bs_jmp, &DiskBuf, 62);
 		putch(10);
-		cputs("OEM name (MSDOS5.0)=");cputs(bs_sys_id);
+		cputs("OEM name (MSDOS5.0)=");cputsLen(bs_sys_id,8);
 		putch(10);
 		cputs("Bytes per sector(512)=");printunsign(bs_sect_size);	
 		cputs(".Sectors per cluster(1,,128)=");printunsign(bs_clust_size);	
@@ -405,8 +415,8 @@ int getBootSector() {
 		cputs("Extended signature(29h)=");printhex8(bs_ext_signat);
 		cputs(".Volume serial(long)=");printL(&bs_serial_num);
 		putch(10);
-		cputs("Volume label(NO NAME)=");cputs(bs_label);
-		cputs(".File system type(FAT16)=");cputs(bs_fs_id);		
+		cputs("Volume label(NO NAME)=");cputsLen(bs_label,11);
+		cputs(".File system type(FAT16)=");cputsLen(bs_fs_id,8);		
 	}
 }
 /*	
@@ -475,5 +485,5 @@ int main() {
 	testDisk(Drive);
 //	Int13hExt(Drive);
 	getBootSector();
-//	mdump(DiskBuf, 512);
+	mdump(DiskBuf, 512);
 }
