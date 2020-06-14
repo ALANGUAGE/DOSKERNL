@@ -37,6 +37,17 @@ unsigned int  PartNo;
      unsigned short sect_per_track;
      unsigned short sect_size;
      unsigned short bios_num_cyls; */
+     
+unsigned int FatStartSector;
+unsigned int FatSectors;
+unsigned int RootDirStartSector;
+unsigned int RootDirSectors;
+unsigned int DataStartSector;
+unsigned int DataSectors16;
+unsigned long DataSectors32;
+unsigned long CountofClusters;
+unsigned long templong;
+char trueFATtype;
 
 //start hard disk partition structure 16 bytes in MBR. do not change
 unsigned char pt_Bootable;		//80h = active partition, else 00
@@ -449,11 +460,72 @@ int getBootSector() {
 }
 
 int calcFATtype() {
+	char c;
 	
-	
-}
-/*	
-int Int13hExt(char drive) {
+	FatStartSector=bs_res_sects;	
+	FatSectors=bs_fat_size;	
+	if (bs_num_fats == 2) FatSectors=FatSectors+FatSectors;
+
+	RootDirStartSector=FatStartSector + FatSectors;
+	RootDirSectors= bs_root_entr << 5;// *32	
+	RootDirSectors= RootDirSectors / bs_sect_size;
+
+	DataStartSector=RootDirStartSector + RootDirSectors;
+	if (bs_tot_sect16 !=0) {
+		DataSectors16=bs_tot_sect16 - DataStartSector;
+		DataSectors32=0;//todo only word 0
+		cputs("FAT < 32 MB NOT supported");
+		trueFATtype=0;
+		return;
+		}
+	else {
+		asm xor eax, eax ;clear bit 15-31
+		templong=DataStartSector;//convert word to dword		
+		DataSectors32=bs_tot_sect32 - templong;//sub 32bit		
+		DataSectors16=0;	
+		}
+//	CountofClusters=DataSectors32 / bs_clust_size;only int divisor
+		if (bs_clust_size == 32) CountofClusters=DataSectors32 >> 5;
+		if (bs_clust_size == 16) CountofClusters=DataSectors32 >> 4;
+		if (bs_clust_size ==  8) CountofClusters=DataSectors32 >> 3;
+		if (bs_clust_size ==  4) CountofClusters=DataSectors32 >> 2;
+		if (bs_clust_size ==  2) CountofClusters=DataSectors32 >> 1;
+		if (bs_clust_size ==  1) CountofClusters=DataSectors32;
+
+		putch(10);
+		cputs("FatStartSector:");	printunsign(FatStartSector);
+		cputs(", FatSectors=");		printunsign(FatSectors);
+		putch(10);
+		cputs("RootDirStartSector="); printunsign(RootDirStartSector);
+		cputs(", RootDirSectors=");	printunsign(RootDirSectors);
+		putch(10);
+		cputs("DataStartSector=");	printunsign(DataStartSector);
+		cputs(", DataSectors16=");	printunsign(DataSectors16);	
+		cputs(", DataSectors32=");	printlong(&DataSectors32);			
+		putch(10);
+		cputs("CountofClusters=");	printlong(&CountofClusters);
+		putch(10);
+		cputs(", true FAT type=FAT"); 
+		
+		asm xor eax, eax ;clear bit 15-31
+		templong=4086;
+		if (CountofClusters < templong) {
+			trueFATtype=1; 
+			cputs("12"); 
+			return;
+			}
+		asm xor eax, eax ;clear bit 15-31			
+		templong = 65525;			
+		if (CountofClusters > templong) {
+			trueFATtype=11; 
+			cputs("32"); 
+			return;
+			}
+			trueFATtype=6;
+			cputs("16");
+}//trueFATtype: 1=FAT12,6=FAT16,11=FAT32
+
+/*int Int13hExt(char drive) {
 	putch(10);
 	cputs("Int13h 41hExt AX(3000=ERROR)=");
 	bx=0x55AA;
@@ -513,11 +585,13 @@ int main() {
 	Drive=0x80;
 
 	if (Params()) return 1;//no hard disk
-	res=getFATtype();//0=error,1=FAT12,4=FAT16,6=largeFAT16
+	res=getFATtype();//0=error,1=FAT12,6=FAT16,11=FAT32
 	if (res == 0) return 1;
 //	mdump(DiskBuf, 512);
 //	Int13hExt(Drive);
 	if(getBootSector()==0) return 1;
 //	mdump(DiskBuf, 512);
-	calcFATtype();
+	calcFATtype();//set trueFATtype: 1=FAT12,6=FAT16,11=FAT32
+	if(trueFATtype != 6) return 1;
+	
 }
