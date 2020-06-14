@@ -1,4 +1,4 @@
-char Version1[]="DOS.COM V0.1.5";//test bed
+char Version1[]="DOS.COM V0.1.6";//test bed
 //todo: resize and take own stack
 //Finder /hg/VirtualBox VMs/DOS1/DOS1.vhd (.vmdk) 
 // Rechtsclick / Öffnen / Parallels Mounter
@@ -16,18 +16,18 @@ unsigned int vDS;
 unsigned int vSS;
 unsigned int vES;
 
-char DOS_ERR;
-char BIOS_ERR;
-int  BIOS_Status;
-char DiskBuf [512];
-char Drive;
+unsigned char DOS_ERR;
+unsigned char BIOS_ERR;
+unsigned int  BIOS_Status;
+unsigned char DiskBuf [512];
+unsigned char Drive;
 unsigned int  Cylinders;
-char Sectors;
-char Heads;
-char Attached;
-int  DiskBufSeg;
-char DriveType;
-int  PartNo;
+unsigned char Sectors;
+unsigned char Heads;
+unsigned char Attached;
+unsigned int  DiskBufSeg;
+unsigned char DriveType;
+unsigned int  PartNo;
 /*     unsigned short disk;
      unsigned short num_cyls;
      unsigned short num_heads;
@@ -38,21 +38,20 @@ int  PartNo;
      unsigned short sect_size;
      unsigned short bios_num_cyls; */
 
-//start hard disk partition structure 16 bytes in MBR
-unsigned char ptBootable;		//80h = active partition, else 00
-unsigned char ptStartHead;
-unsigned char ptStartSector;	//bits 0-5
-unsigned int  ptStartCylinder;	//bits 8,9 in bits 6,7 of sector
-unsigned char ptFileSystem;		//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=largeFAT16
-unsigned char ptEndHead;
-unsigned char ptEndSector;		//bits 0-5
-unsigned int  ptEndCylinder;	//bits 8,9 in bits 6,7 of sector
-unsigned long ptHiddenSector;	//sectors preceding partition
-unsigned int  ptPartLenlo;    	//length of partition in sectors
-unsigned int  ptPartLenhi;
+//start hard disk partition structure 16 bytes in MBR. do not change
+unsigned char pt_Bootable;		//80h = active partition, else 00
+unsigned char pt_StartHead;
+unsigned char pt_StartSector;	//bits 0-5
+unsigned int  pt_StartCylinder;	//bits 8,9 in bits 6,7 of sector
+unsigned char pt_FileSystem;	//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=largeFAT16
+unsigned char pt_EndHead;
+unsigned char pt_EndSector;		//bits 0-5
+unsigned int  pt_EndCylinder;	//bits 8,9 in bits 6,7 of sector
+unsigned long pt_HiddenSector;	//sectors preceding partition
+unsigned long pt_PartLen;    	//length of partition in sectors
 //end hard disk partition structure
 
-//start boot BIOS Parameter Block
+//start boot BIOS Parameter Block structure. do not change
 unsigned char bs_jmp[]="12";// 00 +LenByte:Must be 0xEB, 0x3C, 0x90
 unsigned char bs_sys_id[]="1234567";// 03 OEM name,version "MSDOS5.0"
 unsigned int  bs_sect_size;	// 11 bytes per sector (512)
@@ -60,13 +59,13 @@ unsigned char bs_clust_size;// 13 sectors per cluster (1,2,4,..,128)
 unsigned int  bs_res_sects;	// 14 reserved sectors starting at 0
 unsigned char bs_num_fats;	// 16 number of FAT (1 or 2)
 unsigned int  bs_root_entr;	// 17 number of root directory entries (512)
-unsigned int  bs_total_sect;// 19 number of total sectors (0 if > 32Mb)
+unsigned int  bs_tot_sect16;// 19 number of total sectors (0 if > 32Mb)
 unsigned char bs_media_desc;// 21 media descriptor byte (F8h for HD)
 unsigned int  bs_fat_size;	// 22 sectors per fat
 unsigned int  bs_num_sects;	// 24 (DOS 3+)sectors per track 
 unsigned int  bs_num_sides;	// 26 (DOS 3+)number of heads   
 unsigned long bs_hid_sects;	// 28 (DOS 3+)number of hidden sectors 
-unsigned long bs_big_total;	// 32 (DOS 4+) number of sectors if ofs 19 = 0
+unsigned long bs_tot_sect32;	// 32 (DOS 4+) number of sectors if ofs 19 = 0
 unsigned char bs_drive_num;	// 36 (DOS 4+) physical drive number
 unsigned char bs_reserved;  // 37 (DOS 4+) for Windows NT check disk
 unsigned char bs_ext_signat;// 38 (DOS 4+) Extended signature,get next 3(29h)
@@ -170,9 +169,9 @@ __asm{
 .a: mov     cx,ax          ;Temporarily store LowDividend in CX
     mov     ax,dx          ;First divide the HighDividend
     xor     dx,dx          ;Setup for division DX:AX / BX
-    div     bx             ; -> AX is HighQuotient, Remainder is re-used
-    db		145;=91h xchg ax,cx;Temporarily move it to CX restoring LowDividend
 ;// DX:AX DIV BX = AX remainder dx
+    div     bx             ; -> AX is HighQuotient, Remainder is re-used
+    db		145;=91h xchg ax,cx; move it to CX restoring LowDividend
     div     bx             ; -> AX is LowQuotient, Remainder DX=[0,9]
     push    dx             ;(1) Save remainder for now
     mov     dx,cx          ;Build true 32-bit quotient in DX:AX
@@ -199,8 +198,8 @@ int memcpy(char *s, char *t, unsigned int i) {
 
 //--------------------------------  disk IO  -------------------
 
-int Int13hRW(char rw, char drive, char head, int cyl, char sector,
-	char count, int BufSeg, int BufOfs) {//CHS max. 8GB
+int DiskSectorReadWrite(char rw, char drive, char head, int cyl, 
+char sector, char count, int BufSeg, int BufOfs) {//CHS max. 8GB
 	BIOS_ERR=0;	
 	dl=drive;
 	dh=head;//may include 2 more cylinder bits
@@ -218,7 +217,7 @@ int Int13hRW(char rw, char drive, char head, int cyl, char sector,
     __emit__(0x73, 04); //jnc over BIOS_ERR++
 	BIOS_ERR++;
 }
-int Int13hRaw(char drive, char function) {
+int Int13hfunction(char drive, char function) {
 	BIOS_ERR=0;	
 	dl=drive;
 	ah=function;//0=reset, 1=status, 8=parms
@@ -230,13 +229,13 @@ int Int13hError() {
 	cputs("** DISK ERROR AX=");
 	printhex16(BIOS_Status);
 	cputs(".  ");
-	BIOS_Status=Int13hRaw(Drive, 0);//Reset
+	BIOS_Status=Int13hfunction(Drive, 0);//Reset
 	BIOS_ERR=0;
 }	
 
-int Params(char drive) {
-	cputs("(AH=08)Drive Params:");
-	BIOS_Status=Int13hRaw(drive, 8);
+int Params() {
+	cputs("Drive Params:");
+	BIOS_Status=Int13hfunction(Drive, 8);
 	if (BIOS_ERR) {
 		Int13hError();
 		return 1;
@@ -272,8 +271,8 @@ int Params(char drive) {
 
 int Status(drive) {
 	putch(10);
-	cputs("(1)Status last Op=");
-	BIOS_Status=Int13hRaw(drive, 1);	
+	cputs("Status last Op=");
+	BIOS_Status=Int13hfunction(drive, 1);	
 	if (BIOS_ERR) Int13hError();	
 	printhex16(BIOS_Status);	
 }	
@@ -281,61 +280,58 @@ int Status(drive) {
 int getPartitionData() {
 	unsigned int j; char c; char *p;
 	j = PartNo << 4;
-	j = j + 0x1be;			ptBootable=DiskBuf[j];//80H=boot
-	j++;					ptStartHead=DiskBuf[j];
-	j++;					ptStartSector=DiskBuf[j];
+	j = j + 0x1be;			pt_Bootable=DiskBuf[j];//80H=boot
+	j++;					pt_StartHead=DiskBuf[j];
+	j++;					pt_StartSector=DiskBuf[j];
 	ah=0;//next line convert byte to word
-	ptStartCylinder=ptStartSector;	
-	ptStartSector &= 0x3F;
-//	ptStartSector++;//Sector start with 1 todo
-	ptStartCylinder &= 0xC0;
-	ptStartCylinder = ptStartCylinder << 2;//OK no short cut!	
+	pt_StartCylinder=pt_StartSector;	
+	pt_StartSector &= 0x3F;
+//	pt_StartSector++;//Sector start with 1 todo
+	pt_StartCylinder &= 0xC0;
+	pt_StartCylinder = pt_StartCylinder << 2;//OK no short cut!	
 	j++;
 	ah=0;//byte to word
-	ptStartCylinder=DiskBuf[j] + ptStartCylinder;
-	j++;					ptFileSystem=DiskBuf[j];
-//	0=not used, 1=FAT12, 4=FAT16, 5=extended, 6=huge<2GB MS-DOS4.0	
-	j++;					ptEndHead=DiskBuf[j];
-	j++;					ptEndSector=DiskBuf[j];
+	pt_StartCylinder=DiskBuf[j] + pt_StartCylinder;
+	j++;					pt_FileSystem=DiskBuf[j];
+//	0=not used, 1=FAT12, 4=FAT16, 5=extended, 6=large<2GB	
+	j++;					pt_EndHead=DiskBuf[j];
+	j++;					pt_EndSector=DiskBuf[j];
 	ah=0;//next line convert byte to word
-	ptEndCylinder=ptEndSector;//see next 5 line		
-	ptEndSector &= 0x3F;
-//	ptEndSector++;//Sector start with 1 todo
-	ptEndCylinder &= 0xC0;
-	ptEndCylinder = ptEndCylinder << 2;//OK no short cut!	
+	pt_EndCylinder=pt_EndSector;//see next 5 line		
+	pt_EndSector &= 0x3F;
+//	pt_EndSector++;//Sector start with 1 todo
+	pt_EndCylinder &= 0xC0;
+	pt_EndCylinder = pt_EndCylinder << 2;//OK no short cut!	
 	j++;
 	ah=0;//byte to word
-	ptEndCylinder=DiskBuf[j] + ptEndCylinder;
+	pt_EndCylinder=DiskBuf[j] + pt_EndCylinder;
 	j++;
-	p = j + &DiskBuf;//copy ptHiddenSector, ptPartLen
-	memcpy(&ptHiddenSector, p, 8);
-	
-	j += 8;//next partition entry
+	p = j + &DiskBuf;//copy pt_HiddenSector, pt_PartLen
+	memcpy(&pt_HiddenSector, p, 8);	
+//	j += 8;//next partition entry
 }
 	
 int printPartitionData() {
-	unsigned int i; unsigned int j;
+	unsigned long Lo;
 	putch(10);		
 	cputs("No=");			printunsign(PartNo);
-	cputs(",Boot=");		printhex8(ptBootable);
-	cputs(" ID=");			printunsign(ptFileSystem);
-	cputs(",HdSeCy=");		printunsign(ptStartHead);
-	cputs("/");				printunsign(ptStartSector);	
-	cputs("/");				printunsign(ptStartCylinder);
-	cputs("-");				printunsign(ptEndHead);
-	cputs("/");				printunsign(ptEndSector);	
-	cputs("/");				printunsign(ptEndCylinder);
-	cputs(",Start=");		printlong(&ptHiddenSector);
-	cputs(",Len=");			printlong(&ptPartLenlo);
+	cputs(",Boot=");		printhex8(pt_Bootable);
+	cputs(" ID=");			printunsign(pt_FileSystem);
+	cputs(",HdSeCy=");		printunsign(pt_StartHead);
+	cputs("/");				printunsign(pt_StartSector);	
+	cputs("/");				printunsign(pt_StartCylinder);
+	cputs("-");				printunsign(pt_EndHead);
+	cputs("/");				printunsign(pt_EndSector);	
+	cputs("/");				printunsign(pt_EndCylinder);
+	cputs(",Start=");		printlong(&pt_HiddenSector);
+	cputs(",Len=");			printlong(&pt_PartLen);
 	cputs(" Sec=");
-	i = ptPartLenhi <<  5;//64KB Sec to MB; >>4 + <<9 = <<5
-	j = ptPartLenlo >> 11;//Sec to MB
-	i = i + j;				printunsign(i);
-	cputs(" MByte.");
-	
+	Lo = pt_PartLen >> 11;//sectors to MByte
+	printlong(&Lo);
+	cputs(" MByte.");	
 	putch(10);
 }
-int checkMagicNumber() {
+int checkBootSign() {
 	char c; char d; int i; char ok;
 	cputs(",magic number=");	
 	i=510;		c = DiskBuf[i];		printhex8(c);
@@ -344,20 +340,20 @@ int checkMagicNumber() {
 	if (c == 0x55) ok=1;
 	if (d == 0xAA) ok=1;
 	if (ok) {
-		cputs(" found");
+		cputs(" found.");
 		return 1;
 		}
 	else {
-		cputs(" NOT found");
+		cputs(" NOT found.");
 		return 0;	
 	}
 }	
 	
-int getFATtype(drive) {
+int getFATtype() {
 	int isFAT;
 	isFAT=0;
 	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
-	BIOS_Status=Int13hRW(2,drive,0,0,1,1,DiskBufSeg,DiskBuf);
+	BIOS_Status=DiskSectorReadWrite(2,Drive,0,0,1,1,DiskBufSeg,DiskBuf);
 	if (BIOS_ERR) {
 		Int13hError();
 		return 0;
@@ -372,22 +368,23 @@ int getFATtype(drive) {
 		printhex16(DiskBuf);
 		putch('.');
 */		
-		if(checkMagicNumber()==0) return 0;	
+		if(checkBootSign()==0) return 0;	
 		PartNo=0;
 		do {
 			getPartitionData();
 			printPartitionData();
-			if (ptBootable == 0x80) {
-				cputs(" boot partition found");
-				if (ptFileSystem == 1) {
+			
+			if (pt_Bootable == 0x80) {
+				cputs("Boot partition found");
+				if (pt_FileSystem == 1) {
 					cputs(", FAT12 partition < 32MB");
 					isFAT=1;
 					}
-				if (ptFileSystem == 4) {
+				if (pt_FileSystem == 4) {
 					cputs(", small FAT16 partition < 32MB");
 					isFAT=4;
 					}
-				if (ptFileSystem == 6) {
+				if (pt_FileSystem == 6) {
 					cputs(", large FAT16 partition < 2GB");
 					isFAT=6;
 					}
@@ -395,17 +392,17 @@ int getFATtype(drive) {
 			}
 			PartNo ++;
 		} while (PartNo <4);
-		if (isFAT==0) cputs(" no FAT active partition found");
+		if (isFAT==0) cputs(" no active FAT partition found");
 		return isFAT;
 	}	
 }
 
 int getBootSector() {
-	Cylinders=ptStartCylinder;
-	Heads=ptStartHead;
-	Sectors=ptStartSector ; // +1
+	Cylinders=pt_StartCylinder;
+	Heads=pt_StartHead;
+	Sectors=pt_StartSector ; // +1
 	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
-  BIOS_Status=Int13hRW(2,Drive,Heads,Cylinders,Sectors,1,DiskBufSeg,DiskBuf);
+  BIOS_Status=DiskSectorReadWrite(2,Drive,Heads,Cylinders,Sectors,1,DiskBufSeg,DiskBuf);
 	if (BIOS_ERR) {
 		Int13hError();
 		return 0;
@@ -414,7 +411,8 @@ int getBootSector() {
 		putch(10);
 		cputs("Read boot sector status:");
 		printhex16(BIOS_Status);	
-		if(checkMagicNumber()==0) return 0;	
+		if(checkBootSign()==0) return 0;
+		
 		memcpy(&bs_jmp, &DiskBuf, 62);
 		if (bs_jmp[0] != 0xEB) cputs(".ATTN boot byte NOT EBh");
 		putch(10);
@@ -427,7 +425,7 @@ int getBootSector() {
 		cputs(".Number of FAT(1,2)=");printunsign(bs_num_fats);	
 		putch(10);
 		cputs("Root directory entries(512)=");printunsign(bs_root_entr);
-		cputs(".Total sectors(0 if > 32MB=");printunsign(bs_total_sect);
+		cputs(".Total sectors(0 if > 32MB=");printunsign(bs_tot_sect16);
 		putch(10);
 		cputs("Media descriptor(F8h for HD)=");printhex8(bs_media_desc);
 		cputs(".Sectors per FAT=");printunsign(bs_fat_size);
@@ -436,7 +434,7 @@ int getBootSector() {
 		cputs(".number of heads=");printunsign(bs_num_sides);
 		putch(10);
 		cputs("hidden sectors(long)=");printlong(&bs_hid_sects);
-		cputs(".sectors(long)=");printlong(&bs_big_total);
+		cputs(".sectors(long)=");printlong(&bs_tot_sect32);
 		putch(10);
 		cputs("physical drive number=");printunsign(bs_drive_num);
 		cputs(".Windows NT check disk=");printunsign(bs_reserved);
@@ -449,12 +447,17 @@ int getBootSector() {
 	}
 	return 1;
 }
+
+int calcFATtype() {
+	
+	
+}
 /*	
 int Int13hExt(char drive) {
 	putch(10);
 	cputs("Int13h 41hExt AX(3000=ERROR)=");
 	bx=0x55AA;
-	BIOS_Status=Int13hRaw(0x80, 0x41);	
+	BIOS_Status=Int13hfunction(0x80, 0x41);	
 	printhex16(BIOS_Status);
 	if (BIOS_ERR) {
 		cputs(" not present");	
@@ -470,10 +473,7 @@ int Int13hExt(char drive) {
 }	
 */
 int mdump(unsigned char *adr, unsigned int len ) {
-    unsigned char c;
-    int i;
-    int j;
-    int k;
+    unsigned char c; int i; int j; int k;
     j=0;
     k=0;
     while (j < len ) {
@@ -512,11 +512,12 @@ int main() {
 	int res;
 	Drive=0x80;
 
-	if (Params(Drive)) return 1;//no hard disk
-	res=getFATtype(Drive);//
+	if (Params()) return 1;//no hard disk
+	res=getFATtype();//0=error,1=FAT12,4=FAT16,6=largeFAT16
 	if (res == 0) return 1;
 //	mdump(DiskBuf, 512);
 //	Int13hExt(Drive);
-	if(getBootSector()==0) return 1; ;
-	mdump(DiskBuf, 512);
+	if(getBootSector()==0) return 1;
+//	mdump(DiskBuf, 512);
+	calcFATtype();
 }
