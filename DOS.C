@@ -20,24 +20,16 @@ unsigned char DOS_ERR;
 unsigned char BIOS_ERR;
 unsigned int  BIOS_Status;
 unsigned char DiskBuf [512];
-unsigned char Drive;
-unsigned int  Cylinders;
-unsigned char Sectors;
-unsigned char Heads;
-unsigned char Attached;
 unsigned int  DiskBufSeg;
-unsigned char DriveType;
-unsigned int  PartNo;
-/*     unsigned short disk;
-     unsigned short num_cyls;
-     unsigned short num_heads;
-     unsigned short num_sects;
-     unsigned long  total_sects;
-     unsigned short sect_per_cyl;
-     unsigned short sect_per_track;
-     unsigned short sect_size;
-     unsigned short bios_num_cyls; */
-     
+unsigned char Drive=0x80;
+
+//Params from int13h, Function 8
+unsigned int  pa_Cylinders;
+unsigned char pa_Sectors;
+unsigned char pa_Heads;
+unsigned char pa_Attached;
+
+//calcFATtype     
 unsigned int FatStartSector;
 unsigned int FatSectors;
 unsigned int RootDirStartSector;
@@ -46,7 +38,7 @@ unsigned int DataStartSector;
 unsigned int DataSectors16;
 unsigned long DataSectors32;
 unsigned long CountofClusters;
-unsigned long templong;
+unsigned long templong;//converting word to dword
 char trueFATtype;
 
 //start hard disk partition structure 16 bytes in MBR. do not change
@@ -240,8 +232,7 @@ int Int13hError() {
 	cputs("** DISK ERROR AX=");
 	printhex16(BIOS_Status);
 	cputs(".  ");
-	BIOS_Status=Int13hfunction(Drive, 0);//Reset
-	BIOS_ERR=0;
+	//Int13hfunction(Drive, 0);//Reset, loose BIOS_ERR
 }	
 
 int Params() {
@@ -252,29 +243,29 @@ int Params() {
 		return 1;
 		}
 	else {
-		asm mov [Heads],        dh
-//		Heads++;
-		asm mov [Attached],     dl
+		asm mov [pa_Heads],        dh
+//		pa_Heads++;
+		asm mov [pa_Attached],     dl
 		// CX =       ---CH--- ---CL---
 		// cylinder : 76543210 98
 		// sector   :            543210	
-		asm mov [Sectors],      cl
-		Sectors &= 0x3F;// 63
-//		Sectors++;//1 to 64
+		asm mov [pa_Sectors],      cl
+		pa_Sectors &= 0x3F;// 63
+//		pa_Sectors++;//1 to 64
 	
-		asm mov [Cylinders],    cx	
-		Cylinders &= 0xC0;//;bit 9 and 10 only
-		Cylinders = Cylinders << 2;//compiler flaw:
-		asm add [Cylinders],    ch;//byte add, low byte is empty	
+		asm mov [pa_Cylinders],    cx	
+		pa_Cylinders &= 0xC0;//;bit 9 and 10 only
+		pa_Cylinders = pa_Cylinders << 2;//compiler flaw:
+		asm add [pa_Cylinders],    ch;//byte add, low byte is empty	
 		
-		if (Attached == 0) {
+		if (pa_Attached == 0) {
 			cputs(" no hard disk found");
 			return 1;
 			}
-		cputs("CylHeadSec=");		printunsign(Cylinders);
-		putch('/');					printunsign(Heads);
-		putch('/');					printunsign(Sectors);
-		cputs(", NoDrives=");		printhex8(Attached);
+		cputs("CylHeadSec=");		printunsign(pa_Cylinders);
+		putch('/');					printunsign(pa_Heads);
+		putch('/');					printunsign(pa_Sectors);
+		cputs(", NoDrives=");		printhex8(pa_Attached);
 		putch('.');
 	}
 	return 0;
@@ -288,7 +279,7 @@ int Status(drive) {
 	printhex16(BIOS_Status);	
 }	
 
-int getPartitionData() {
+int getPartitionData(int PartNo) {
 	unsigned int j; char c; char *p;
 	j = PartNo << 4;
 	j = j + 0x1be;			pt_Bootable=DiskBuf[j];//80H=boot
@@ -322,7 +313,7 @@ int getPartitionData() {
 //	j += 8;//next partition entry
 }
 	
-int printPartitionData() {
+int printPartitionData(int PartNo) {
 	unsigned long Lo;
 	putch(10);		
 	cputs("No=");			printunsign(PartNo);
@@ -360,9 +351,10 @@ int checkBootSign() {
 	}
 }	
 	
-int getFATtype() {
-	int isFAT;
+int readMBR() {
+	int isFAT; int PartNo;
 	isFAT=0;
+	PartNo=0;
 	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
 	BIOS_Status=DiskSectorReadWrite(2,Drive,0,0,1,1,DiskBufSeg,DiskBuf);
 	if (BIOS_ERR) {
@@ -372,18 +364,10 @@ int getFATtype() {
 	else {	
 		putch(10);
 		cputs("Read partition status:");
-/*		printhex16(BIOS_Status);	
-		cputs(",DiskBuf=");
-		printhex16(DiskBufSeg);
-		putch(':');							
-		printhex16(DiskBuf);
-		putch('.');
-*/		
 		if(checkBootSign()==0) return 0;	
-		PartNo=0;
 		do {
-			getPartitionData();
-			printPartitionData();
+			getPartitionData(PartNo);
+			printPartitionData(PartNo);
 			
 			if (pt_Bootable == 0x80) {
 				cputs("Boot partition found");
@@ -409,11 +393,9 @@ int getFATtype() {
 }
 
 int getBootSector() {
-	Cylinders=pt_StartCylinder;
-	Heads=pt_StartHead;
-	Sectors=pt_StartSector ; // +1
 	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
-  BIOS_Status=DiskSectorReadWrite(2,Drive,Heads,Cylinders,Sectors,1,DiskBufSeg,DiskBuf);
+  	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
+  		pt_StartSector, 1, DiskBufSeg, DiskBuf);
 	if (BIOS_ERR) {
 		Int13hError();
 		return 0;
@@ -504,8 +486,7 @@ int calcFATtype() {
 		cputs(", DataSectors32=");	printlong(&DataSectors32);			
 		putch(10);
 		cputs("CountofClusters=");	printlong(&CountofClusters);
-		putch(10);
-		cputs(", true FAT type=FAT"); 
+		cputs(", trueFATtype=FAT"); 
 		
 		asm xor eax, eax ;clear bit 15-31
 		templong=4086;
@@ -525,25 +506,33 @@ int calcFATtype() {
 			cputs("16");
 }//trueFATtype: 1=FAT12,6=FAT16,11=FAT32
 
-/*int Int13hExt(char drive) {
-	putch(10);
-	cputs("Int13h 41hExt AX(3000=ERROR)=");
+int Int13hExt() {
 	bx=0x55AA;
-	BIOS_Status=Int13hfunction(0x80, 0x41);	
-	printhex16(BIOS_Status);
+	BIOS_Status=Int13hfunction(Drive, 0x41);	
+	asm mov [vAX], ax;
+	asm mov [vBX], bx; 0xAA55 Extension installed
+	asm mov [vCX], cx; =1: AH042h-44h,47h,48h supported 			
+	putch(10);
+	cputs("Int13h 41hExt (AX=3000=ERROR)=");printhex16(vAX);
+	cputs(", BIOS_Status=");				printhex16(BIOS_Status);
 	if (BIOS_ERR) {
-		cputs(" not present");	
+		cputs(" Ext not present");	
 		Int13hError();	
+		return 1;
 		}
 	else {
-		cputs(" status=1:supported");
-		asm mov [vBX], bx;0xAA55 Extension installed
-		asm mov [vCX], cx;=1: AH042h-44h,47h,48h supported 			
 		cputs(" BX(AA55)=");				printhex16(vBX);
-		cputs(" CX(Interface bitmask)=");	printhex16(vCX);
-		}		
+		cputs(" CX=");						printhex16(vCX);
+		}
+	return 0;			
 }	
-*/
+
+int readLogical() {
+	
+	
+	
+}
+	
 int mdump(unsigned char *adr, unsigned int len ) {
     unsigned char c; int i; int j; int k;
     j=0;
@@ -585,7 +574,7 @@ int main() {
 	Drive=0x80;
 
 	if (Params()) return 1;//no hard disk
-	res=getFATtype();//0=error,1=FAT12,6=FAT16,11=FAT32
+	res=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
 	if (res == 0) return 1;
 //	mdump(DiskBuf, 512);
 //	Int13hExt(Drive);
@@ -593,5 +582,5 @@ int main() {
 //	mdump(DiskBuf, 512);
 	calcFATtype();//set trueFATtype: 1=FAT12,6=FAT16,11=FAT32
 	if(trueFATtype != 6) return 1;
-	
+	Int13hExt();
 }
