@@ -5,23 +5,18 @@ char Version1[]="DOS.COM V0.1.6";//test bed
 //Ranish Part, int8h: CHS 1014/15/63, Start=63,Len=1.023.057
 //Boot Sec=63, head=16, hidden=63, Sec=983.121
 #define ORGDATA		8192//start of arrays
-unsigned int vAX;
-unsigned int vBX;
-unsigned int vCX;
-unsigned int vDX;
-unsigned int vSP;
-unsigned int vBP;
-unsigned int vCS;
-unsigned int vDS;
-unsigned int vSS;
-unsigned int vES;
+unsigned int vAX ;unsigned int vBX ;unsigned int vCX; unsigned int vDX;
+unsigned int vSP; unsigned int vBP; unsigned int vCS; unsigned int vDS;
+unsigned int vSS; unsigned int vES; //debugging
 
 unsigned char DOS_ERR;
 unsigned char BIOS_ERR;
 unsigned int  BIOS_Status;
+
 unsigned char DiskBuf [512];
 unsigned int  DiskBufSeg;
 unsigned char Drive=0x80;
+unsigned long Sectors_to_read;//for readLogical
 
 //Params from int13h, Function 8
 unsigned int  pa_Cylinders;
@@ -35,11 +30,10 @@ unsigned int FatSectors;
 unsigned int RootDirStartSector;
 unsigned int RootDirSectors;
 unsigned int DataStartSector;
-unsigned int DataSectors16;
 unsigned long DataSectors32;
 unsigned long CountofClusters;
-unsigned long templong;//converting word to dword
-char trueFATtype;
+char          trueFATtype;
+unsigned long Sectors_per_cylinder;
 
 //start hard disk partition structure 16 bytes in MBR. do not change
 unsigned char pt_Bootable;		//80h = active partition, else 00
@@ -76,6 +70,23 @@ unsigned long bs_serial_num;// 39 (DOS 4+) Volume serial number random
 unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
 unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
 // 62 end boot BIOS Parameter Block
+
+int test() {
+//CountofClusters=DataSectors32 / bs_serial_num;//only int divisor alllowed
+
+//CountofClusters=DataSectors32 % bs_serial_num;
+
+__asm{	
+	div word [8]			; F7 36 08 00
+	div word [bs_clust_size]; F7 36 6C 01
+	div dword [bs_serial_num];66 F7 36 6C 01
+
+	
+	mul word [8]			; F7 26 08 00
+	mul bx					; F7 E3
+	mul word [bs_clust_size]; F7 26 6C 01
+	mul dword [bs_serial_num];66 F7 26 86 01 
+}	}
 
 int writetty()     {//char in AL
     ah=0x0E;
@@ -355,7 +366,6 @@ int readMBR() {
 	int isFAT; int PartNo;
 	isFAT=0;
 	PartNo=0;
-	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
 	BIOS_Status=DiskSectorReadWrite(2,Drive,0,0,1,1,DiskBufSeg,DiskBuf);
 	if (BIOS_ERR) {
 		Int13hError();
@@ -393,7 +403,6 @@ int readMBR() {
 }
 
 int getBootSector() {
-	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
   		pt_StartSector, 1, DiskBufSeg, DiskBuf);
 	if (BIOS_ERR) {
@@ -441,9 +450,9 @@ int getBootSector() {
 	return 1;
 }
 
-int calcFATtype() {
-	char c;
-	
+int calcFATtype() {	
+	unsigned long templong;//converting word to dword
+
 	FatStartSector=bs_res_sects;	
 	FatSectors=bs_fat_size;	
 	if (bs_num_fats == 2) FatSectors=FatSectors+FatSectors;
@@ -453,58 +462,77 @@ int calcFATtype() {
 	RootDirSectors= RootDirSectors / bs_sect_size;
 
 	DataStartSector=RootDirStartSector + RootDirSectors;
+	asm xor eax, eax
+	templong=DataStartSector;//convert word to dword		
+	
 	if (bs_tot_sect16 !=0) {
-		DataSectors16=bs_tot_sect16 - DataStartSector;
-		DataSectors32=0;//todo only word 0
-		cputs("FAT < 32 MB NOT supported");
-		trueFATtype=0;
-		return;
-		}
-	else {
-		asm xor eax, eax ;clear bit 15-31
-		templong=DataStartSector;//convert word to dword		
-		DataSectors32=bs_tot_sect32 - templong;//sub 32bit		
-		DataSectors16=0;	
-		}
-//	CountofClusters=DataSectors32 / bs_clust_size;only int divisor
-		if (bs_clust_size == 32) CountofClusters=DataSectors32 >> 5;
-		if (bs_clust_size == 16) CountofClusters=DataSectors32 >> 4;
-		if (bs_clust_size ==  8) CountofClusters=DataSectors32 >> 3;
-		if (bs_clust_size ==  4) CountofClusters=DataSectors32 >> 2;
-		if (bs_clust_size ==  2) CountofClusters=DataSectors32 >> 1;
-		if (bs_clust_size ==  1) CountofClusters=DataSectors32;
+		asm xor eax, eax
+		bs_tot_sect32=bs_tot_sect16;//convert word to dword		
+	}
+	DataSectors32=bs_tot_sect32 - templong;//sub 32bit		
 
-		putch(10);
-		cputs("FatStartSector:");	printunsign(FatStartSector);
-		cputs(", FatSectors=");		printunsign(FatSectors);
-		putch(10);
-		cputs("RootDirStartSector="); printunsign(RootDirStartSector);
-		cputs(", RootDirSectors=");	printunsign(RootDirSectors);
-		putch(10);
-		cputs("DataStartSector=");	printunsign(DataStartSector);
-		cputs(", DataSectors16=");	printunsign(DataSectors16);	
-		cputs(", DataSectors32=");	printlong(&DataSectors32);			
-		putch(10);
-		cputs("CountofClusters=");	printlong(&CountofClusters);
-		cputs(", trueFATtype=FAT"); 
-		
-		asm xor eax, eax ;clear bit 15-31
-		templong=4086;
-		if (CountofClusters < templong) {
-			trueFATtype=1; 
-			cputs("12"); 
-			return;
-			}
-		asm xor eax, eax ;clear bit 15-31			
-		templong = 65525;			
-		if (CountofClusters > templong) {
-			trueFATtype=11; 
-			cputs("32"); 
-			return;
-			}
-			trueFATtype=6;
-			cputs("16");
-}//trueFATtype: 1=FAT12,6=FAT16,11=FAT32
+//	CountofClusters=DataSectors32 / bs_clust_size;only int divisor
+//DX:AX   DIV r/m16    AX ← Quotient, DX ← Remainder
+//EDX:EAX DIV r/m32   EAX ← Quotient, EDX ← Remainder
+
+// AX * r/m16 = DX:AX
+//EAX * r/m32 = EDX:EAX
+
+/*	CountofClusters=DataSectors32 / BIOS_Status;
+019D 66 A1 40 01     mov eax, [DataSectors32]
+01A1 8B 1E 28 01     mov bx, [BIOS_Status]
+01A5 BA 00 00        mov dx, 0
+01A8 F7 F3           div bx
+01AA 66 A3 44 01     mov dword [CountofClusters], eax
+*/	
+
+	if (bs_clust_size == 32) CountofClusters=DataSectors32 >> 5;
+	if (bs_clust_size == 16) CountofClusters=DataSectors32 >> 4;
+	if (bs_clust_size ==  8) CountofClusters=DataSectors32 >> 3;
+	if (bs_clust_size ==  4) CountofClusters=DataSectors32 >> 2;
+	if (bs_clust_size ==  2) CountofClusters=DataSectors32 >> 1;
+	if (bs_clust_size ==  1) CountofClusters=DataSectors32;
+
+//	Sectors_per_cylinder = bs_num_sects *  bs_num_sides;//mul mit zahl!
+
+
+
+
+
+
+
+	putch(10);
+	cputs("FatStartSector:");	printunsign(FatStartSector);
+	cputs(", FatSectors=");		printunsign(FatSectors);
+	putch(10);
+	cputs("RootDirStartSector="); printunsign(RootDirStartSector);
+	cputs(", RootDirSectors=");	printunsign(RootDirSectors);
+	putch(10);
+	cputs("DataStartSector=");	printunsign(DataStartSector);
+	cputs(", DataSectors32=");	printlong(&DataSectors32);			
+	putch(10);
+	cputs("CountofClusters=");	printlong(&CountofClusters);
+	cputs(", Sectors_per_cylinder="); printlong(&Sectors_per_cylinder);
+	cputs(", trueFATtype=FAT"); 
+	
+	asm xor eax, eax ;clear bit 15-31			
+	templong = 65525;			
+	if (CountofClusters > templong) {
+		trueFATtype=32; 
+		cputs("32 NOT supported"); 
+		return 1;
+		}
+	asm xor eax, eax ;clear bit 15-31
+	templong=4086;
+	if (CountofClusters < templong) {
+		trueFATtype=12; 
+		cputs("12"); 
+		return 0;
+		}
+	trueFATtype=16;
+	cputs("16");
+	return 0;
+}
 
 int Int13hExt() {
 	bx=0x55AA;
@@ -513,23 +541,32 @@ int Int13hExt() {
 	asm mov [vBX], bx; 0xAA55 Extension installed
 	asm mov [vCX], cx; =1: AH042h-44h,47h,48h supported 			
 	putch(10);
-	cputs("Int13h 41hExt (AX=3000=ERROR)=");printhex16(vAX);
+	cputs("Int13h 41h Ext=");printhex16(vAX);
 	cputs(", BIOS_Status=");				printhex16(BIOS_Status);
 	if (BIOS_ERR) {
-		cputs(" Ext not present");	
+		cputs(" Ext NOT present");	
 		Int13hError();	
 		return 1;
 		}
 	else {
-		cputs(" BX(AA55)=");				printhex16(vBX);
+		cputs(" Extension found BX(AA55)=");printhex16(vBX);
 		cputs(" CX=");						printhex16(vCX);
 		}
 	return 0;			
 }	
 
 int readLogical() {
+	unsigned long track;
+	Sectors_to_read = Sectors_to_read + bs_hid_sects;
+//	track = Sectors_to_read / 
+
+
+
+
+	DiskSectorReadWrite(2, bs_drive_num );
 	
-	
+//int DiskSectorReadWrite(char rw, char drive, char head, int cyl, 
+//char sector, char count, int BufSeg, int BufOfs)
 	
 }
 	
@@ -572,15 +609,16 @@ int mdump(unsigned char *adr, unsigned int len ) {
 int main() {
 	int res;
 	Drive=0x80;
+	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
 
-	if (Params()) return 1;//no hard disk
+	if (Params()) 			return 1;//no hard disk
 	res=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
-	if (res == 0) return 1;
+	if (res == 0) 			return 1;
 //	mdump(DiskBuf, 512);
 //	Int13hExt(Drive);
-	if(getBootSector()==0) return 1;
+	if(getBootSector()==0) 	return 1;
 //	mdump(DiskBuf, 512);
-	calcFATtype();//set trueFATtype: 1=FAT12,6=FAT16,11=FAT32
-	if(trueFATtype != 6) return 1;
+	if (calcFATtype())		return 1;
+	if(trueFATtype != 16) 	return 1;
 	Int13hExt();
 }
