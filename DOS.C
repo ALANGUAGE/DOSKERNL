@@ -475,15 +475,14 @@ int calcFATtype() {
 	cputs(", Sectors_per_cylinder="); printlong(&Sectors_per_cylinder);
 	cputs(", trueFATtype=FAT"); 
 	
-	asm xor eax, eax ;clear bit 15-31			
-	templong = 65525;			
+	templong=(long) 65525;
+	
 	if (CountofClusters > templong) {
 		trueFATtype=32; 
 		cputs("32 NOT supported"); 
 		return 1;
 		}
-	asm xor eax, eax ;clear bit 15-31
-	templong=4086;
+	templong=(long) 4086;
 	if (CountofClusters < templong) {
 		trueFATtype=12; 
 		cputs("12"); 
