@@ -72,20 +72,9 @@ unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
 // 62 end boot BIOS Parameter Block
 
 int test() {
-//CountofClusters=DataSectors32 / bs_serial_num;//only int divisor alllowed
-
-//CountofClusters=DataSectors32 % bs_serial_num;
 
 __asm{	
-	div word [8]			; F7 36 08 00
-	div word [bs_clust_size]; F7 36 6C 01
-	div dword [bs_serial_num];66 F7 36 6C 01
 
-	
-	mul word [8]			; F7 26 08 00
-	mul bx					; F7 E3
-	mul word [bs_clust_size]; F7 26 6C 01
-	mul dword [bs_serial_num];66 F7 26 86 01 
 }	}
 
 int writetty()     {//char in AL
@@ -255,7 +244,6 @@ int Params() {
 		}
 	else {
 		asm mov [pa_Heads],        dh
-//		pa_Heads++;
 		asm mov [pa_Attached],     dl
 		// CX =       ---CH--- ---CL---
 		// cylinder : 76543210 98
@@ -276,7 +264,7 @@ int Params() {
 		cputs("CylHeadSec=");		printunsign(pa_Cylinders);
 		putch('/');					printunsign(pa_Heads);
 		putch('/');					printunsign(pa_Sectors);
-		cputs(", NoDrives=");		printhex8(pa_Attached);
+		cputs(", NoDrives=");		printhex8  (pa_Attached);
 		putch('.');
 	}
 	return 0;
@@ -296,32 +284,27 @@ int getPartitionData(int PartNo) {
 	j = j + 0x1be;			pt_Bootable=DiskBuf[j];//80H=boot
 	j++;					pt_StartHead=DiskBuf[j];
 	j++;					pt_StartSector=DiskBuf[j];
-	ah=0;//next line convert byte to word
-	pt_StartCylinder=pt_StartSector;	
+	pt_StartCylinder=(int)pt_StartSector;		
 	pt_StartSector &= 0x3F;
 //	pt_StartSector++;//Sector start with 1 todo
 	pt_StartCylinder &= 0xC0;
-	pt_StartCylinder = pt_StartCylinder << 2;//OK no short cut!	
+	pt_StartCylinder = pt_StartCylinder << 2;
 	j++;
-	ah=0;//byte to word
-	pt_StartCylinder=DiskBuf[j] + pt_StartCylinder;
+	pt_StartCylinder=(int)DiskBuf[j] + pt_StartCylinder;
 	j++;					pt_FileSystem=DiskBuf[j];
 //	0=not used, 1=FAT12, 4=FAT16, 5=extended, 6=large<2GB	
 	j++;					pt_EndHead=DiskBuf[j];
 	j++;					pt_EndSector=DiskBuf[j];
-	ah=0;//next line convert byte to word
-	pt_EndCylinder=pt_EndSector;//see next 5 line		
+	pt_EndCylinder=    (int)pt_EndSector;//see next 5 line		
 	pt_EndSector &= 0x3F;
 //	pt_EndSector++;//Sector start with 1 todo
 	pt_EndCylinder &= 0xC0;
 	pt_EndCylinder = pt_EndCylinder << 2;//OK no short cut!	
 	j++;
-	ah=0;//byte to word
-	pt_EndCylinder=DiskBuf[j] + pt_EndCylinder;
+	pt_EndCylinder=(int)DiskBuf[j] + pt_EndCylinder;
 	j++;
 	p = j + &DiskBuf;//copy pt_HiddenSector, pt_PartLen
 	memcpy(&pt_HiddenSector, p, 8);	
-//	j += 8;//next partition entry
 }
 	
 int printPartitionData(int PartNo) {
@@ -462,39 +445,16 @@ int calcFATtype() {
 	RootDirSectors= RootDirSectors / bs_sect_size;
 
 	DataStartSector=RootDirStartSector + RootDirSectors;
-	asm xor eax, eax
-	templong=DataStartSector;//convert word to dword		
+	templong=(long) DataStartSector;		
 	
-	if (bs_tot_sect16 !=0) {
-		asm xor eax, eax
-		bs_tot_sect32=bs_tot_sect16;//convert word to dword		
-	}
+	if (bs_tot_sect16 !=0) bs_tot_sect32 = (long) bs_tot_sect16;		
 	DataSectors32=bs_tot_sect32 - templong;//sub 32bit		
 
-//	CountofClusters=DataSectors32 / bs_clust_size;only int divisor
-//DX:AX   DIV r/m16    AX ← Quotient, DX ← Remainder
-//EDX:EAX DIV r/m32   EAX ← Quotient, EDX ← Remainder
-
-// AX * r/m16 = DX:AX
-//EAX * r/m32 = EDX:EAX
-
-/*	CountofClusters=DataSectors32 / BIOS_Status;
-019D 66 A1 40 01     mov eax, [DataSectors32]
-01A1 8B 1E 28 01     mov bx, [BIOS_Status]
-01A5 BA 00 00        mov dx, 0
-01A8 F7 F3           div bx
-01AA 66 A3 44 01     mov dword [CountofClusters], eax
-*/	
-
-	if (bs_clust_size == 32) CountofClusters=DataSectors32 >> 5;
-	if (bs_clust_size == 16) CountofClusters=DataSectors32 >> 4;
-	if (bs_clust_size ==  8) CountofClusters=DataSectors32 >> 3;
-	if (bs_clust_size ==  4) CountofClusters=DataSectors32 >> 2;
-	if (bs_clust_size ==  2) CountofClusters=DataSectors32 >> 1;
-	if (bs_clust_size ==  1) CountofClusters=DataSectors32;
-
-//	Sectors_per_cylinder = bs_num_sects *  bs_num_sides;//mul mit zahl!
-
+	templong =(long) bs_clust_size;		
+	CountofClusters=DataSectors32 / templong;
+		
+	Sectors_per_cylinder = bs_num_sects *  bs_num_sides;//d=w*w
+	asm mov [Sectors_per_cylinder + 2], dx;store high word
 
 
 
