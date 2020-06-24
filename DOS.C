@@ -1,4 +1,4 @@
-char Version1[]="DOS.COM V0.1.6";//test bed
+char Version1[]="DOS.COM V0.1.7";//test bed
 //todo: resize and take own stack
 //Finder /hg/VirtualBox VMs/DOS1/DOS1.vhd (.vmdk) 
 // Rechtsclick / Öffnen / Parallels Mounter
@@ -35,40 +35,40 @@ unsigned long CountofClusters;
 char          trueFATtype;
 unsigned long Sectors_per_cylinder;
 
-//start hard disk partition structure 16 bytes in MBR. do not change
-unsigned char pt_Bootable;		//80h = active partition, else 00
-unsigned char pt_StartHead;
+//start hard disk partition structure 16 bytes in MBR. do not change unsigned
+char pt_Bootable;		//80h = active partition, else 00 unsigned char
+pt_StartHead;
 unsigned char pt_StartSector;	//bits 0-5
-unsigned int  pt_StartCylinder;	//bits 8,9 in bits 6,7 of sector
-unsigned char pt_FileSystem;	//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=largeFAT16
-unsigned char pt_EndHead;
+unsigned int  pt_StartCylinder;	//bits 8,9 in bits 6,7 of sector unsigned char
+pt_FileSystem;	//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=largeFAT16 unsigned char
+pt_EndHead;
 unsigned char pt_EndSector;		//bits 0-5
-unsigned int  pt_EndCylinder;	//bits 8,9 in bits 6,7 of sector
-unsigned long pt_HiddenSector;	//sectors preceding partition
-unsigned long pt_PartLen;    	//length of partition in sectors
+unsigned int  pt_EndCylinder;	//bits 8,9 in bits 6,7 of sector unsigned long
+pt_HiddenSector;	//sectors preceding partition
+unsigned long pt_PartLen;    	//length of partition in sectors 
 //end hard disk partition structure
 
 //start boot BIOS Parameter Block structure. do not change
-unsigned char bs_jmp[]="12";// 00 +LenByte:Must be 0xEB, 0x3C, 0x90
-unsigned char bs_sys_id[]="1234567";// 03 OEM name,version "MSDOS5.0"
-unsigned int  bs_sect_size;	// 11 bytes per sector (512)
-unsigned char bs_clust_size;// 13 sectors per cluster (1,2,4,..,128)
-unsigned int  bs_res_sects;	// 14 reserved sectors starting at 0
-unsigned char bs_num_fats;	// 16 number of FAT (1 or 2)
+unsigned char bs_jmp[]="12";// 00 +LenByte:Must be 0xEB, 0x3C, 0x90 unsigned
+char bs_sys_id[]="1234567";// 03 OEM name,version "MSDOS5.0" unsigned int 
+bs_sect_size;	// 11 bytes per sector (512)
+unsigned char bs_clust_size;// 13 sectors per cluster (1,2,4,..,128) unsigned
+int  bs_res_sects;	// 14 reserved sectors starting at 0 unsigned char
+bs_num_fats;	// 16 number of FAT (1 or 2)
 unsigned int  bs_root_entr;	// 17 number of root directory entries (512)
 unsigned int  bs_tot_sect16;// 19 number of total sectors (0 if > 32Mb)
-unsigned char bs_media_desc;// 21 media descriptor byte (F8h for HD)
-unsigned int  bs_fat_size;	// 22 sectors per fat
+unsigned char bs_media_desc;// 21 media descriptor byte (F8h for HD) unsigned
+int  bs_fat_size;	// 22 sectors per fat
 unsigned int  bs_num_sects;	// 24 (DOS 3+)sectors per track 
 unsigned int  bs_num_sides;	// 26 (DOS 3+)number of heads   
-unsigned long bs_hid_sects;	// 28 (DOS 3+)number of hidden sectors 
-unsigned long bs_tot_sect32;	// 32 (DOS 4+) number of sectors if ofs 19 = 0
-unsigned char bs_drive_num;	// 36 (DOS 4+) physical drive number
-unsigned char bs_reserved;  // 37 (DOS 4+) for Windows NT check disk
-unsigned char bs_ext_signat;// 38 (DOS 4+) Extended signature,get next 3(29h)
-unsigned long bs_serial_num;// 39 (DOS 4+) Volume serial number random
-unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
-unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
+unsigned long bs_hid_sects;	// 28 (DOS 3+)number of hidden sectors unsigned
+long bs_tot_sect32;	// 32 (DOS 4+) number of sectors if ofs 19 = 0 unsigned
+char bs_drive_num;	// 36 (DOS 4+) physical drive number unsigned char
+bs_reserved;  // 37 (DOS 4+) for Windows NT check disk unsigned char
+bs_ext_signat;// 38 (DOS 4+) Extended signature,get next 3(29h) unsigned long
+bs_serial_num;// 39 (DOS 4+) Volume serial number random unsigned char
+bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME" unsigned char
+bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16" 
 // 62 end boot BIOS Parameter Block
 
 int test() {
@@ -116,8 +116,8 @@ int getch() {
 }
 int waitkey() {
     ah=0x11;//get kbd status
-    inth 0x16;//AH:Scan code, AL:char read, resting in buffer
-    //zero flag: 0=IS char, 1=NO char
+    inth 0x16;//AH:Scan code, AL:char read, resting in buffer //zero flag: 0=IS
+char, 1=NO char
     __emit__(0x74,0xFA);// jz back 2 bytes until char read
 }
 int getkey() {
@@ -169,20 +169,19 @@ int printlong(unsigned int *p) {
 __asm{	
   	mov     bx,10          ;CONST
     push    bx             ;Sentinel
-.a: mov     cx,ax          ;Temporarily store LowDividend in CX
-    mov     ax,dx          ;First divide the HighDividend
+.a: mov     cx,ax          ;Temporarily store LowDividend in CX mov     ax,dx  
+       ;First divide the HighDividend
     xor     dx,dx          ;Setup for division DX:AX / BX
 ;// DX:AX DIV BX = AX remainder dx
     div     bx             ; -> AX is HighQuotient, Remainder is re-used
-    db		145;=91h xchg ax,cx; move it to CX restoring LowDividend
-    div     bx             ; -> AX is LowQuotient, Remainder DX=[0,9]
-    push    dx             ;(1) Save remainder for now
-    mov     dx,cx          ;Build true 32-bit quotient in DX:AX
-    or      cx,ax          ;Is the true 32-bit quotient zero?
+db		145;=91h xchg ax,cx; move it to CX restoring LowDividend
+    div     bx             ; -> AX is LowQuotient, Remainder DX=[0,9] push   
+dx             ;(1) Save remainder for now
+    mov     dx,cx          ;Build true 32-bit quotient in DX:AX or      cx,ax  
+       ;Is the true 32-bit quotient zero?
     jnz     .a             ;No, use as next dividend
-    pop     ax             ;(1a) First pop (Is digit for sure)
-.b: add     al, 48;"0"     ;Turn into character [0,9] -> ["0","9"]
-}	writetty();		__asm{
+    pop     ax             ;(1a) First pop (Is digit for sure) .b: add     al,
+48;"0"     ;Turn into character [0,9] -> ["0","9"] }	writetty();		__asm{
     pop     ax             ;(1b) All remaining pops
     cmp     ax,bx          ;Was it the sentinel?
     jb      .b             ;Not yet	
@@ -201,9 +200,8 @@ int memcpy(char *s, char *t, unsigned int i) {
 
 //--------------------------------  disk IO  -------------------
 
-int DiskSectorReadWrite(char rw, char drive, char head, int cyl, 
-char sector, char count, int BufSeg, int BufOfs) {//CHS max. 8GB
-	BIOS_ERR=0;	
+int DiskSectorReadWrite(char rw, char drive, char head, int cyl, char sector,
+char count, int BufSeg, int BufOfs) {//CHS max. 8GB 	BIOS_ERR=0;	
 	dl=drive;
 	dh=head;//may include 2 more cylinder bits
 	es=BufSeg;
@@ -349,8 +347,8 @@ int readMBR() {
 	int isFAT; int PartNo;
 	isFAT=0;
 	PartNo=0;
-	BIOS_Status=DiskSectorReadWrite(2,Drive,0,0,1,1,DiskBufSeg,DiskBuf);
-	if (BIOS_ERR) {
+	BIOS_Status=DiskSectorReadWrite(2,Drive,0,0,1,1,DiskBufSeg,DiskBuf); 	if
+(BIOS_ERR) {
 		Int13hError();
 		return 0;
 		}
@@ -387,7 +385,7 @@ int readMBR() {
 
 int getBootSector() {
   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
-  		pt_StartSector, 1, DiskBufSeg, DiskBuf);
+		pt_StartSector, 1, DiskBufSeg, DiskBuf);
 	if (BIOS_ERR) {
 		Int13hError();
 		return 0;
@@ -400,10 +398,11 @@ int getBootSector() {
 		
 		memcpy(&bs_jmp, &DiskBuf, 62);
 		if (bs_jmp[0] != 0xEB) cputs(".ATTN boot byte NOT EBh");
+		if (bs_jmp[2] != 0x90) cputs(".ATTN boot byte[2] NOT 90h"); 		
 		putch(10);
 		cputs("OEM name (MSDOS5.0)=");cputsLen(bs_sys_id,8);
 		putch(10);
-		cputs("Bytes per sector(512)=");printunsign(bs_sect_size);	
+		cputs("Bytes per sector(512)=");printunsign(bs_sect_size);	 	
 		cputs(".Sectors per cluster(1,,128)=");printunsign(bs_clust_size);	
 		putch(10);
 		cputs("Reserved sectors=");printunsign(bs_res_sects);	
@@ -456,23 +455,18 @@ int calcFATtype() {
 	Sectors_per_cylinder = bs_num_sects *  bs_num_sides;//d=w*w
 	asm mov [Sectors_per_cylinder + 2], dx;store high word
 
-
-
-
-
-
 	putch(10);
 	cputs("FatStartSector:");	printunsign(FatStartSector);
 	cputs(", FatSectors=");		printunsign(FatSectors);
 	putch(10);
-	cputs("RootDirStartSector="); printunsign(RootDirStartSector);
+	cputs("RootDirStartSector="); printunsign(RootDirStartSector); 	
 	cputs(", RootDirSectors=");	printunsign(RootDirSectors);
 	putch(10);
 	cputs("DataStartSector=");	printunsign(DataStartSector);
 	cputs(", DataSectors32=");	printlong(&DataSectors32);			
 	putch(10);
 	cputs("CountofClusters=");	printlong(&CountofClusters);
-	cputs(", Sectors_per_cylinder="); printlong(&Sectors_per_cylinder);
+	cputs(", Sectors_per_cylinder="); printlong(&Sectors_per_cylinder); 	
 	cputs(", trueFATtype=FAT"); 
 	
 	templong=(long) 65525;
@@ -515,17 +509,21 @@ int Int13hExt() {
 }	
 
 int readLogical() {
-	unsigned long track;
-	Sectors_to_read = Sectors_to_read + bs_hid_sects;
-//	track = Sectors_to_read / 
+	unsigned int track;
+	Sectors_to_read = Sectors_to_read + bs_hid_sects;//d=d+d
+
+	Sectors_to_read +=  bs_hid_sects;//d=d+d
+
+
+	track = Sectors_to_read / sectors_per_cylinder;//w=d/d
 
 
 
 
 	DiskSectorReadWrite(2, bs_drive_num );
 	
-//int DiskSectorReadWrite(char rw, char drive, char head, int cyl, 
-//char sector, char count, int BufSeg, int BufOfs)
+//int DiskSectorReadWrite(char rw, char drive, char head, int cyl, //char
+sector, char count, int BufSeg, int BufOfs)
 	
 }
 	
