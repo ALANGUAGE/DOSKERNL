@@ -2426,7 +2426,7 @@ Int13hExt: PROC
 
 ;-513 
 
-;-514 int readLogical() {
+;-514 int readLogical() {//IN:Sectors_to_read
 
  .retnInt13hExt:
  ret
@@ -2438,59 +2438,89 @@ Int13hExt_4 db " CX=",0
 ENDP
 
 readLogical: PROC
-;-515 	unsigned int track;
+;-515 	unsigned int track; unsigned int head; unsigned int sect;
 
 ;-516 	Sectors_to_read = Sectors_to_read + bs_hid_sects;//d=d+d
 
-;Function : readLogical, Number local Var: 1
+;Function : readLogical, Number local Var: 3
 ; # type sign width local variables
-;62 var unsg word track = bp-2;
- ENTER  2,0
+;62 var unsg word track = bp-2
+;63 var unsg word head = bp-4
+;64 var unsg word sect = bp-6;
+ ENTER  6,0
  mov eax, [Sectors_to_read]
  add eax, [bs_hid_sects]
  mov dword [Sectors_to_read], eax
-;-517 
+;-517 	track = Sectors_to_read / Sectors_per_cylinder;  //w=d/d
 
-;-518 //	track = Sectors_to_read / 
+ mov eax, [Sectors_to_read]
+ xor edx, edx
+ div dword [Sectors_per_cylinder]
+ mov [bp-2], ax
+;-518 	head  = Sectors_to_read % Sectors_per_cylinder;  //w=d%d
 
-;-519 
+ mov eax, [Sectors_to_read]
+ xor edx, edx
+ div dword [Sectors_per_cylinder]
+ mov eax, edx
+ mov [bp-4], ax
+;-519 	sect  = head            % bs_num_sects; 	     //w=w%w
 
-;-520 
+ mov ax, [bp-4]
+ xor dx, dx
+ div word [bs_num_sects]
+ mov ax, dx
+ mov [bp-6], ax
+;-520 	sect++;
 
-;-521 
+ inc  word[bp-6]
+;-521 	head  = head            / bs_num_sects;			 //w=w/w
 
+ mov ax, [bp-4]
+ xor dx, dx
+ div word [bs_num_sects]
+ mov [bp-4], ax
 ;-522 
 
-;-523 	DiskSectorReadWrite(2, bs_drive_num );
+;-523 	DiskSectorReadWrite(2, bs_drive_num, head, track/* =cyl */,
 
+;-524 		sect, 1, DiskBufSeg , DiskBuf);
+
+ lea  ax, [DiskBuf]
+ push ax
+ push word [DiskBufSeg]
+ push 1
+ push word [bp-6]
+ push word [bp-2]
+ push word [bp-4]
  mov al, byte [bs_drive_num]
  mov ah, 0
  push ax
  push 2
  call DiskSectorReadWrite
- add  sp, 4
-;-524 	
+ add  sp, 16
+;-525 	
 
-;-525 //int DiskSectorReadWrite(char rw, char drive, char head, int cyl, 
+;-526 //int DiskSectorReadWrite(char rw, char drive, char head, int cyl, 
 
-;-526 //char sector, char count, int BufSeg, int BufOfs)
+;-527 //char sector, char count, int BufSeg, int BufOfs)
 
-;-527 	
+;-528 	
 
-;-528 }
+;-529 }
 
-;-529 	
+;-530 	
 
-;-530 int mdump(unsigned char *adr, unsigned int len ) {
+;-531 int mdump(unsigned char *adr, unsigned int len ) {
 
  LEAVE
  ret
 ENDP
 
 mdump: PROC
-;-531     unsigned char c; int i; int j; int k;
+;-532     unsigned char c; int i; int j; int k;
 
-;-532     j=0;
+;-533     j=0;
 
 ;Function : mdump, Number local Var: 6
 ; # type sign width local variables
@@ -2503,115 +2533,115 @@ mdump: PROC
  ENTER  8,0
  mov ax, 0
  mov [bp-6], ax
-;-533     k=0;
+;-534     k=0;
 
  mov ax, 0
  mov [bp-8], ax
-;-534     while (j < len ) {
+;-535     while (j < len ) {
 
 .mdump40:
  mov ax, [bp-6]
  cmp ax, [bp+6]
  jge .mdump41
-;-535 	    k++;; 
+;-536 	    k++;; 
 
  inc  word[bp-8]
-;-536 	    if (k > 8) {
+;-537 	    if (k > 8) {
 
  mov ax, [bp-8]
  cmp ax, 8
  jle .mdump42
-;-537 		    getkey();
+;-538 		    getkey();
 
  call getkey
-;-538 		    k=1;
+;-539 		    k=1;
 
  mov ax, 1
  mov [bp-8], ax
-;-539 		    }
+;-540 		    }
 
-;-540         putch(10);
+;-541         putch(10);
 
 .mdump42:
  push 10
  call putch
  add  sp, 2
-;-541         printhex16(adr);
+;-542         printhex16(adr);
 
  push word [bp+4]
  call printhex16
  add  sp, 2
-;-542         putch(':');
+;-543         putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-543         i=0;
+;-544         i=0;
 
  mov ax, 0
  mov [bp-4], ax
-;-544         while (i < 16) {
+;-545         while (i < 16) {
 
 .mdump43:
  mov ax, [bp-4]
  cmp ax, 16
  jge .mdump44
-;-545             putch(' ');
+;-546             putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-546             c = *adr;
+;-547             c = *adr;
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-547             printhex8(c);
+;-548             printhex8(c);
 
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call printhex8
  add  sp, 2
-;-548             adr++;
+;-549             adr++;
 
  inc  word[bp+4]
-;-549             i++;
+;-550             i++;
 
  inc  word[bp-4]
-;-550             j++;
+;-551             j++;
 
  inc  word[bp-6]
-;-551             }
+;-552             }
 
-;-552         putch(' ');
+;-553         putch(' ');
 
  jmp .mdump43
 .mdump44:
  push 32
  call putch
  add  sp, 2
-;-553         adr -=16;
+;-554         adr -=16;
 
  sub  word[bp+4], 16
-;-554         i=0;
+;-555         i=0;
 
  mov ax, 0
  mov [bp-4], ax
-;-555         while(i < 16) {
+;-556         while(i < 16) {
 
 .mdump45:
  mov ax, [bp-4]
  cmp ax, 16
  jge .mdump46
-;-556             c= *adr;
+;-557             c= *adr;
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-557             if (c < 32) putch('.');
+;-558             if (c < 32) putch('.');
 
  mov al, [bp-2]
  cmp al, 32
@@ -2619,7 +2649,7 @@ mdump: PROC
  push 46
  call putch
  add  sp, 2
-;-558                 else putch(c);
+;-559                 else putch(c);
 
  jmp .mdump48
 .mdump47:
@@ -2628,37 +2658,37 @@ mdump: PROC
  push ax
  call putch
  add  sp, 2
-;-559             adr++;
+;-560             adr++;
 
 .mdump48:
  inc  word[bp+4]
-;-560             i++;
+;-561             i++;
 
  inc  word[bp-4]
-;-561         }
+;-562         }
 
-;-562     }
+;-563     }
 
  jmp .mdump45
 .mdump46:
-;-563 }
+;-564 }
 
  jmp .mdump40
 .mdump41:
-;-564 
+;-565 
 
-;-565 //------------------------------------ main ---------------
+;-566 //------------------------------------ main ---------------
 
-;-566 int main() {
+;-567 int main() {
 
  LEAVE
  ret
 ENDP
 
 main: PROC
-;-567 	int res;
+;-568 	int res;
 
-;-568 	Drive=0x80;
+;-569 	Drive=0x80;
 
 ;Function : main, Number local Var: 1
 ; # type sign width local variables
@@ -2666,35 +2696,35 @@ main: PROC
  ENTER  2,0
  mov ax, 128
  mov byte [Drive], al
-;-569 	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
+;-570 	asm mov [DiskBufSeg], ds; //Offset is in DiskBuf
 
  mov [DiskBufSeg], ds; //Offset is in DiskBuf
-;-570 
+;-571 
 
-;-571 	if (Params()) 			return 1;//no hard disk
+;-572 	if (Params()) 			return 1;//no hard disk
 
  call Params
  or  al, al
  je .main49
  mov ax, 1
  jmp .retnmain
-;-572 	res=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
+;-573 	res=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
 
 .main49:
  call readMBR
  mov [bp-2], ax
-;-573 	if (res == 0) 			return 1;
+;-574 	if (res == 0) 			return 1;
 
  mov ax, [bp-2]
  cmp ax, 0
  jne .main50
  mov ax, 1
  jmp .retnmain
-;-574 //	mdump(DiskBuf, 512);
+;-575 //	mdump(DiskBuf, 512);
 
-;-575 //	Int13hExt(Drive);
+;-576 //	Int13hExt(Drive);
 
-;-576 	if(getBootSector()==0) 	return 1;
+;-577 	if(getBootSector()==0) 	return 1;
 
 .main50:
  call getBootSector
@@ -2702,9 +2732,9 @@ main: PROC
  jne .main51
  mov ax, 1
  jmp .retnmain
-;-577 //	mdump(DiskBuf, 512);
+;-578 //	mdump(DiskBuf, 512);
 
-;-578 	if (calcFATtype())		return 1;
+;-579 	if (calcFATtype())		return 1;
 
 .main51:
  call calcFATtype
@@ -2712,7 +2742,7 @@ main: PROC
  je .main52
  mov ax, 1
  jmp .retnmain
-;-579 	if(trueFATtype != 16) 	return 1;
+;-580 	if(trueFATtype != 16) 	return 1;
 
 .main52:
  mov al, [trueFATtype]
@@ -2720,15 +2750,15 @@ main: PROC
  je  .main53
  mov ax, 1
  jmp .retnmain
-;-580 	Int13hExt();
+;-581 	Int13hExt();
 
 .main53:
  call Int13hExt
-;-581 }
+;-582 }
 
  .retnmain:
  LEAVE
  ret
 ENDP
 ;Glob. variables:61 (400):686 (4000), Functions:30 (300):302 (3000)
-;Lines:582, Constant: 1052 (3000), stacksize: 56831
+;Lines:583, Constant: 1052 (3000), stacksize: 56831

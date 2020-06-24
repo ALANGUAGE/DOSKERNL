@@ -511,16 +511,17 @@ int Int13hExt() {
 	return 0;			
 }	
 
-int readLogical() {
-	unsigned int track;
+int readLogical() {//IN:Sectors_to_read
+	unsigned int track; unsigned int head; unsigned int sect;
 	Sectors_to_read = Sectors_to_read + bs_hid_sects;//d=d+d
+	track = Sectors_to_read / Sectors_per_cylinder;  //w=d/d
+	head  = Sectors_to_read % Sectors_per_cylinder;  //w=d%d
+	sect  = head            % bs_num_sects; 	     //w=w%w
+	sect++;
+	head  = head            / bs_num_sects;			 //w=w/w
 
-//	track = Sectors_to_read / 
-
-
-
-
-	DiskSectorReadWrite(2, bs_drive_num );
+	DiskSectorReadWrite(2, bs_drive_num, head, track/* =cyl */,
+		sect, 1, DiskBufSeg , DiskBuf);
 	
 //int DiskSectorReadWrite(char rw, char drive, char head, int cyl, 
 //char sector, char count, int BufSeg, int BufOfs)
