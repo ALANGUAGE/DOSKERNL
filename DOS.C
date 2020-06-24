@@ -579,4 +579,10 @@ int main() {
 	if (calcFATtype())		return 1;
 	if(trueFATtype != 16) 	return 1;
 	Int13hExt();
+	
+	Sectors_to_read = (long) 0;
+	readLogical();
+	getkey();
+	mdump(DiskBuf, 512);
+	
 }

@@ -2754,11 +2754,33 @@ main: PROC
 
 .main53:
  call Int13hExt
-;-582 }
+;-582 	
+
+;-583 	Sectors_to_read = (long) 0;
+
+ xor eax, eax
+ mov ax, 0
+ mov dword [Sectors_to_read], eax
+;-584 	readLogical();
+
+ call readLogical
+;-585 	getkey();
+
+ call getkey
+;-586 	mdump(DiskBuf, 512);
+
+ push 512
+ lea  ax, [DiskBuf]
+ push ax
+ call mdump
+ add  sp, 4
+;-587 	
+
+;-588 }
 
  .retnmain:
  LEAVE
  ret
 ENDP
 ;Glob. variables:61 (400):686 (4000), Functions:30 (300):302 (3000)
-;Lines:583, Constant: 1052 (3000), stacksize: 56831
+;Lines:589, Constant: 1052 (3000), stacksize: 56831
