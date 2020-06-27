@@ -24,16 +24,18 @@ unsigned char pa_Sectors;
 unsigned char pa_Heads;
 unsigned char pa_Attached;
 
-//calcFATtype     
-unsigned int FatStartSector;
-unsigned int FatSectors;
-unsigned int RootDirStartSector;
-unsigned int RootDirSectors;
-unsigned int DataStartSector;
+//FATInit     
+unsigned int fat_FatStartSector;
+unsigned int fat_FatSectors;
+unsigned int fat_RootDirStartSector;
+unsigned int fat_RootDirSectors;
+unsigned int fat_DataStartSector;
+unsigned long fat_num_tracks;
+unsigned int  fat_num_cylinders;
+unsigned long Sectors_per_cylinder;
 unsigned long DataSectors32;
 unsigned long CountofClusters;
 char          trueFATtype;
-unsigned long Sectors_per_cylinder;
 
 unsigned int  pt_PartNo;
 //start hard disk partition structure 16 bytes in MBR. do not change
@@ -60,10 +62,10 @@ unsigned int  bs_root_entr;	// 17 number of root directory entries (512)
 unsigned int  bs_tot_sect16;// 19 number of total sectors (0 if > 32Mb)
 unsigned char bs_media_desc;// 21 media descriptor byte (F8h for HD)
 unsigned int  bs_fat_size;	// 22 sectors per fat
-unsigned int  bs_num_sects;	// 24 (DOS 3+)sectors per track 
-unsigned int  bs_num_sides;	// 26 (DOS 3+)number of heads   
+unsigned int  bs_sectors_per_track; // 24 (DOS 3+)sectors per track 
+unsigned int  bs_num_heads;	// 26 (DOS 3+)number of heads   
 unsigned long bs_hid_sects;	// 28 (DOS 3+)number of hidden sectors 
-unsigned long bs_tot_sect32;	// 32 (DOS 4+) number of sectors if ofs 19 = 0
+unsigned long bs_tot_sect32;// 32 (DOS 4+) number of sectors if ofs 19 = 0
 unsigned char bs_drive_num;	// 36 (DOS 4+) physical drive number
 unsigned char bs_reserved;  // 37 (DOS 4+) for Windows NT check disk
 unsigned char bs_ext_signat;// 38 (DOS 4+) Extended signature,get next 3(29h)
@@ -407,27 +409,33 @@ int getBootSector() {int i;
 	return 1;
 }
 
-int calcFATtype() {	
+int FATInit() {	
 	unsigned long templong;//converting word to dword
+// (e)dx:(e)ax DIV r/m16(32) = (e)ax, remainder (e)dx
+	fat_FatStartSector = bs_res_sects;	
+	fat_FatSectors = bs_fat_size;	
+	if (bs_num_fats == 2) fat_FatSectors=fat_FatSectors+fat_FatSectors;
 
-	FatStartSector=bs_res_sects;	
-	FatSectors=bs_fat_size;	
-	if (bs_num_fats == 2) FatSectors=FatSectors+FatSectors;
+	fat_RootDirStartSector = fat_FatStartSector + fat_FatSectors;
+	fat_RootDirSectors = bs_root_entr << 5;// *32	
+	fat_RootDirSectors = fat_RootDirSectors / bs_sect_size;
 
-	RootDirStartSector=FatStartSector + FatSectors;
-	RootDirSectors= bs_root_entr << 5;// *32	
-	RootDirSectors= RootDirSectors / bs_sect_size;
-
-	DataStartSector=RootDirStartSector + RootDirSectors;
-	templong=(long) DataStartSector;		
+	fat_DataStartSector = fat_RootDirStartSector + fat_RootDirSectors;
+	templong=(long) fat_DataStartSector;		
 	
 	if (bs_tot_sect16 !=0) bs_tot_sect32 = (long) bs_tot_sect16;		
 	DataSectors32=bs_tot_sect32 - templong;		
 
-	templong =(long) bs_clust_size;		
-	CountofClusters=DataSectors32 / templong;
-		
-	Sectors_per_cylinder = bs_num_sects *  bs_num_sides;//d=w*w
+	templong = (long) bs_clust_size;		
+	CountofClusters=DataSectors32 / templong;//d=d/b
+	
+	templong = (long) bs_sectors_per_track;
+	fat_num_tracks = bs_tot_sect32 / templong;//d=d/w
+	
+	templong = (long) bs_num_heads;	
+	fat_num_cylinders = fat_num_tracks / templong;//w=d/w
+			
+	Sectors_per_cylinder = bs_sectors_per_track *  bs_num_heads;//d=w*w
 	asm mov [Sectors_per_cylinder + 2], dx;store high word
 
 	cputs(", trueFATtype=FAT"); 
@@ -475,29 +483,26 @@ int readLogical() {//IN:Sectors_to_read
 	Sectors_to_read = Sectors_to_read + bs_hid_sects;//d=d+d
 	track = Sectors_to_read / Sectors_per_cylinder;  //w=d/d
 	head  = Sectors_to_read % Sectors_per_cylinder;  //w=d%d
-	sect  = head            % bs_num_sects; 	     //w=w%w
+	sect  = head            % bs_sectors_per_track;  //w=w%w
 	sect++;
-	head  = head            / bs_num_sects;			 //w=w/w
+	head  = head            / bs_sectors_per_track;	 //w=w/w
 
 	DiskSectorReadWrite(2, bs_drive_num, head, track/* =cyl */,
 		sect, 1, DiskBufSeg , DiskBuf);
-	
-//int DiskSectorReadWrite(char rw, char drive, char head, int cyl, 
-//char sector, char count, int BufSeg, int BufOfs)
-	
 }
 
 int PrintDriveParameter() {
 	unsigned long Lo;
 // from Params
-	cputs("CylHeadSec=");		printunsign(pa_Cylinders);
+	putch(10);
+	cputs("Params:CylHeadSec=");printunsign(pa_Cylinders);
 	putch('/');					printunsign(pa_Heads);
 	putch('/');					printunsign(pa_Sectors);
 	cputs(", NoDrives=");		printhex8  (pa_Attached);
 	putch('.');
 //from getPartitionData
 	putch(10);		
-	cputs("No=");			printunsign(pt_PartNo);
+	cputs("getPartitionData:No=");printunsign(pt_PartNo);
 	cputs(",Boot=");		printhex8(pt_Bootable);
 	cputs(" ID=");			printunsign(pt_FileSystem);
 	cputs(",HdSeCy=");		printunsign(pt_StartHead);
@@ -512,10 +517,9 @@ int PrintDriveParameter() {
 	Lo = pt_PartLen >> 11;//sectors to MByte
 	printlong(&Lo);
 	cputs(" MByte.");	
-	putch(10);
 //from getBootSector
 	putch(10);
-	cputs("OEM name (MSDOS5.0)=");cputsLen(bs_sys_id,8);
+	cputs("getBootSector:OEM name (MSDOS5.0)=");cputsLen(bs_sys_id,8);
 	putch(10);
 	cputs("Bytes per sector(512)=");printunsign(bs_sect_size);	
 	cputs(".Sectors per cluster(1,,128)=");printunsign(bs_clust_size);	
@@ -526,11 +530,11 @@ int PrintDriveParameter() {
 	cputs("Root directory entries(512)=");printunsign(bs_root_entr);
 	cputs(".Total sectors(0 if > 32MB=");printunsign(bs_tot_sect16);
 	putch(10);
-	cputs("Media descriptor(F8h for HD)=");printhex8(bs_media_desc);
+	cputs("Media desc.(F8h for HD)=");printhex8(bs_media_desc);
 	cputs(".Sectors per FAT=");printunsign(bs_fat_size);
 	putch(10);
-	cputs("sectors per track=");printunsign(bs_num_sects);
-	cputs(".number of heads=");printunsign(bs_num_sides);
+	cputs("sectors per track=");printunsign(bs_sectors_per_track);
+	cputs(".number of heads=");printunsign(bs_num_heads);
 	putch(10);
 	cputs("hidden sectors(long)=");printlong(&bs_hid_sects);
 	cputs(".sectors(long)=");printlong(&bs_tot_sect32);
@@ -543,39 +547,46 @@ int PrintDriveParameter() {
 	putch(10);
 	cputs("Volume label(NO NAME)=");cputsLen(bs_label,11);
 	cputs(".File system type(FAT16)=");cputsLen(bs_fs_id,8);		
-//from calcFATtype
+//from FATInit
 	putch(10);
-	cputs("FatStartSector:");	printunsign(FatStartSector);
-	cputs(", FatSectors=");		printunsign(FatSectors);
+	cputs("FATInit:fat_FatStartSector:");	printunsign(fat_FatStartSector);
+	cputs(", fat_FatSectors=");		printunsign(fat_FatSectors);
 	putch(10);
-	cputs("RootDirStartSector="); printunsign(RootDirStartSector);
-	cputs(", RootDirSectors=");	printunsign(RootDirSectors);
+	cputs("fat_RootDirStartSector="); printunsign(fat_RootDirStartSector);
+	cputs(", fat_RootDirSectors=");	printunsign(fat_RootDirSectors);
 	putch(10);
-	cputs("DataStartSector=");	printunsign(DataStartSector);
+	cputs("fat_DataStartSector=");	printunsign(fat_DataStartSector);
 	cputs(", DataSectors32=");	printlong(&DataSectors32);			
 	putch(10);
 	cputs("CountofClusters=");	printlong(&CountofClusters);
-	cputs(", Sectors_per_cylinder="); printlong(&Sectors_per_cylinder);
-	
+	cputs(", Sectors_per_cylinder="); printlong(&Sectors_per_cylinder);	
+	putch(10);
+	cputs("fat_num_tracks=");	printlong(&fat_num_tracks);
+	cputs(", fat_num_cylinders="); printunsign(fat_num_cylinders);	
+	putch(10);
+	cputs("Sectors_per_cylinder=");	printlong(&Sectors_per_cylinder);
 }	
-//------------------------------------ main ---------------
-int main() {
-	int FATtype; char Errordrive;
-	Errordrive=0;
+
+int Init() {
+	int FATtype; 
 	Drive=0x80;
 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
 
-	if (Params()) Errordrive++;		//no hard disk
+	if (Params()) cputs("** NO DRIVE PARAMS FOUND **");//no hard disk
 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
 	if (FATtype == 0) {
-		cputs(" no active FAT partition found");
-		Errordrive++;	
+		cputs(" no active FAT partition found. ");
+//		return 1;	
 		}
-	if(getBootSector()==0) 	Errordrive++;
-	if (calcFATtype())		Errordrive++;
-	if(trueFATtype != 16) 	Errordrive++;
+	if(getBootSector()==0) 	return 1;
+	if (FATInit())			return 1;
+	if(trueFATtype != 16) 	return 1;
 	Int13hExt();
-//	if(Errordrive > 0) 
+	return 0;
+}	
+//------------------------------------ main ---------------
+int main() {
+	Init();
 	PrintDriveParameter(); 
 /*	
 	Sectors_to_read = (long) 0;
