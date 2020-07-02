@@ -1,4 +1,4 @@
-char Version1[]="DOS.COM V0.1.7";//test bed
+char Version1[]="DOS.COM V0.1.8";//test bed
 //Finder /hg/VirtualBox VMs/DOS1/DOS1.vhd (.vmdk) 
 //rigth click / open / Parallels Mounter
 // > 16.777.216 sectors (8GB) only LBA
@@ -23,19 +23,6 @@ unsigned int  pa_Cylinders;
 unsigned char pa_Sectors;
 unsigned char pa_Heads;
 unsigned char pa_Attached;
-
-//FATInit     
-unsigned int fat_FatStartSector;
-unsigned int fat_FatSectors;
-unsigned int fat_RootDirStartSector;
-unsigned int fat_RootDirSectors;
-unsigned int fat_DataStartSector;
-unsigned long fat_num_tracks;
-unsigned int  fat_num_cylinders;
-unsigned long Sectors_per_cylinder;
-unsigned long DataSectors32;
-unsigned long CountofClusters;
-char          trueFATtype;
 
 unsigned int  pt_PartNo;
 //start hard disk partition structure 16 bytes in MBR. do not change
@@ -74,11 +61,34 @@ unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
 unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
 // 62 end boot BIOS Parameter Block
 
-int test() {
+//FATInit     
+unsigned int fat_FatStartSector;
+unsigned int fat_FatSectors;
+unsigned int fat_RootDirStartSector;
+unsigned int fat_RootDirSectors;
+unsigned int fat_DataStartSector;
+unsigned long fat_num_tracks;
+unsigned int  fat_num_cylinders;
+unsigned long Sectors_per_cylinder;
+unsigned long DataSectors32;
+unsigned long CountofClusters;
+char          trueFATtype;
 
+//FAT file
+unsigned char fat_currentdrive;
+unsigned char fat_currentpath[55];
+unsigned char fat_drive;//physical
+unsigned char full_filename[67];
+unsigned char fat_path     [55];
+unsigned char fat_filename [8];
+unsigned char fat_fileext  [3];
+
+int test() {
 __asm{	
 
 }	}
+
+//------------------------------------   IO  -------------------
 
 int writetty()     {//char in AL
     ah=0x0E;
@@ -190,6 +200,52 @@ __asm{
     cmp     ax,bx          ;Was it the sentinel?
     jb      .b             ;Not yet	
 } 
+}
+
+//--------------------------------  string  ---------------------
+int strlen(char *s) { int c;
+    c=0;
+    while (*s!=0) {s++; c++;}
+    return c;
+}
+int strcpy(char *s, char *t) {
+    do { *s=*t; s++; t++; }
+    while (*t!=0);
+    *s=0;
+    return s;
+}
+int eqstr(char *p, char *q) {
+    while(*p) {
+        if (*p != *q) return 0;
+        p++;
+        q++;
+    }
+    if(*q) return 0;
+    return 1;
+}
+int strcat(char *s, char *t) {
+    while (*s != 0) s++;
+    strcpy(s, t);
+}
+int toupper(char *s) {
+    while(*s) {
+        if (*s >= 'a') if (*s <= 'z') *s=*s-32;
+        s++;
+    }
+}
+int strchr(char *s, char c) {
+    while(*s) {
+        if (*s==c) return s;
+        s++;
+    }
+    return 0;
+}
+int instr1(char *s, char c) {
+    while(*s) {
+        if (*s==c) return 1;
+        s++;
+    }
+    return 0;
 }
 
 int memcpy(char *s, char *t, unsigned int i) {
@@ -389,9 +445,10 @@ int readMBR() {
 	}	
 }
 
-int getBootSector() {int i;
-		putch(10);
-		cputs(" Read boot sector");
+int getBootSector() {
+	int i;
+	putch(10);
+	cputs(" Read boot sector");
   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
   		pt_StartSector, 1, DiskBufSeg, DiskBuf);
 	if (BIOS_ERR) {
@@ -412,6 +469,9 @@ int getBootSector() {int i;
 int FATInit() {	
 	unsigned long templong;//converting word to dword
 // (e)dx:(e)ax DIV r/m16(32) = (e)ax, remainder (e)dx
+	fat_currentdrive = bs_drive_num;
+	fat_currentpath = 0;
+	
 	fat_FatStartSector = bs_res_sects;	
 	fat_FatSectors = bs_fat_size;	
 	if (bs_num_fats == 2) fat_FatSectors=fat_FatSectors+fat_FatSectors;
@@ -567,6 +627,34 @@ int PrintDriveParameter() {
 	cputs("Sectors_per_cylinder=");	printlong(&Sectors_per_cylinder);
 }	
 
+//--------------------------------  file IO  -------------------
+int error2(char *s) {
+	putch(10);
+	cputs("*** ERROR *** ");
+	cputs(s);		
+	DOS_ERR++;
+}
+
+int fatOpenFile() {
+	
+}	
+
+int make_filename() {
+	char *p;
+	toupper(&full_filename);
+	p = strchr(full_filename);
+	if (p == 0) fat_drive = fat_currentdrive;
+	else error2("drive, patth not impl. yet"); 
+		
+}
+
+int fileOpen() {
+	make_filename();
+	fatOpenFile();
+	
+}	
+
+//------------------------------------ main ---------------
 int Init() {
 	int FATtype; 
 	Drive=0x80;
@@ -584,7 +672,7 @@ int Init() {
 	Int13hExt();
 	return 0;
 }	
-//------------------------------------ main ---------------
+
 int main() {
 	Init();
 	PrintDriveParameter(); 
