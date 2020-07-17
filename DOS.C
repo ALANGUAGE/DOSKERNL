@@ -205,13 +205,10 @@ int printunsign(unsigned int n) {
     putch(n);
 }
 
-int printlong(unsigned int *p) {
-	unsigned int lo; unsigned int hi;
-	lo = *p;
-	p +=2;
-	hi = *p;
-	dx=hi;
-	ax=lo;
+int printlong(unsigned long L) {
+    ax = L;     // get low in ax
+    edx=L;
+    edx >> 16;  // get high in dx
 __asm{
   	mov     bx,10          ;CONST
     push    bx             ;Sentinel
@@ -234,7 +231,6 @@ __asm{
     jb      .b             ;Not yet
 }
 }
-
 //--------------------------------  string  ---------------------
 int strlen(char *s) { int c;
     c=0;
@@ -613,11 +609,11 @@ int PrintDriveParameter() {
 	cputs("-");				printunsign(pt_EndHead);
 	cputs("/");				printunsign(pt_EndSector);
 	cputs("/");				printunsign(pt_EndCylinder);
-	cputs(",Start=");		printlong(&pt_HiddenSector);
-	cputs(",Len=");			printlong(&pt_PartLen);
+	cputs(",Start=");		printlong(pt_HiddenSector);
+	cputs(",Len=");			printlong(pt_PartLen);
 	cputs(" Sec=");
 	Lo = pt_PartLen >> 11;//sectors to MByte
-	printlong(&Lo);
+	printlong(Lo);
 	cputs(" MByte.");
 //from getBootSector
 	putch(10);
@@ -638,14 +634,14 @@ int PrintDriveParameter() {
 	cputs("sectors per track=");printunsign(bs_sectors_per_track);
 	cputs(".number of heads=");printunsign(bs_num_heads);
 	putch(10);
-	cputs("hidden sectors(long)=");printlong(&bs_hid_sects);
-	cputs(".sectors(long)=");printlong(&bs_tot_sect32);
+	cputs("hidden sectors(long)=");printlong(bs_hid_sects);
+	cputs(".sectors(long)=");printlong(bs_tot_sect32);
 	putch(10);
 	cputs("physical drive number=");printunsign(bs_drive_num);
 	cputs(".Windows NT check disk=");printunsign(bs_reserved);
 	putch(10);
 	cputs("Extended signature(29h)=");printhex8(bs_ext_signat);
-	cputs(".Volume serial(long)=");printlong(&bs_serial_num);
+	cputs(".Volume serial(long)=");printlong(bs_serial_num);
 	putch(10);
 	cputs("Volume label(NO NAME)=");cputsLen(bs_label,11);
 	cputs(".File system type(FAT16)=");cputsLen(bs_fs_id,8);
@@ -658,15 +654,15 @@ int PrintDriveParameter() {
 	cputs(", fat_RootDirSectors=");	printunsign(fat_RootDirSectors);
 	putch(10);
 	cputs("fat_DataStartSector=");	printunsign(fat_DataStartSector);
-	cputs(", DataSectors32=");	printlong(&DataSectors32);
+	cputs(", DataSectors32=");	printlong(DataSectors32);
 	putch(10);
-	cputs("CountofClusters=");	printlong(&CountofClusters);
-	cputs(", Sectors_per_cylinder="); printlong(&Sectors_per_cylinder);
+	cputs("CountofClusters=");	printlong(CountofClusters);
+	cputs(", Sectors_per_cylinder="); printlong(Sectors_per_cylinder);
 	putch(10);
-	cputs("fat_num_tracks=");	printlong(&fat_num_tracks);
+	cputs("fat_num_tracks=");	printlong(fat_num_tracks);
 	cputs(", fat_num_cylinders="); printunsign(fat_num_cylinders);
 	putch(10);
-	cputs("Sectors_per_cylinder=");	printlong(&Sectors_per_cylinder);
+	cputs("Sectors_per_cylinder=");	printlong(Sectors_per_cylinder);
 }
 
 //--------------------------------  file IO  -------------------
@@ -690,10 +686,6 @@ int fatRootSearch(char *search) {
     memcpy(&fat_filename, "DOS     COM", 11);
     fatDirSectorSearch(fat_RootDirStartSector, fat_RootDirSectors);
 
-
-    fatDirSectorSearch(fatfile_sectorStart, fat_RootDirSectors);
-
-    fatDirSectorSearch(&fatfile_sectorStart, fat_RootDirSectors);
 
 }
 
