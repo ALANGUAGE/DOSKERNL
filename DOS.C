@@ -674,17 +674,18 @@ int readLogical(unsigned long SectorL) {//OUT:1 sector in DiskBuf
 int fatDirSectorSearch(unsigned long startSector, unsigned int numsectors) {
     //search in fat_filename+ext
     char *p;
+    unsigned int j;
 	unsigned int EndDiskBuf;
 	char isHide;//shows entries, NOT lfn, deleted or empty
 	
 	do {
 		putch(10);
-		cputs("Sektor = "); 
+/*		cputs("Sektor = "); 
 		printlong(startSector);
 		cputs(", numsectors = "); 
 		printunsign(numsectors);
 		getkey();
-
+*/
 		readLogical(startSector);
 		p=&DiskBuf;
 		EndDiskBuf= p + bs_sect_size;		
@@ -717,9 +718,35 @@ int fatDirSectorSearch(unsigned long startSector, unsigned int numsectors) {
 				if (dir_Attrib & 32) cputs(" arc");
 				if (dir_Attrib == 0) cputs("    ");
 				
-				
-				
-				
+				j=dir_LastModDate & 31;
+				if (j<10) putch(' ');
+				printunsign(j);
+				putch('.');
+		
+				j=dir_LastModDate >> 5;
+				j&=  15;
+				if (j<10) putch('0');
+				printunsign(j);
+				putch('.');
+		
+				j=dir_LastModDate >> 9;
+				j+=  80;
+				if (j>=100) j-=100;
+				if (j<10) putch('0');
+				printunsign(j);
+				putch(' ');
+				putch(' ');
+		
+				j=dir_LastModTime  >>11;
+				if (j<10) putch(' ');
+				printunsign(j);
+				putch(':');
+		
+				j=dir_LastModTime  >> 5;
+				j&=  63;
+				if (j<10) putch('0');
+				printunsign(j);
+				putch(' ');
 				
 				cputs(" 1.Cl:"); 
 				printunsign(dir_FirstCluster);
@@ -730,7 +757,7 @@ int fatDirSectorSearch(unsigned long startSector, unsigned int numsectors) {
 		} while (p < EndDiskBuf);
 		startSector = startSector + 1;//long, do NOT use ++ or +=1
 		numsectors--;
-mdump(DiskBuf, 512);
+//mdump(DiskBuf, 512);
 	} while (numsectors > 0);
 }
 

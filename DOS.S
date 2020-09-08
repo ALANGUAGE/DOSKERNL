@@ -3168,55 +3168,51 @@ fatDirSectorSearch: PROC
 
 ;-676     char *p;
 
-;-677 	unsigned int EndDiskBuf;
+;-677     unsigned int j;
 
-;-678 	char isHide;//shows entries, NOT lfn, deleted or empty
+;-678 	unsigned int EndDiskBuf;
 
-;-679 	
+;-679 	char isHide;//shows entries, NOT lfn, deleted or empty
 
-;-680 	do {
+;-680 	
 
-;Function : fatDirSectorSearch, Number local Var: 5
+;-681 	do {
+
+;Function : fatDirSectorSearch, Number local Var: 6
 ; # type sign width local variables
 ;95 var unsg long startSector = bp+4
 ;96 var unsg word numsectors = bp+8
 ;97 ptr sign byte p = bp-2
-;98 var unsg word EndDiskBuf = bp-4
-;99 var sign byte isHide = bp-6;
- ENTER  6,0
+;98 var unsg word j = bp-4
+;99 var unsg word EndDiskBuf = bp-6
+;100 var sign byte isHide = bp-8;
+ ENTER  8,0
 .fatDirSectorSearch70:
-;-681 		putch(10);
+;-682 		putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-682 		cputs("Sektor = "); 
+;-683 		cputs("Sektor = "); 
 
  push fatDirSectorSearch_0
  call cputs
  add  sp, 2
-;-683 		printlong(startSector);
+;-684 		printlong(startSector);
 
  push dword [bp+4]
  call printlong
  add  sp, 4
-;-684 		cputs(", numsectors = "); 
+;-685 		cputs(", numsectors = "); 
 
  push fatDirSectorSearch_1
  call cputs
  add  sp, 2
-;-685 		printunsign(numsectors);
+;-686 		printunsign(numsectors);
 
  push word [bp+8]
  call printunsign
  add  sp, 2
-;-686 		mdump(DiskBuf, 512);
-
- push 512
- lea  ax, [DiskBuf]
- push ax
- call mdump
- add  sp, 4
 ;-687 		getkey();
 
  call getkey
@@ -3235,7 +3231,7 @@ fatDirSectorSearch: PROC
 
  mov ax, [bp-2]
  add ax, [bs_sect_size]
- mov [bp-4], ax
+ mov [bp-6], ax
 ;-692 		
 
 ;-693 		do {
@@ -3267,7 +3263,7 @@ fatDirSectorSearch: PROC
 ;-698 			isHide=0;//show in listing
 
  mov ax, 0
- mov [bp-6], al
+ mov [bp-8], al
 ;-699 			if (filename[0] ==    0) {//only empty entries following
 
  mov al, [filename]
@@ -3275,14 +3271,14 @@ fatDirSectorSearch: PROC
  jne .fatDirSectorSearch72
 ;-700 				isHide++;
 
- inc  byte[bp-6]
+ inc  byte[bp-8]
 ;-701 				numsectors=1;//finish searching
 
  mov ax, 1
  mov [bp+8], ax
 ;-702 				p = EndDiskBuf;
 
- mov ax, [bp-4]
+ mov ax, [bp-6]
  mov [bp-2], ax
 ;-703 				}
 
@@ -3292,27 +3288,27 @@ fatDirSectorSearch: PROC
  mov al, [filename]
  cmp al, 229
  jne .fatDirSectorSearch73
- inc  byte[bp-6]
+ inc  byte[bp-8]
 ;-705 			if (filename[0] <=   31) isHide++;//part of LFN
 
 .fatDirSectorSearch73:
  mov al, [filename]
  cmp al, 31
  ja  .fatDirSectorSearch74
- inc  byte[bp-6]
+ inc  byte[bp-8]
 ;-706 			if (dir_Attrib ==    15) isHide++;//LFN start
 
 .fatDirSectorSearch74:
  mov al, [dir_Attrib]
  cmp al, 15
  jne .fatDirSectorSearch75
- inc  byte[bp-6]
+ inc  byte[bp-8]
 ;-707 					
 
 ;-708 			if (isHide == 0) {
 
 .fatDirSectorSearch75:
- mov al, [bp-6]
+ mov al, [bp-8]
  cmp al, 0
  jne .fatDirSectorSearch76
 ;-709 				putch(10);
@@ -3408,70 +3404,215 @@ fatDirSectorSearch: PROC
  add  sp, 2
 ;-720 				
 
-;-721 				
-
-;-722 				
-
-;-723 				
-
-;-724 				
-
-;-725 				cputs(" 1.Cl:"); 
+;-721 				j=dir_LastModDate & 31;
 
 .fatDirSectorSearch83:
+ mov ax, [dir_LastModDate]
+ and ax, 31
+ mov [bp-4], ax
+;-722 				if (j<10) putch(' ');
+
+ mov ax, [bp-4]
+ cmp ax, 10
+ jge .fatDirSectorSearch84
+ push 32
+ call putch
+ add  sp, 2
+;-723 				printunsign(j);
+
+.fatDirSectorSearch84:
+ push word [bp-4]
+ call printunsign
+ add  sp, 2
+;-724 				putch('.');
+
+ push 46
+ call putch
+ add  sp, 2
+;-725 		
+
+;-726 				j=dir_LastModDate >> 5;
+
+ mov ax, [dir_LastModDate]
+ shr ax, 5
+ mov [bp-4], ax
+;-727 				j&=  15;
+
+ and  word[bp-4], 15
+;-728 				if (j<10) putch('0');
+
+ mov ax, [bp-4]
+ cmp ax, 10
+ jge .fatDirSectorSearch85
+ push 48
+ call putch
+ add  sp, 2
+;-729 				printunsign(j);
+
+.fatDirSectorSearch85:
+ push word [bp-4]
+ call printunsign
+ add  sp, 2
+;-730 				putch('.');
+
+ push 46
+ call putch
+ add  sp, 2
+;-731 		
+
+;-732 				j=dir_LastModDate >> 9;
+
+ mov ax, [dir_LastModDate]
+ shr ax, 9
+ mov [bp-4], ax
+;-733 				j+=  80;
+
+ add  word[bp-4], 80
+;-734 				if (j>=100) j-=100;
+
+ mov ax, [bp-4]
+ cmp ax, 100 ;unsigned : 0
+ jb  .fatDirSectorSearch86
+ sub  word[bp-4], 100
+;-735 				if (j<10) putch('0');
+
+.fatDirSectorSearch86:
+ mov ax, [bp-4]
+ cmp ax, 10
+ jge .fatDirSectorSearch87
+ push 48
+ call putch
+ add  sp, 2
+;-736 				printunsign(j);
+
+.fatDirSectorSearch87:
+ push word [bp-4]
+ call printunsign
+ add  sp, 2
+;-737 				putch(' ');
+
+ push 32
+ call putch
+ add  sp, 2
+;-738 				putch(' ');
+
+ push 32
+ call putch
+ add  sp, 2
+;-739 		
+
+;-740 				j=dir_LastModTime  >>11;
+
+ mov ax, [dir_LastModTime]
+ shr ax, 11
+ mov [bp-4], ax
+;-741 				if (j<10) putch(' ');
+
+ mov ax, [bp-4]
+ cmp ax, 10
+ jge .fatDirSectorSearch88
+ push 32
+ call putch
+ add  sp, 2
+;-742 				printunsign(j);
+
+.fatDirSectorSearch88:
+ push word [bp-4]
+ call printunsign
+ add  sp, 2
+;-743 				putch(':');
+
+ push 58
+ call putch
+ add  sp, 2
+;-744 		
+
+;-745 				j=dir_LastModTime  >> 5;
+
+ mov ax, [dir_LastModTime]
+ shr ax, 5
+ mov [bp-4], ax
+;-746 				j&=  63;
+
+ and  word[bp-4], 63
+;-747 				if (j<10) putch('0');
+
+ mov ax, [bp-4]
+ cmp ax, 10
+ jge .fatDirSectorSearch89
+ push 48
+ call putch
+ add  sp, 2
+;-748 				printunsign(j);
+
+.fatDirSectorSearch89:
+ push word [bp-4]
+ call printunsign
+ add  sp, 2
+;-749 				putch(' ');
+
+ push 32
+ call putch
+ add  sp, 2
+;-750 				
+
+;-751 				cputs(" 1.Cl:"); 
+
  push fatDirSectorSearch_10
  call cputs
  add  sp, 2
-;-726 				printunsign(dir_FirstCluster);
+;-752 				printunsign(dir_FirstCluster);
 
  push word [dir_FirstCluster]
  call printunsign
  add  sp, 2
-;-727 				cputs(" Size:");
+;-753 				cputs(" Size:");
 
  push fatDirSectorSearch_11
  call cputs
  add  sp, 2
-;-728 				printlong(dir_FileSize);
+;-754 				printlong(dir_FileSize);
 
  push dword [dir_FileSize]
  call printlong
  add  sp, 4
-;-729 			}
+;-755 			}
 
-;-730 			p+=32;//get next entry
+;-756 			p+=32;//get next entry
 
 .fatDirSectorSearch76:
  add  word[bp-2], 32
-;-731 		} while (p < EndDiskBuf);
+;-757 		} while (p < EndDiskBuf);
 
  mov ax, [bp-2]
- cmp ax, [bp-4]
- jge .fatDirSectorSearch84
+ cmp ax, [bp-6]
+ jge .fatDirSectorSearch90
  jmp .fatDirSectorSearch71
-.fatDirSectorSearch84:
-;-732 		startSector = startSector + 1;//long, do NOT use ++ or +=1
+.fatDirSectorSearch90:
+;-758 		startSector = startSector + 1;//long, do NOT use ++ or +=1
 
  mov eax, [bp+4]
  add eax, 1
  mov [bp+4], eax
-;-733 		numsectors--;
+;-759 		numsectors--;
 
  dec  word[bp+8]
-;-734 	} while (numsectors > 0);
+;-760 //mdump(DiskBuf, 512);
+
+;-761 	} while (numsectors > 0);
 
  mov ax, [bp+8]
  cmp ax, 0
- jle .fatDirSectorSearch85
+ jle .fatDirSectorSearch91
  jmp .fatDirSectorSearch70
-.fatDirSectorSearch85:
-;-735 }
+.fatDirSectorSearch91:
+;-762 }
 
-;-736 
+;-763 
 
-;-737 // 3.
+;-764 // 3.
 
-;-738 int fatRootSearch(char *search) {
+;-765 int fatRootSearch(char *search) {
 
  LEAVE
  ret
@@ -3490,11 +3631,11 @@ fatDirSectorSearch_11 db " Size:",0
 ENDP
 
 fatRootSearch: PROC
-;-739     // only for test
+;-766     // only for test
 
-;-740 //    memcpy(&fat_filename, "DOS     COM", 11);
+;-767 //    memcpy(&fat_filename, "DOS     COM", 11);
 
-;-741     fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectors);
+;-768     fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectors);
 
 ;Function : fatRootSearch, Number local Var: 1
 ; # type sign width local variables
@@ -3504,68 +3645,68 @@ fatRootSearch: PROC
  push dword [fat_RootDirStartSectorL]
  call fatDirSectorSearch
  add  sp, 6
-;-742 
+;-769 
 
-;-743 
+;-770 
 
-;-744 }
+;-771 }
 
-;-745 
+;-772 
 
-;-746 // 4.
+;-773 // 4.
 
-;-747 int fatClusterAnalyse() {
+;-774 int fatClusterAnalyse() {
 
  LEAVE
  ret
 ENDP
 
 fatClusterAnalyse: PROC
-;-748 
+;-775 
 
-;-749 
+;-776 
 
-;-750 
+;-777 
 
-;-751 }
+;-778 }
 
-;-752 
+;-779 
 
-;-753 // 5.
+;-780 // 5.
 
-;-754 int fatDirSearch() {
+;-781 int fatDirSearch() {
 
  ret
 ENDP
 
 fatDirSearch: PROC
-;-755 
+;-782 
 
-;-756 
+;-783 
 
-;-757 
+;-784 
 
-;-758 }
+;-785 }
 
-;-759 
+;-786 
 
-;-760 
+;-787 
 
-;-761 
+;-788 
 
-;-762 int fatNextSearch(char *search, char *upto, int *last) {
+;-789 int fatNextSearch(char *search, char *upto, int *last) {
 
  ret
 ENDP
 
 fatNextSearch: PROC
-;-763 //todo parameter must be:    char **upto
+;-790 //todo parameter must be:    char **upto
 
-;-764 
+;-791 
 
-;-765 
+;-792 
 
-;-766 }
+;-793 }
 
 ;Function : fatNextSearch, Number local Var: 3
 ; # type sign width local variables
@@ -3573,24 +3714,24 @@ fatNextSearch: PROC
 ;96 ptr sign byte upto = bp+6
 ;97 ptr sign word last = bp+8;
  ENTER  0,0
-;-767 
+;-794 
 
-;-768 int fatGetStartCluster() {
+;-795 int fatGetStartCluster() {
 
  LEAVE
  ret
 ENDP
 
 fatGetStartCluster: PROC
-;-769 	char search[11];
+;-796 	char search[11];
 
-;-770 	char *upto;
+;-797 	char *upto;
 
-;-771 	int last;
+;-798 	int last;
 
-;-772 
+;-799 
 
-;-773 	if (fat_notfound) return;
+;-800 	if (fat_notfound) return;
 
 ;Function : fatGetStartCluster, Number local Var: 3
 ; # type sign width local variables
@@ -3600,21 +3741,21 @@ fatGetStartCluster: PROC
  ENTER  15,0
  mov ax, [fat_notfound]
  or  al, al
- je .fatGetStartCluster86
+ je .fatGetStartCluster92
  jmp .retnfatGetStartCluster
-;-774 	*upto = filename;
+;-801 	*upto = filename;
 
-.fatGetStartCluster86:
+.fatGetStartCluster92:
  mov al, [filename]
  mov  bx, [bp-13]
  mov  [bx], al
-;-775 	fatfile_cluster = 0;
+;-802 	fatfile_cluster = 0;
 
  mov ax, 0
  mov word [fatfile_cluster], ax
-;-776 
+;-803 
 
-;-777 	fatNextSearch(search, &upto, &last);
+;-804 	fatNextSearch(search, &upto, &last);
 
  lea  ax, [bp-15]
  push ax
@@ -3624,13 +3765,13 @@ fatGetStartCluster: PROC
  push ax
  call fatNextSearch
  add  sp, 6
-;-778 
+;-805 
 
-;-779 }
+;-806 }
 
-;-780 
+;-807 
 
-;-781 int fatOpenFile() {//remove backslash, set handle for root or subdir
+;-808 int fatOpenFile() {//remove backslash, set handle for root or subdir
 
  .retnfatGetStartCluster:
  LEAVE
@@ -3638,9 +3779,9 @@ fatGetStartCluster: PROC
 ENDP
 
 fatOpenFile: PROC
-;-782 	unsigned long bytes_per_cluster;
+;-809 	unsigned long bytes_per_cluster;
 
-;-783 	fat_notfound=0;
+;-810 	fat_notfound=0;
 
 ;Function : fatOpenFile, Number local Var: 1
 ; # type sign width local variables
@@ -3648,148 +3789,148 @@ fatOpenFile: PROC
  ENTER  4,0
  mov ax, 0
  mov word [fat_notfound], ax
-;-784 	if (filename[0] == 0) {//empty filename
+;-811 	if (filename[0] == 0) {//empty filename
 
  mov al, [filename]
  cmp al, 0
- jne .fatOpenFile87
-;-785 		fatfile_root = 1;
+ jne .fatOpenFile93
+;-812 		fatfile_root = 1;
 
  mov ax, 1
  mov word [fatfile_root], ax
-;-786 		fatfile_nextCluster = 0xFFFF;
+;-813 		fatfile_nextCluster = 0xFFFF;
 
  mov ax, 65535
  mov word [fatfile_nextCluster], ax
-;-787 		fatfile_sectorCount = fat_RootDirSectors;
+;-814 		fatfile_sectorCount = fat_RootDirSectors;
 
  mov ax, [fat_RootDirSectors]
  mov word [fatfile_sectorCount], ax
-;-788 		fatfile_sectorStart = fat_RootDirStartSectorL;
+;-815 		fatfile_sectorStart = fat_RootDirStartSectorL;
 
  mov eax, [fat_RootDirStartSectorL]
  mov dword [fatfile_sectorStart], eax
-;-789 		fatfile_lastBytes   = 0;
+;-816 		fatfile_lastBytes   = 0;
 
  mov ax, 0
  mov word [fatfile_lastBytes], ax
-;-790 		fatfile_lastSectors = fat_RootDirSectors;
+;-817 		fatfile_lastSectors = fat_RootDirSectors;
 
  mov ax, [fat_RootDirSectors]
  mov word [fatfile_lastSectors], ax
-;-791 		fatfile_cluster     = 0;
+;-818 		fatfile_cluster     = 0;
 
  mov ax, 0
  mov word [fatfile_cluster], ax
-;-792 		fatfile_dir         = 1;
+;-819 		fatfile_dir         = 1;
 
  mov ax, 1
  mov word [fatfile_dir], ax
-;-793 
+;-820 
 
-;-794 	} else {//search in subdir
+;-821 	} else {//search in subdir
 
- jmp .fatOpenFile88
-.fatOpenFile87:
-;-795 		fatfile_root = 0;
+ jmp .fatOpenFile94
+.fatOpenFile93:
+;-822 		fatfile_root = 0;
 
  mov ax, 0
  mov word [fatfile_root], ax
-;-796 		fatGetStartCluster();
+;-823 		fatGetStartCluster();
 
  call fatGetStartCluster
-;-797 		if (fat_notfound) return 1;
+;-824 		if (fat_notfound) return 1;
 
  mov ax, [fat_notfound]
  or  al, al
- je .fatOpenFile89
+ je .fatOpenFile95
  mov ax, 1
  jmp .retnfatOpenFile
-;-798 		bytes_per_cluster   = (long) bs_clust_size * bs_sect_size;
+;-825 		bytes_per_cluster   = (long) bs_clust_size * bs_sect_size;
 
-.fatOpenFile89:
+.fatOpenFile95:
  xor eax, eax
  mov al, [bs_clust_size]
 ;todo:save high part:mov [Longvar+2(+4)],(e)dx
  mul word [bs_sect_size]
  mov [bp-4], eax
-;-799 		fatfile_lastBytes   = fatfile_fileSize % bytes_per_cluster;
+;-826 		fatfile_lastBytes   = fatfile_fileSize % bytes_per_cluster;
 
  mov eax, [fatfile_fileSize]
  xor edx, edx
  div dword [bp-4]
  mov eax, edx
  mov word [fatfile_lastBytes], ax
-;-800 		fatfile_lastSectors = fatfile_lastBytes / bs_sect_size;
+;-827 		fatfile_lastSectors = fatfile_lastBytes / bs_sect_size;
 
  mov ax, [fatfile_lastBytes]
  xor dx, dx
  div word [bs_sect_size]
  mov word [fatfile_lastSectors], ax
-;-801 		fatfile_lastBytes   = fatfile_lastBytes % bs_sect_size;
+;-828 		fatfile_lastBytes   = fatfile_lastBytes % bs_sect_size;
 
  mov ax, [fatfile_lastBytes]
  xor dx, dx
  div word [bs_sect_size]
  mov ax, dx
  mov word [fatfile_lastBytes], ax
-;-802 		if (fatfile_fileSize == 0) fatfile_dir = 1;
+;-829 		if (fatfile_fileSize == 0) fatfile_dir = 1;
 
  mov eax, [fatfile_fileSize]
  cmp eax, 0
- jne .fatOpenFile90
+ jne .fatOpenFile96
  mov ax, 1
  mov word [fatfile_dir], ax
-;-803 		else                       fatfile_dir = 0;
+;-830 		else                       fatfile_dir = 0;
 
- jmp .fatOpenFile91
-.fatOpenFile90:
+ jmp .fatOpenFile97
+.fatOpenFile96:
  mov ax, 0
  mov word [fatfile_dir], ax
-;-804 
+;-831 
 
-;-805 //		fatClusterAnalyse();
+;-832 //		fatClusterAnalyse();
 
-;-806 		fatfile_sectorCount = (int) bs_clust_size;
+;-833 		fatfile_sectorCount = (int) bs_clust_size;
 
-.fatOpenFile91:
+.fatOpenFile97:
  xor ax, ax
  mov al, [bs_clust_size]
  mov word [fatfile_sectorCount], ax
-;-807 
+;-834 
 
-;-808 	}
+;-835 	}
 
-;-809 	fatfile_currentCluster = fatfile_cluster;
+;-836 	fatfile_currentCluster = fatfile_cluster;
 
-.fatOpenFile88:
+.fatOpenFile94:
  mov ax, [fatfile_cluster]
  mov word [fatfile_currentCluster], ax
-;-810 	fatfile_sectorUpto = 0;
+;-837 	fatfile_sectorUpto = 0;
 
  mov ax, 0
  mov word [fatfile_sectorUpto], ax
-;-811 	fatfile_byteUpto   = 0;
+;-838 	fatfile_byteUpto   = 0;
 
  mov ax, 0
  mov word [fatfile_byteUpto], ax
-;-812 	if (fat_notfound) return 1;
+;-839 	if (fat_notfound) return 1;
 
  mov ax, [fat_notfound]
  or  al, al
- je .fatOpenFile92
+ je .fatOpenFile98
  mov ax, 1
  jmp .retnfatOpenFile
-;-813 	return 0;
+;-840 	return 0;
 
-.fatOpenFile92:
+.fatOpenFile98:
  mov ax, 0
  jmp .retnfatOpenFile
-;-814 }
+;-841 }
 
-;-815 
+;-842 
 
-;-816 int make_filename() {
+;-843 int make_filename() {
 
  .retnfatOpenFile:
  LEAVE
@@ -3797,9 +3938,9 @@ fatOpenFile: PROC
 ENDP
 
 make_filename: PROC
-;-817 	char *p;
+;-844 	char *p;
 
-;-818 	toupper(&filename);
+;-845 	toupper(&filename);
 
 ;Function : make_filename, Number local Var: 1
 ; # type sign width local variables
@@ -3809,7 +3950,7 @@ make_filename: PROC
  push ax
  call toupper
  add  sp, 2
-;-819 	p = strchr(filename, ':' );
+;-846 	p = strchr(filename, ':' );
 
  push 58
  lea  ax, [filename]
@@ -3817,26 +3958,26 @@ make_filename: PROC
  call strchr
  add  sp, 4
  mov [bp-2], ax
-;-820 //	if (p == 0) fat_drive = fat_currentdrive;
+;-847 //	if (p == 0) fat_drive = fat_currentdrive;
 
-;-821 //	else error2("drive, patth not impl. yet");
+;-848 //	else error2("drive, patth not impl. yet");
 
-;-822 
+;-849 
 
-;-823 }
+;-850 }
 
-;-824 
+;-851 
 
-;-825 int fileOpen() {//remove drive letter and insert in drive
+;-852 int fileOpen() {//remove drive letter and insert in drive
 
  LEAVE
  ret
 ENDP
 
 fileOpen: PROC
-;-826 	int rc;
+;-853 	int rc;
 
-;-827 	strcpy(filename, "dos.com");
+;-854 	strcpy(filename, "dos.com");
 
 ;Function : fileOpen, Number local Var: 1
 ; # type sign width local variables
@@ -3847,32 +3988,32 @@ fileOpen: PROC
  push ax
  call strcpy
  add  sp, 4
-;-828 
+;-855 
 
-;-829 	make_filename();
+;-856 	make_filename();
 
  call make_filename
-;-830 	rc=fatOpenFile();
+;-857 	rc=fatOpenFile();
 
  call fatOpenFile
  mov [bp-2], ax
-;-831 	if (rc) return 0;//error
+;-858 	if (rc) return 0;//error
 
  mov ax, [bp-2]
  or  al, al
- je .fileOpen93
+ je .fileOpen99
  mov ax, 0
  jmp .retnfileOpen
-;-832 //	else return fhandle;
+;-859 //	else return fhandle;
 
-;-833 }
+;-860 }
 
-.fileOpen93:
-;-834 
+.fileOpen99:
+;-861 
 
-;-835 //------------------------------- Init,  main ---------------
+;-862 //------------------------------- Init,  main ---------------
 
-;-836 int Init() {
+;-863 int Init() {
 
  .retnfileOpen:
  LEAVE
@@ -3881,77 +4022,77 @@ fileOpen_0 db "dos.com",0
 ENDP
 
 Init: PROC
-;-837 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
+;-864 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
 
  mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
-;-838 
+;-865 
 
-;-839 	if (Params()) cputs("** NO DRIVE PARAMS FOUND **");//no hard disk
+;-866 	if (Params()) cputs("** NO DRIVE PARAMS FOUND **");//no hard disk
 
  call Params
  or  al, al
- je .Init94
+ je .Init100
  push Init_0
  call cputs
  add  sp, 2
-;-840 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
+;-867 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
 
-.Init94:
+.Init100:
  call readMBR
  mov word [FATtype], ax
-;-841 	if (FATtype == 0) {
+;-868 	if (FATtype == 0) {
 
  mov ax, [FATtype]
  cmp ax, 0
- jne .Init95
-;-842 		cputs(" no active FAT partition found. ");
+ jne .Init101
+;-869 		cputs(" no active FAT partition found. ");
 
  push Init_1
  call cputs
  add  sp, 2
-;-843 //		return 1;
+;-870 //		return 1;
 
-;-844 		}
+;-871 		}
 
-;-845 	if(getBootSector()==0) 	return 1;
+;-872 	if(getBootSector()==0) 	return 1;
 
-.Init95:
+.Init101:
  call getBootSector
  cmp ax, 0
- jne .Init96
+ jne .Init102
  mov ax, 1
  jmp .retnInit
-;-846 	if (FATInit())			return 1;
+;-873 	if (FATInit())			return 1;
 
-.Init96:
+.Init102:
  call FATInit
  or  al, al
- je .Init97
+ je .Init103
  mov ax, 1
  jmp .retnInit
-;-847 	if(trueFATtype != 16) 	return 1;
+;-874 	if(trueFATtype != 16) 	return 1;
 
-.Init97:
+.Init103:
  mov al, [trueFATtype]
  cmp al, 16
- je  .Init98
+ je  .Init104
  mov ax, 1
  jmp .retnInit
-;-848 	Int13hExt();
+;-875 	Int13hExt();
 
-.Init98:
+.Init104:
  call Int13hExt
-;-849 	return 0;
+;-876 	return 0;
 
  mov ax, 0
  jmp .retnInit
-;-850 }
+;-877 }
 
-;-851 
+;-878 
 
-;-852 //	unsigned long Sector_to_read;
+;-879 //	unsigned long Sector_to_read;
 
-;-853 int main() {
+;-880 int main() {
 
  .retnInit:
  ret
@@ -3960,38 +4101,38 @@ Init_1 db " no active FAT partition found. ",0
 ENDP
 
 main: PROC
-;-854 	Drive=0x80;
+;-881 	Drive=0x80;
 
  mov ax, 128
  mov byte [Drive], al
-;-855 	if (Init() != 0) return 1;
+;-882 	if (Init() != 0) return 1;
 
  call Init
  cmp al, 0
- je  .main99
+ je  .main105
  mov ax, 1
  jmp .retnmain
-;-856 	PrintDriveParameter();
+;-883 	PrintDriveParameter();
 
-.main99:
+.main105:
  call PrintDriveParameter
-;-857 //	getkey();
+;-884 //	getkey();
 
-;-858 	//	Sector_to_read = (long) 0;
+;-885 	//	Sector_to_read = (long) 0;
 
-;-859 //	readLogical( Sector_to_read);
+;-886 //	readLogical( Sector_to_read);
 
-;-860 
+;-887 
 
-;-861 	fatRootSearch();
+;-888 	fatRootSearch();
 
  call fatRootSearch
-;-862 	
+;-889 	
 
-;-863 }
+;-890 }
 
  .retnmain:
  ret
 ENDP
 ;Glob. variables:94 (400):1221 (4000), Functions:49 (300):499 (3000)
-;Lines:864, Constant: 2119 (4000), stacksize: 48560
+;Lines:891, Constant: 2119 (4000), stacksize: 48560
