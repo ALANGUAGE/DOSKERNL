@@ -1,12 +1,9 @@
 char Version1[]="DOS.COM V0.1.9";//test bed
-//Finder /hg/VirtualBox VMs/DOS1/DOS1.vhd (.vmdk)
+//Finder /hg/DOS/DOS3.vhd
 //rigth click / open / Parallels Mounter
 // (E)DX:(E)AX DIV r/m16(32) = (E)AX, remainder (E)DX
 // AL*r/m8=AX; AX*r/m16=DX:AX; EAX*r/m32=EDX:EAX
-
 // > 16.777.216 sectors (8GB) only LBA
-//Ranish Part, int8h: CHS 1014/15/63, Start=63,Len=1.023.057
-//Boot Sec=63, head=16, hidden=63, Sec=983.121
 #define ORGDATA		16384//start of arrays
 unsigned int vAX ;unsigned int vBX ;unsigned int vCX; unsigned int vDX;
 unsigned int vSP; unsigned int vBP; unsigned int vCS; unsigned int vDS;
@@ -65,6 +62,11 @@ unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
 unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
 // 62 end boot BIOS Parameter Block
 
+//unsigned long sect_size_long;
+unsigned long clust_sizeL;
+unsigned char filename[67];
+unsigned char searchstr  [12];//with null
+
 //start directory entry structure, do not change
 unsigned char dir_Filename[]="1234567";	//00 +lengthbyte=11
 unsigned char dir_Ext[]="12";	//07 +lengthbyte=3
@@ -82,11 +84,11 @@ unsigned long dir_FileSize;		//28 size in bytes, if directory then zero
 //end direcctory entry structure
 
 //FATInit
-unsigned int fat_FatStartSector;
-unsigned int fat_FatSectors;
+unsigned int  fat_FatStartSector;
+unsigned int  fat_FatSectors;
 unsigned long fat_RootDirStartSectorL;
-unsigned int fat_RootDirSectors;
-unsigned int fat_DataStartSector;
+unsigned long fat_RootDirSectorsL;
+unsigned long fat_DataStartSectorL;
 unsigned long fat_num_tracks;
 unsigned int  fat_num_cylinders;
 unsigned long Sectors_per_cylinder;
@@ -96,21 +98,16 @@ unsigned char trueFATtype;	//12, 16, 32 from FATInit
 unsigned int  FATtype;		//0=error,1=FAT12,6=FAT16,11=FAT32 from ReadMBR
 
 //fatfile
-//unsigned char fat_currentdrive;
-//unsigned char fat_currentpath[55];
-//unsigned char fat_drive;//physical
-unsigned char filename[67];
-//unsigned char fat_path     [55];
-unsigned char fat_filename [8];
-unsigned char fat_fileext  [3];// must follow fat_filename
+//unsigned char fat_filename [8];
+//unsigned char fat_fileext  [3];
 unsigned int  fat_notfound;
 		 int  fatfile_root;
+unsigned int  fatfile_cluster;
 unsigned int  fatfile_nextCluster;
 unsigned int  fatfile_sectorCount;
-unsigned long fatfile_sectorStart;
+unsigned long fatfile_sectorStartL;
 unsigned int  fatfile_lastBytes;
 unsigned int  fatfile_lastSectors;
-unsigned int  fatfile_cluster;
          int  fatfile_dir;
 unsigned int  fatfile_currentCluster;
 unsigned int  fatfile_sectorUpto;
@@ -118,8 +115,6 @@ unsigned int  fatfile_byteUpto;
 unsigned long fatfile_fileSize;
 
 int test() {
-	vAX=dummy;
-//	vAX=&dummy;//error label not found
 	__asm{
 }	}
 
@@ -333,7 +328,18 @@ int mdump(unsigned char *adr, unsigned int len ) {
         }
     }
 }
-
+/*
+int makePowerOfTwo(unsigned char c) {
+	if (c ==  2) return 1;
+	if (c ==  4) return 2;
+	if (c ==  8) return 3;
+	if (c == 16) return 4; 
+	if (c == 32) return 5;
+	if (c == 64) return 6;
+	if (c ==128) return 7;
+	return 0;
+}
+*/
 //--------------------------------  disk IO  -------------------
 
 int DiskSectorReadWrite(char rw, char drive, char head, int cyl,
@@ -510,21 +516,22 @@ int getBootSector() {
 int FATInit() {
 	unsigned long templong;//converting word to dword
 
+	clust_sizeL = (long) bs_clust_size;
+
 	fat_FatStartSector = bs_res_sects;
 	fat_FatSectors = bs_fat_size;
 	if (bs_num_fats == 2) fat_FatSectors=fat_FatSectors+fat_FatSectors;
 
 	fat_RootDirStartSectorL = (long)fat_FatStartSector + fat_FatSectors;
-	fat_RootDirSectors = bs_root_entr >> 4;//   ./. 16
 	
-	fat_DataStartSector = fat_RootDirStartSectorL + fat_RootDirSectors;
-	templong=(long) fat_DataStartSector;
+	fat_RootDirSectorsL = (long) bs_root_entr >> 4;//  ./. 16
+		
+	fat_DataStartSectorL = fat_RootDirStartSectorL + fat_RootDirSectorsL;
 
 	if (bs_tot_sect16 !=0) bs_tot_sect32 = (long) bs_tot_sect16;
-	DataSectors32=bs_tot_sect32 - templong;
+	DataSectors32=bs_tot_sect32 - fat_DataStartSectorL;
 
-	templong = (long) bs_clust_size;
-	CountofClusters=DataSectors32 / templong;//d=d/b
+	CountofClusters=DataSectors32 / clust_sizeL;//d=d/b
 
 	templong = (long) bs_sectors_per_track;
 	fat_num_tracks = bs_tot_sect32 / templong;//d=d/w
@@ -637,9 +644,9 @@ int PrintDriveParameter() {
 	cputs(", fat_FatSectors=");		printunsign(fat_FatSectors);
 	putch(10);
 	cputs("fat_RootDirStartSectorL="); printlong(fat_RootDirStartSectorL);
-	cputs(", fat_RootDirSectors=");	printunsign(fat_RootDirSectors);
+	cputs(", fat_RootDirSectors=");	printunsign(fat_RootDirSectorsL);
 	putch(10);
-	cputs("fat_DataStartSector=");	printunsign(fat_DataStartSector);
+	cputs("fat_DataStartSectorL=");	printunsign(fat_DataStartSectorL);
 	cputs(", DataSectors32=");	printlong(DataSectors32);
 	putch(10);
 	cputs("CountofClusters=");	printlong(CountofClusters);
@@ -670,17 +677,72 @@ int readLogical(unsigned long SectorL) {//OUT:1 sector in DiskBuf
 		sect, 1, DiskBufSeg , DiskBuf);
 }
 
-// 2.
-int fatDirSectorSearch(unsigned long startSector, unsigned int numsectors) {
-    //search in fat_filename+ext
-    char *p;
+// 2.a
+int printDirEntry() {
     unsigned int j;
+	putch(10);
+	cputs(filename);
+	cputs(" ATTR:");
+	printhex8(dir_Attrib);	
+	if (dir_Attrib &  1) cputs(" r/o");
+	if (dir_Attrib &  2) cputs(" hid");
+	if (dir_Attrib &  4) cputs(" sys");
+	if (dir_Attrib &  8) cputs(" vol");		
+	if (dir_Attrib & 16) cputs(" dir");
+	if (dir_Attrib & 32) cputs(" arc");
+	if (dir_Attrib == 0) cputs("    ");
+	
+	putch(' ');
+	j=dir_LastModDate & 31;//day
+	if (j<10) putch(' ');
+	printunsign(j);
+	putch('.');
+
+	j=dir_LastModDate >> 5;//month
+	j&=  15;
+	if (j<10) putch('0');
+	printunsign(j);
+	putch('.');
+
+	j=dir_LastModDate >> 9;//year
+	j+= 1980;
+	printunsign(j);
+	putch(' ');
+	//putch(' ');
+
+	j=dir_LastModTime  >>11;//hour
+	if (j<10) putch(' ');
+	printunsign(j);
+	putch(':');
+
+	j=dir_LastModTime  >> 5;//minute
+	j&=  63;
+	if (j<10) putch('0');
+	printunsign(j);
+	putch(':');
+
+	j=dir_LastModTime & 31;// 2 seconds
+	j=j+j;
+	if (j<10) putch('0');
+	printunsign(j);
+	putch(' ');
+
+	cputs(" 1.Cl:"); 
+	printunsign(dir_FirstCluster);
+	cputs(" Size:");
+	printlong(dir_FileSize);
+	
+}
+
+// 2.b
+int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
+    char *p;
 	unsigned int EndDiskBuf;
 	char isHide;//shows entries, NOT lfn, deleted or empty
 	
 	do {
-		putch(10);
-/*		cputs("Sektor = "); 
+/*		putch(10);
+		cputs("Sektor = "); 
 		printlong(startSector);
 		cputs(", numsectors = "); 
 		printunsign(numsectors);
@@ -696,63 +758,16 @@ int fatDirSectorSearch(unsigned long startSector, unsigned int numsectors) {
 			filename[11] = 0;
 			
 			isHide=0;//show in listing
-			if (filename[0] ==    0) {//only empty entries following
+			if (*p ==    0) {//only empty entries following
 				isHide++;
 				numsectors=1;//finish searching
 				p = EndDiskBuf;
 				}
-			if (filename[0] == 0xE5) isHide++;//deleted
-			if (filename[0] <=   31) isHide++;//part of LFN
+			if (*p == 0xE5) isHide++;//deleted, free entry
+			if (*p <=   31) isHide++;//part of LFN
 			if (dir_Attrib ==    15) isHide++;//LFN start
 					
-			if (isHide == 0) {
-				putch(10);
-				cputs(filename);
-				cputs(" ATTR:");
-				printhex8(dir_Attrib);	
-				if (dir_Attrib &  1) cputs(" r/o");
-				if (dir_Attrib &  2) cputs(" hid");
-				if (dir_Attrib &  4) cputs(" sys");
-				if (dir_Attrib &  8) cputs(" vol");		
-				if (dir_Attrib & 16) cputs(" dir");
-				if (dir_Attrib & 32) cputs(" arc");
-				if (dir_Attrib == 0) cputs("    ");
-				
-				j=dir_LastModDate & 31;
-				if (j<10) putch(' ');
-				printunsign(j);
-				putch('.');
-		
-				j=dir_LastModDate >> 5;
-				j&=  15;
-				if (j<10) putch('0');
-				printunsign(j);
-				putch('.');
-		
-				j=dir_LastModDate >> 9;
-				j+=  80;
-				if (j>=100) j-=100;
-				if (j<10) putch('0');
-				printunsign(j);
-				putch(' ');
-				putch(' ');
-		
-				j=dir_LastModTime  >>11;
-				if (j<10) putch(' ');
-				printunsign(j);
-				putch(':');
-		
-				j=dir_LastModTime  >> 5;
-				j&=  63;
-				if (j<10) putch('0');
-				printunsign(j);
-				putch(' ');
-				
-				cputs(" 1.Cl:"); 
-				printunsign(dir_FirstCluster);
-				cputs(" Size:");
-				printlong(dir_FileSize);
-			}
+			if (isHide == 0) printDirEntry();
 			p+=32;//get next entry
 		} while (p < EndDiskBuf);
 		startSector = startSector + 1;//long, do NOT use ++ or +=1
@@ -761,17 +776,60 @@ int fatDirSectorSearch(unsigned long startSector, unsigned int numsectors) {
 	} while (numsectors > 0);
 }
 
+// 2.
+int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
+    //search for file name in searchstr
+    char *p;
+	unsigned int EndDiskBuf;
+	fat_notfound=0;	
+	do {
+		readLogical(startSector);
+		p=&DiskBuf;
+		EndDiskBuf= p + bs_sect_size;
+		do {
+			if (memcmp(p, searchstr, 11) == 0) {
+				memcpy(dir_Filename, p, 32);//copy whole dir structure
+				memcpy(filename, p, 11);
+				filename[11] = 0;
+				printDirEntry();
+			}
+			if (*p == 0) {//only empty entries following
+					fat_notfound=1;
+					return;
+				}
+			p+=32;//get next entry
+		} while (p < EndDiskBuf);
+		startSector++;		
+		numsectors--;
+	} while (numsectors > 0);
+//	fatfile_cluster=0;// ???
+}
+
 // 3.
-int fatRootSearch(char *search) {
-    // only for test
-//    memcpy(&fat_filename, "DOS     COM", 11);
-    fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectors);
-
-
+int fatRootSearch() {
+	memcpy(&searchstr, "DOS     COM", 11);//only for test
+    fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL);
+//	getkey();
+//    fatDirSectorList(fat_RootDirStartSectorL, fat_RootDirSectorsL);
 }
 
 // 4.
 int fatClusterAnalyse() {
+//uses: 
+//	unsigned int  fatfile_cluster
+//	unsigned long fatfile_sectorStartL
+//	unsigned int  fatfile_nextCluster
+
+//	unsigned int fatSector;
+//	int offset;
+
+	fatfile_sectorStartL = (long) fatfile_cluster - 2;
+	fatfile_sectorStartL = fatfile_sectorStartL * clust_sizeL;
+	fatfile_sectorStartL = fatfile_sectorStartL + fat_DataStartSectorL;
+	
+	
+
+
 
 
 
@@ -786,14 +844,13 @@ int fatDirSearch() {
 
 
 
-int fatNextSearch(char *search, char *upto, int *last) {
+int fatNextSearch(/*char *searchstr, */ char *upto, int *last) {
 //todo parameter must be:    char **upto
 
 
 }
 
 int fatGetStartCluster() {
-	char search[11];
 	char *upto;
 	int last;
 
@@ -801,7 +858,7 @@ int fatGetStartCluster() {
 	*upto = filename;
 	fatfile_cluster = 0;
 
-	fatNextSearch(search, &upto, &last);
+	fatNextSearch(searchstr, &upto, &last);
 
 }
 
@@ -811,10 +868,10 @@ int fatOpenFile() {//remove backslash, set handle for root or subdir
 	if (filename[0] == 0) {//empty filename
 		fatfile_root = 1;
 		fatfile_nextCluster = 0xFFFF;
-		fatfile_sectorCount = fat_RootDirSectors;
-		fatfile_sectorStart = fat_RootDirStartSectorL;
+		fatfile_sectorCount = fat_RootDirSectorsL;
+		fatfile_sectorStartL = fat_RootDirStartSectorL;
 		fatfile_lastBytes   = 0;
-		fatfile_lastSectors = fat_RootDirSectors;
+		fatfile_lastSectors = fat_RootDirSectorsL;
 		fatfile_cluster     = 0;
 		fatfile_dir         = 1;
 
@@ -878,13 +935,16 @@ int Init() {
 
 //	unsigned long Sector_to_read;
 int main() {
+//	char c;
 	Drive=0x80;
 	if (Init() != 0) return 1;
-	PrintDriveParameter();
+//	PrintDriveParameter();
 //	getkey();
 	//	Sector_to_read = (long) 0;
 //	readLogical( Sector_to_read);
 
 	fatRootSearch();
-	
+//putch(10);
+//c=2; printunsign(c); c=makePowerOfTwo(c); cputs(" two:");printunsign(c);
+//c=makePowerOfTwo2(c); cputs(" two2:");printunsign(c);
 }
