@@ -1,4 +1,4 @@
-char Version1[]="DOS.COM V0.1.9";//test bed
+char Version1[]="DOS.COM V0.2.0";//test bed
 //Finder /hg/DOS/DOS3.vhd
 //rigth click / open / Parallels Mounter
 // (E)DX:(E)AX DIV r/m16(32) = (E)AX, remainder (E)DX
@@ -27,17 +27,17 @@ unsigned char pa_Attached;
 
 unsigned int  pt_PartNo;
 //start hard disk partition structure 16 bytes in MBR. do not change
-unsigned char pt_Bootable;		//80h = active partition, else 00
-unsigned char pt_StartHead;
-unsigned char pt_StartSector;	//bits 0-5
-unsigned int  pt_StartCylinder;	//bits 8,9 in bits 6,7 of sector
-unsigned char pt_FileSystem;//0=nu,1=FAT12,4=FAT16,5=ExtPart,6=largeFAT16
-unsigned char pt_EndHead;
-unsigned char pt_EndSector;		//bits 0-5
-unsigned int  pt_EndCylinder;	//bits 8,9 in bits 6,7 of sector
-unsigned long pt_HiddenSector;	//sectors preceding partition
-unsigned long pt_PartLen;    	//length of partition in sectors
-//end hard disk partition structure
+unsigned char pt_Bootable;		// 00 80h = active partition, else 00
+unsigned char pt_StartHead;		// 01
+unsigned char pt_StartSector;	// 02 bits 0-5
+unsigned int  pt_StartCylinder;	//    bits 8,9 in bits 6,7 of sector
+unsigned char pt_FileSystem;	// 04 0=nu,1=FAT12,4=16,5=ExtP,6=large16
+unsigned char pt_EndHead;		// 05
+unsigned char pt_EndSector;		// 06 bits 0-5
+unsigned int  pt_EndCylinder;	//    bits 8,9 in bits 6,7 of sector
+unsigned long pt_HiddenSector;	// 08 sectors preceding partition
+unsigned long pt_PartLen;    	// 12 length of partition in sectors
+//  16 end hard disk partition structure
 
 //start boot BIOS Parameter Block structure. do not change
 unsigned char bs_jmp[]="12";// 00 +LenByte:Must be 0xEB, 0x3C, 0x90
@@ -64,6 +64,7 @@ unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
 
 //unsigned long sect_size_long;
 unsigned long clust_sizeL;
+unsigned long sector_sizeL;
 unsigned char filename[67];
 unsigned char searchstr  [12];//with null
 
@@ -85,6 +86,7 @@ unsigned long dir_FileSize;		//28 size in bytes, if directory then zero
 
 //FATInit
 unsigned int  fat_FatStartSector;
+unsigned long fat_FatStartSectorL;
 unsigned int  fat_FatSectors;
 unsigned long fat_RootDirStartSectorL;
 unsigned long fat_RootDirSectorsL;
@@ -517,8 +519,10 @@ int FATInit() {
 	unsigned long templong;//converting word to dword
 
 	clust_sizeL = (long) bs_clust_size;
+	sector_sizeL= (long) bs_sect_size;
 
 	fat_FatStartSector = bs_res_sects;
+	fat_FatStartSectorL= (long) fat_FatStartSector; 
 	fat_FatSectors = bs_fat_size;
 	if (bs_num_fats == 2) fat_FatSectors=fat_FatSectors+fat_FatSectors;
 
@@ -814,25 +818,28 @@ int fatRootSearch() {
 }
 
 // 4.
-int fatClusterAnalyse() {
-//uses: 
-//	unsigned int  fatfile_cluster
-//	unsigned long fatfile_sectorStartL
-//	unsigned int  fatfile_nextCluster
-
-//	unsigned int fatSector;
-//	int offset;
-
-	fatfile_sectorStartL = (long) fatfile_cluster - 2;
+int fatClusterAnalyse(unsigned int cluster) {
+//OUT: fatfile_sectorStartL, fatfile_nextCluster
+	unsigned long fatSectorL;
+	unsigned int offset;
+	char *p;
+	
+	fatfile_sectorStartL = (long) cluster - 2;
 	fatfile_sectorStartL = fatfile_sectorStartL * clust_sizeL;
 	fatfile_sectorStartL = fatfile_sectorStartL + fat_DataStartSectorL;
 	
+	fatSectorL = (long) cluster + cluster;
+	fatSectorL = fatSectorL / sector_sizeL;		
+	fatSectorL = fatSectorL + fat_FatStartSectorL; 
+
+	readLogical(fatSectorL);
 	
-
-
-
-
-
+	offset = cluster + cluster;
+	offset = offset % bs_sect_size;
+	
+	p=&DiskBuf;
+	p = p + offset;	
+	memcpy(&fatfile_nextCluster, p, 2);
 }
 
 // 5.
