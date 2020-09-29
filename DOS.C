@@ -82,7 +82,7 @@ unsigned int  dir_LastModTime;	//22 modification time on closing
 unsigned int  dir_LastModDate;	//24 modification date on closing
 unsigned int  dir_FirstCluster;	//26 1.clu. of file data,if filesize=0 then 0
 unsigned long dir_FileSize;		//28 size in bytes, if directory then zero
-//end direcctory entry structure
+// 32 end direcctory entry structure
 
 //FATInit
 unsigned int  fat_FatStartSector;
@@ -778,11 +778,12 @@ int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
 		numsectors--;
 //mdump(DiskBuf, 512);
 	} while (numsectors > 0);
+	fatfile_cluster=0;//not found but not end
 }
 
 // 2.
 int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
-    //search for file name in searchstr
+    //search for file name. IN:searchstr
     char *p;
 	unsigned int EndDiskBuf;
 	fat_notfound=0;	
@@ -791,10 +792,15 @@ int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
 		p=&DiskBuf;
 		EndDiskBuf= p + bs_sect_size;
 		do {
-			if (memcmp(p, searchstr, 11) == 0) {
+			if (memcmp(p, searchstr, 11) == 0) {//found file name
 				memcpy(dir_Filename, p, 32);//copy whole dir structure
 				memcpy(filename, p, 11);
 				filename[11] = 0;
+				fatfile_cluster   = dir_FirstCluster;
+				fatfile_fileSize  = dir_FileSize;
+//				fatfile_Attr      = dir_Attrib;
+//				fatfile_LastModTime= dir_LastModTime;
+//				fatfile_LastModDate= dir_LastModDate;
 				printDirEntry();
 			}
 			if (*p == 0) {//only empty entries following
@@ -806,7 +812,7 @@ int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
 		startSector++;		
 		numsectors--;
 	} while (numsectors > 0);
-//	fatfile_cluster=0;// ???
+	fatfile_cluster=0;//not found but not end
 }
 
 // 3.
@@ -843,9 +849,21 @@ int fatClusterAnalyse(unsigned int cluster) {
 }
 
 // 5.
-int fatDirSearch() {
+int fatDirSearch() {//search a directory chain. IN:searchstr
+	
+	fatClusterAnalyse(fatfile_cluster);
+	//OUT: fatfile_sectorStartL, fatfile_nextCluster
 
-
+	fatDirSectorSearch(fatfile_sectorStartL, fatfile_nextCluster); 
+	while (fatfile_cluster == 0) {//not found but not end
+		if (fatfile_nextCluster >= 0xFFF8) {
+			fat_notfound=1;
+			return;	
+		}		
+		fatfile_cluster=fatfile_nextCluster;
+		fatClusterAnalyse(fatfile_cluster);
+		fatDirSectorSearch(fatfile_sectorStartL, fatfile_nextCluster);
+	}	
 
 }
 
