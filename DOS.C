@@ -1009,6 +1009,7 @@ cputs("fileOpen ");
 //------------------------------- Init,  main ---------------
 int Init() {
 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
+cputs(" Init ");
 
 	if (Params()) cputs("** NO DRIVE PARAMS FOUND **");//no hard disk
 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
@@ -1025,6 +1026,7 @@ int Init() {
 
 int main() {
 	Drive=0x80;
+cputs("main ");
 	if (Init() != 0) return 1;
 	strcpy(&filename, "/binslash/dos.com");
 /*	fileOpen();	

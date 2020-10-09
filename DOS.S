@@ -4760,38 +4760,43 @@ Init: PROC
 ;-1011 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
 
  mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
-;-1012 
+;-1012 cputs(" Init ");
 
-;-1013 	if (Params()) cputs("** NO DRIVE PARAMS FOUND **");//no hard disk
+ push Init_0
+ call cputs
+ add  sp, 2
+;-1013 
+
+;-1014 	if (Params()) cputs("** NO DRIVE PARAMS FOUND **");//no hard disk
 
  call Params
  or  al, al
  je .Init130
- push Init_0
+ push Init_1
  call cputs
  add  sp, 2
-;-1014 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
+;-1015 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
 
 .Init130:
  call readMBR
  mov word [FATtype], ax
-;-1015 	if (FATtype == 0) {
+;-1016 	if (FATtype == 0) {
 
  mov ax, [FATtype]
  cmp ax, 0
  jne .Init131
-;-1016 		cputs(" no active FAT partition found. ");
+;-1017 		cputs(" no active FAT partition found. ");
 
- push Init_1
+ push Init_2
  call cputs
  add  sp, 2
-;-1017 		return 1;
+;-1018 		return 1;
 
  mov ax, 1
  jmp .retnInit
-;-1018 		}
+;-1019 		}
 
-;-1019 	if(getBootSector()==0) 	return 1;
+;-1020 	if(getBootSector()==0) 	return 1;
 
 .Init131:
  call getBootSector
@@ -4799,7 +4804,7 @@ Init: PROC
  jne .Init132
  mov ax, 1
  jmp .retnInit
-;-1020 	if (FATInit())			return 1;
+;-1021 	if (FATInit())			return 1;
 
 .Init132:
  call FATInit
@@ -4807,7 +4812,7 @@ Init: PROC
  je .Init133
  mov ax, 1
  jmp .retnInit
-;-1021 	if(trueFATtype != 16) 	return 1;
+;-1022 	if(trueFATtype != 16) 	return 1;
 
 .Init133:
  mov al, [trueFATtype]
@@ -4815,57 +4820,64 @@ Init: PROC
  je  .Init134
  mov ax, 1
  jmp .retnInit
-;-1022 	Int13hExt();
+;-1023 	Int13hExt();
 
 .Init134:
  call Int13hExt
-;-1023 	return 0;
+;-1024 	return 0;
 
  mov ax, 0
  jmp .retnInit
-;-1024 }
+;-1025 }
 
-;-1025 
+;-1026 
 
-;-1026 int main() {
+;-1027 int main() {
 
  .retnInit:
  ret
-Init_0 db "** NO DRIVE PARAMS FOUND **",0
-Init_1 db " no active FAT partition found. ",0
+Init_0 db " Init ",0
+Init_1 db "** NO DRIVE PARAMS FOUND **",0
+Init_2 db " no active FAT partition found. ",0
 ENDP
 
 main: PROC
-;-1027 	Drive=0x80;
+;-1028 	Drive=0x80;
 
  mov ax, 128
  mov byte [Drive], al
-;-1028 	if (Init() != 0) return 1;
+;-1029 cputs("main ");
+
+ push main_0
+ call cputs
+ add  sp, 2
+;-1030 	if (Init() != 0) return 1;
 
  call Init
  cmp al, 0
  je  .main135
  mov ax, 1
  jmp .retnmain
-;-1029 	strcpy(&filename, "/binslash/dos.com");
+;-1031 	strcpy(&filename, "/binslash/dos.com");
 
 .main135:
- push main_0
+ push main_1
  lea  ax, [filename]
  push ax
  call strcpy
  add  sp, 4
-;-1030 /*	fileOpen();	
+;-1032 /*	fileOpen();	
 
-;-1031 	strcpy(&filename, "tet/abc.com");
+;-1033 	strcpy(&filename, "tet/abc.com");
 
-;-1032 	fileOpen();	
+;-1034 	fileOpen();	
 
-;-1033 */
+;-1035 */
 
-;-1034 }
+;-1036 }
 
  .retnmain:
  ret
-main_0 db "/binslash/dos.com",0
+main_0 db "main ",0
+main_1 db "/binslash/dos.com",0
 ENDP
