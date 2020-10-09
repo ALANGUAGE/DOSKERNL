@@ -277,6 +277,22 @@ int strchr(char *s, char c) {
     }
     return 0;
 }
+int memchr(char *s, char c, unsigned int i) {
+    while(i > 0) {
+        if (*s==c) return s;
+        s++; i--;
+    }
+    return 0;
+}
+int memchr1(char *s, char c, unsigned int i) {
+	unsigned int pos;
+	pos=1;
+    while(i > 0) {
+        if (*s==c) return pos;
+        s++; i--; pos++;
+    }
+    return 0;
+}
 int instr1(char *s, char c) {
     while(*s) {
         if (*s==c) return 1;
@@ -329,18 +345,7 @@ int mdump(unsigned char *adr, unsigned int len ) {
         }
     }
 }
-/*
-int makePowerOfTwo(unsigned char c) {
-	if (c ==  2) return 1;
-	if (c ==  4) return 2;
-	if (c ==  8) return 3;
-	if (c == 16) return 4; 
-	if (c == 32) return 5;
-	if (c == 64) return 6;
-	if (c ==128) return 7;
-	return 0;
-}
-*/
+
 //--------------------------------  disk IO  -------------------
 
 int DiskSectorReadWrite(char rw, char drive, char head, int cyl,
@@ -385,7 +390,7 @@ int Status(drive) {
 }
 
 int Params() {
-//	cputs("Get Drive Params ");
+	cputs("Get Drive Params ");
 	BIOS_Status=Int13hfunction(Drive, 8);
 	if (BIOS_ERR) {
 		Int13hError();
@@ -496,7 +501,7 @@ int readMBR() {
 int getBootSector() {
 	int i;
 	putch(10);
-//	cputs(" Read boot sector");
+	cputs(" Read boot sector");
   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
   		pt_StartSector, 1, DiskBufSeg, DiskBuf);
 	if (BIOS_ERR) {
@@ -560,7 +565,7 @@ int FATInit() {
 		return 0;
 		}
 	trueFATtype=16;
-//	cputs("FAT16");
+	cputs(" FAT16");
 	return 0;
 }
 
@@ -579,6 +584,7 @@ int Int13hExt() {
 		return 1;
 		}
 	else {
+	cputs(",Int13h Extension found");
 //		cputs(",Extension found BX(AA55)=");printhex16(vBX);
 //		cputs(" CX=");						printhex16(vCX);
 		}
@@ -886,7 +892,6 @@ int search_delimiter(char *s) {
 int is_delimiter(char *s) {
 	if (*s == '/' ) return 1;
 	if (*s == '\\') return 1;
-//	if (*s == '.' ) return 3;
 	if (*s ==    0) return 2;
 	return 0;
 }
@@ -899,75 +904,49 @@ int fatNextSearch() {//get next part of filename to do a search
 //	OUT: isfilename: 0=part of directory, 1=filename
 //	OUT: fat_notfound
 	char *searchstrp;
+//	char *searchstartp;
 	char *p; 
 	int  len;
 	int is_del;
-putch(10);
-cputs("NextSearch upto1="); cputs(upto);
+	int dot;
+putch(10); cputs("fatNextSearch upto1="); cputs(upto);
 
 	isfilename=0;//default is directory
 	if (*upto == '/' ) upto++;//remove leading delimiter
 	if (*upto == '\\') upto++;
 	
-	searchstrp = &searchstr;//clear searchstr
+	searchstrp   = &searchstr;//clear searchstr
+//	searchstartp = &searchstr;
 	len=0;
 	is_del=is_delimiter(upto);
 
-	while (is_del == 0) {
-putch(10);
-cputs("is_del="); printunsign(is_del);
-cputs(", upto="); printunsign(upto);
-cputs("="); cputs(upto);
-//cputs("searchstr="); cputs(searchstr);
-		
-		if (is_del == 0) {//continue copying name
-			*searchstrp = *upto;
-			searchstrp++;
-			upto++;	
-			len++;
-			is_del=is_delimiter(upto);			
-		}	
+	while (is_del == 0) {		
+		*searchstrp = *upto;
+		searchstrp++;
+		upto++;	
+		len++;
+		is_del=is_delimiter(upto);
 	}
+	isfilename=0;//default directory
+	if (is_del == 2) isfilename=1;//last name is always a file name
 	
 putch(10);
 cputs("Fertig is_del="); printunsign(is_del);
+cputs(", isfilename="); printunsign(isfilename);
 cputs(", upto="); printunsign(upto);
 cputs("="); cputs(upto);
 cputs(", len="); printunsign(len);
-cputs(", searchstr="); cputsLen(searchstr,  10);
-			
+cputs(", searchstr="); cputsLen(searchstr, len);
 
-	
-
-/*	
-	p= search_delimiter(upto);
-
-putch(10);
-cputs("NextSearch upto2="); cputs(upto);
-cputs(", p="); printunsign(p);
-
-
-/*
-	if (p) {//is delimiter=part of directory
-		len= *p - *upto;
-		
-cputs(", len="); printunsign(len);
-		
-		if (len > 11) {//in directory are no dots
-			fat_notfound=1;
-			return;
-		}
-		memcpy(searchstr, upto, len);
+	dot=memchr1(searchstr, '.', len);
+	if (len > 11) {
+		fat_notfound=1;
+		return;
+	}
+	if (isfilename == 0) {//is directory name
 		fillstr(searchstr, ' ', len, 11);		
-		upto = upto + len;	
-	}		
-	else {// is filename
-		isfilename=1;		
-putch(10);
-cputs("NextSearch searchstr=");cputs(searchstr);
-cputs(", upto="); cputs(upto);		
-		}	
-*/	
+	}	
+cputs(", searchstr="); cputsLen(searchstr, 11);
 }
 
 // 7.
@@ -975,8 +954,8 @@ int fatGetStartCluster() {
 	if (fat_notfound) return;
 	upto = &filename;
 	fatfile_cluster = 0;
-//cputs("GetStartCluster filename=");cputs(filename);
-//cputs(", upto="); cputs(upto);
+cputs("GetStartCluster filename=");cputs(filename);
+cputs(", upto="); cputs(upto);
 	fatNextSearch();
 
 }
@@ -985,6 +964,7 @@ int fatGetStartCluster() {
 int fatOpenFile() {//set handle for root or subdir
 	unsigned long bytes_per_cluster;
 	fat_notfound=0;
+cputs("fatOpenfile ");	
 	if (filename[0] == 0) {//empty filename
 		fatfile_root = 1;
 		fatfile_nextCluster = 0xFFFF;
@@ -1020,7 +1000,7 @@ int fatOpenFile() {//set handle for root or subdir
 int fileOpen() {//remove drive letter and insert in drive
 	int rc;
 	toupper(filename);
-
+cputs("fileOpen ");
 	rc=fatOpenFile();
 	if (rc) return 0;//error
 //	else return fhandle;
@@ -1047,7 +1027,8 @@ int main() {
 	Drive=0x80;
 	if (Init() != 0) return 1;
 	strcpy(&filename, "/binslash/dos.com");
-	fileOpen();	
+/*	fileOpen();	
 	strcpy(&filename, "tet/abc.com");
 	fileOpen();	
+*/
 }
