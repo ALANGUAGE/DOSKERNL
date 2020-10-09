@@ -12,20 +12,26 @@ unsigned int vSS; unsigned int vES; //debugging
 unsigned char DOS_ERR;
 unsigned char BIOS_ERR;
 unsigned int  BIOS_Status;
-
-
 unsigned int  DiskBufSeg;
 unsigned char dummy[1];//todo remove
 unsigned char DiskBuf [512];
 unsigned char Drive=0x80;
+//unsigned long sect_size_long;
+unsigned long clust_sizeL;
+unsigned long sector_sizeL;
+unsigned char filename[67];
+unsigned char searchstr  [12];//with null
+char *upto;		//IN:part of filename to search/OUT:to search next time
+char isfilename;//is filename or part of directory?
+char fat_notfound;
 
 //Params from int13h, Function 8
 unsigned int  pa_Cylinders;
 unsigned char pa_Sectors;
 unsigned char pa_Heads;
 unsigned char pa_Attached;
-
 unsigned int  pt_PartNo;
+
 //start hard disk partition structure 16 bytes in MBR. do not change
 unsigned char pt_Bootable;		// 00 80h = active partition, else 00
 unsigned char pt_StartHead;		// 01
@@ -62,12 +68,6 @@ unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
 unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
 // 62 end boot BIOS Parameter Block
 
-//unsigned long sect_size_long;
-unsigned long clust_sizeL;
-unsigned long sector_sizeL;
-unsigned char filename[67];
-unsigned char searchstr  [12];//with null
-
 //start directory entry structure, do not change
 unsigned char dir_Filename[]="1234567";	//00 +lengthbyte=11
 unsigned char dir_Ext[]="12";	//07 +lengthbyte=3
@@ -102,7 +102,6 @@ unsigned int  FATtype;		//0=error,1=FAT12,6=FAT16,11=FAT32 from ReadMBR
 //fatfile
 //unsigned char fat_filename [8];
 //unsigned char fat_fileext  [3];
-unsigned int  fat_notfound;
 		 int  fatfile_root;
 unsigned int  fatfile_cluster;
 unsigned int  fatfile_nextCluster;
@@ -386,7 +385,7 @@ int Status(drive) {
 }
 
 int Params() {
-	cputs("Get Drive Params ");
+//	cputs("Get Drive Params ");
 	BIOS_Status=Int13hfunction(Drive, 8);
 	if (BIOS_ERR) {
 		Int13hError();
@@ -467,13 +466,13 @@ int readMBR() {
 		}
 	else {
 		putch(10);
-		cputs("Read partition.");
+//		cputs("Read partition.");
 		if(checkBootSign()==0) return 0;
 		do {
 			getPartitionData();
 
 			if (pt_Bootable == 0x80) {
-				cputs("Boot partition found");
+//				cputs("Boot partition found");
 				if (pt_FileSystem == 1) {
 					cputs(", FAT12 partition < 32MB");
 					isFAT=1;
@@ -483,7 +482,7 @@ int readMBR() {
 					isFAT=4;
 					}
 				if (pt_FileSystem == 6) {
-					cputs(", large FAT16 partition < 2GB");
+//					cputs(", large FAT16 partition < 2GB");
 					isFAT=6;
 					}
 				pt_PartNo=99;//end of loop
@@ -497,7 +496,7 @@ int readMBR() {
 int getBootSector() {
 	int i;
 	putch(10);
-	cputs(" Read boot sector");
+//	cputs(" Read boot sector");
   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
   		pt_StartSector, 1, DiskBufSeg, DiskBuf);
 	if (BIOS_ERR) {
@@ -546,22 +545,22 @@ int FATInit() {
 	Sectors_per_cylinder = bs_sectors_per_track *  bs_num_heads;//d=w*w
 	asm mov [Sectors_per_cylinder + 2], dx;store high word
 
-	cputs(", trueFATtype=FAT");
+//	cputs(", trueFATtype=");
 
 	templong = (long) 65525;
 	if (CountofClusters > templong) {
 		trueFATtype=32;
-		cputs("32 NOT supported");
+		cputs(" FAT32 NOT supported");
 		return 1;
 		}
 	templong= (long) 4086;
 	if (CountofClusters < templong) {
 		trueFATtype=12;
-		cputs("12");
+		cputs(" FAT12");
 		return 0;
 		}
 	trueFATtype=16;
-	cputs("16");
+//	cputs("FAT16");
 	return 0;
 }
 
@@ -580,7 +579,7 @@ int Int13hExt() {
 		return 1;
 		}
 	else {
-		cputs(",Extension found BX(AA55)=");printhex16(vBX);
+//		cputs(",Extension found BX(AA55)=");printhex16(vBX);
 //		cputs(" CX=");						printhex16(vCX);
 		}
 	return 0;
@@ -817,7 +816,6 @@ int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
 
 // 3.
 int fatRootSearch() {
-	memcpy(&searchstr, "DOS     COM", 11);//only for test
     fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL);
 //	getkey();
 //    fatDirSectorList(fat_RootDirStartSectorL, fat_RootDirSectorsL);
@@ -864,30 +862,127 @@ int fatDirSearch() {//search a directory chain. IN:searchstr
 		fatClusterAnalyse(fatfile_cluster);
 		fatDirSectorSearch(fatfile_sectorStartL, fatfile_nextCluster);
 	}	
-
 }
 
-
-
-int fatNextSearch(/*char *searchstr, */ char *upto, int *last) {
-//todo parameter must be:    char **upto
-
-
+int fillstr(char *s, char filler, int start, int end) {
+	char *c;
+	c = s + start;
+	while (start < end) {
+		*c = filler;
+		c++;
+		start++;
+		}
+	
+	}
+int search_delimiter(char *s) {
+	while (*s) {
+		if (*s == '/') return s;
+		if (*s == '\\') return s;
+		s++;
+	}
+	return 0;
 }
 
+int is_delimiter(char *s) {
+	if (*s == '/' ) return 1;
+	if (*s == '\\') return 1;
+//	if (*s == '.' ) return 3;
+	if (*s ==    0) return 2;
+	return 0;
+}
+	
+// 6.
+int fatNextSearch() {//get next part of filename to do a search
+//	IN:  upto: points to start of search in filename 
+//	OUT: upto: points to search for next time
+//	OUT: searchstr: part of filename in DIR-format with blanks (11bytes)
+//	OUT: isfilename: 0=part of directory, 1=filename
+//	OUT: fat_notfound
+	char *searchstrp;
+	char *p; 
+	int  len;
+	int is_del;
+putch(10);
+cputs("NextSearch upto1="); cputs(upto);
+
+	isfilename=0;//default is directory
+	if (*upto == '/' ) upto++;//remove leading delimiter
+	if (*upto == '\\') upto++;
+	
+	searchstrp = &searchstr;//clear searchstr
+	len=0;
+	is_del=is_delimiter(upto);
+
+	while (is_del == 0) {
+putch(10);
+cputs("is_del="); printunsign(is_del);
+cputs(", upto="); printunsign(upto);
+cputs("="); cputs(upto);
+//cputs("searchstr="); cputs(searchstr);
+		
+		if (is_del == 0) {//continue copying name
+			*searchstrp = *upto;
+			searchstrp++;
+			upto++;	
+			len++;
+			is_del=is_delimiter(upto);			
+		}	
+	}
+	
+putch(10);
+cputs("Fertig is_del="); printunsign(is_del);
+cputs(", upto="); printunsign(upto);
+cputs("="); cputs(upto);
+cputs(", len="); printunsign(len);
+cputs(", searchstr="); cputsLen(searchstr,  10);
+			
+
+	
+
+/*	
+	p= search_delimiter(upto);
+
+putch(10);
+cputs("NextSearch upto2="); cputs(upto);
+cputs(", p="); printunsign(p);
+
+
+/*
+	if (p) {//is delimiter=part of directory
+		len= *p - *upto;
+		
+cputs(", len="); printunsign(len);
+		
+		if (len > 11) {//in directory are no dots
+			fat_notfound=1;
+			return;
+		}
+		memcpy(searchstr, upto, len);
+		fillstr(searchstr, ' ', len, 11);		
+		upto = upto + len;	
+	}		
+	else {// is filename
+		isfilename=1;		
+putch(10);
+cputs("NextSearch searchstr=");cputs(searchstr);
+cputs(", upto="); cputs(upto);		
+		}	
+*/	
+}
+
+// 7.
 int fatGetStartCluster() {
-	char *upto;
-	int last;
-
 	if (fat_notfound) return;
-	*upto = filename;
+	upto = &filename;
 	fatfile_cluster = 0;
-
-	fatNextSearch(searchstr, &upto, &last);
+//cputs("GetStartCluster filename=");cputs(filename);
+//cputs(", upto="); cputs(upto);
+	fatNextSearch();
 
 }
 
-int fatOpenFile() {//remove backslash, set handle for root or subdir
+// 8.
+int fatOpenFile() {//set handle for root or subdir
 	unsigned long bytes_per_cluster;
 	fat_notfound=0;
 	if (filename[0] == 0) {//empty filename
@@ -913,7 +1008,6 @@ int fatOpenFile() {//remove backslash, set handle for root or subdir
 
 //		fatClusterAnalyse();
 		fatfile_sectorCount = (int) bs_clust_size;
-
 	}
 	fatfile_currentCluster = fatfile_cluster;
 	fatfile_sectorUpto = 0;
@@ -922,20 +1016,11 @@ int fatOpenFile() {//remove backslash, set handle for root or subdir
 	return 0;
 }
 
-int make_filename() {
-	char *p;
-	toupper(&filename);
-	p = strchr(filename, ':' );
-//	if (p == 0) fat_drive = fat_currentdrive;
-//	else error2("drive, patth not impl. yet");
-
-}
-
+// 9.
 int fileOpen() {//remove drive letter and insert in drive
 	int rc;
-	strcpy(filename, "dos.com");
+	toupper(filename);
 
-	make_filename();
 	rc=fatOpenFile();
 	if (rc) return 0;//error
 //	else return fhandle;
@@ -949,7 +1034,7 @@ int Init() {
 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
 	if (FATtype == 0) {
 		cputs(" no active FAT partition found. ");
-//		return 1;
+		return 1;
 		}
 	if(getBootSector()==0) 	return 1;
 	if (FATInit())			return 1;
@@ -958,18 +1043,11 @@ int Init() {
 	return 0;
 }
 
-//	unsigned long Sector_to_read;
 int main() {
-//	char c;
 	Drive=0x80;
 	if (Init() != 0) return 1;
-//	PrintDriveParameter();
-//	getkey();
-	//	Sector_to_read = (long) 0;
-//	readLogical( Sector_to_read);
-
-	fatRootSearch();
-//putch(10);
-//c=2; printunsign(c); c=makePowerOfTwo(c); cputs(" two:");printunsign(c);
-//c=makePowerOfTwo2(c); cputs(" two2:");printunsign(c);
+	strcpy(&filename, "/binslash/dos.com");
+	fileOpen();	
+	strcpy(&filename, "tet/abc.com");
+	fileOpen();	
 }
