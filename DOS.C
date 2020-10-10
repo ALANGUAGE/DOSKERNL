@@ -390,7 +390,7 @@ int Status(drive) {
 }
 
 int Params() {
-	cputs("Get Drive Params ");
+	cputs(" DriveParams ");
 	BIOS_Status=Int13hfunction(Drive, 8);
 	if (BIOS_ERR) {
 		Int13hError();
@@ -470,8 +470,7 @@ int readMBR() {
 		return 0;
 		}
 	else {
-		putch(10);
-//		cputs("Read partition.");
+//		cputs(" Read partition.");
 		if(checkBootSign()==0) return 0;
 		do {
 			getPartitionData();
@@ -500,7 +499,6 @@ int readMBR() {
 
 int getBootSector() {
 	int i;
-	putch(10);
 	cputs(" Read boot sector");
   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
   		pt_StartSector, 1, DiskBufSeg, DiskBuf);
@@ -584,7 +582,7 @@ int Int13hExt() {
 		return 1;
 		}
 	else {
-	cputs(",Int13h Extension found");
+	cputs(",Int13h Ext");
 //		cputs(",Extension found BX(AA55)=");printhex16(vBX);
 //		cputs(" CX=");						printhex16(vCX);
 		}
@@ -907,7 +905,7 @@ int fatNextSearch() {//get next part of filename to do a search
 //	char *searchstartp;
 	char *p; 
 	int  len;
-	int is_del;
+	int delimiter;
 	int dot;
 putch(10); cputs("fatNextSearch upto1="); cputs(upto);
 
@@ -918,20 +916,20 @@ putch(10); cputs("fatNextSearch upto1="); cputs(upto);
 	searchstrp   = &searchstr;//clear searchstr
 //	searchstartp = &searchstr;
 	len=0;
-	is_del=is_delimiter(upto);
+	delimiter=is_delimiter(upto);
 
-	while (is_del == 0) {		
+	while (delimiter == 0) {		
 		*searchstrp = *upto;
 		searchstrp++;
 		upto++;	
 		len++;
-		is_del=is_delimiter(upto);
+		delimiter=is_delimiter(upto);
 	}
 	isfilename=0;//default directory
-	if (is_del == 2) isfilename=1;//last name is always a file name
+	if (delimiter == 2) isfilename=1;//last name is always a file name
 	
 putch(10);
-cputs("Fertig is_del="); printunsign(is_del);
+cputs("Fertig delimiter="); printunsign(delimiter);
 cputs(", isfilename="); printunsign(isfilename);
 cputs(", upto="); printunsign(upto);
 cputs("="); cputs(upto);
@@ -946,7 +944,7 @@ cputs(", searchstr="); cputsLen(searchstr, len);
 	if (isfilename == 0) {//is directory name
 		fillstr(searchstr, ' ', len, 11);		
 	}	
-cputs(", searchstr="); cputsLen(searchstr, 11);
+cputs(", searchstr(0-11)="); cputsLen(searchstr, 11);
 }
 
 // 7.
@@ -1000,7 +998,7 @@ cputs("fatOpenfile ");
 int fileOpen() {//remove drive letter and insert in drive
 	int rc;
 	toupper(filename);
-cputs("fileOpen ");
+cputs(" fileOpen ");
 	rc=fatOpenFile();
 	if (rc) return 0;//error
 //	else return fhandle;
@@ -1014,7 +1012,7 @@ cputs(" Init ");
 	if (Params()) cputs("** NO DRIVE PARAMS FOUND **");//no hard disk
 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
 	if (FATtype == 0) {
-		cputs(" no active FAT partition found. ");
+		cputs("** no active FAT partition found **");
 		return 1;
 		}
 	if(getBootSector()==0) 	return 1;
@@ -1029,8 +1027,8 @@ int main() {
 cputs("main ");
 	if (Init() != 0) return 1;
 	strcpy(&filename, "/binslash/dos.com");
-/*	fileOpen();	
-	strcpy(&filename, "tet/abc.com");
+	fileOpen();	
+/*	strcpy(&filename, "tet/abc.com");
 	fileOpen();	
 */
 }
