@@ -5,6 +5,7 @@ char Version1[]="DOS.COM V0.2.0";//test bed
 // AL*r/m8=AX; AX*r/m16=DX:AX; EAX*r/m32=EDX:EAX
 // > 16.777.216 sectors (8GB) only LBA
 #define ORGDATA		16384//start of arrays
+#define debug 0
 unsigned int vAX ;unsigned int vBX ;unsigned int vCX; unsigned int vDX;
 unsigned int vSP; unsigned int vBP; unsigned int vCS; unsigned int vDS;
 unsigned int vSS; unsigned int vES; //debugging
@@ -390,7 +391,7 @@ int Status(drive) {
 }
 
 int Params() {
-	cputs(" DriveParams ");
+	if (debug) cputs(" DriveParams ");
 	BIOS_Status=Int13hfunction(Drive, 8);
 	if (BIOS_ERR) {
 		Int13hError();
@@ -499,7 +500,7 @@ int readMBR() {
 
 int getBootSector() {
 	int i;
-	cputs(" Read boot sector");
+	if (debug) cputs(" Read boot sector");
   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
   		pt_StartSector, 1, DiskBufSeg, DiskBuf);
 	if (BIOS_ERR) {
@@ -548,8 +549,6 @@ int FATInit() {
 	Sectors_per_cylinder = bs_sectors_per_track *  bs_num_heads;//d=w*w
 	asm mov [Sectors_per_cylinder + 2], dx;store high word
 
-//	cputs(", trueFATtype=");
-
 	templong = (long) 65525;
 	if (CountofClusters > templong) {
 		trueFATtype=32;
@@ -563,7 +562,7 @@ int FATInit() {
 		return 0;
 		}
 	trueFATtype=16;
-	cputs(" FAT16");
+	if (debug) cputs(" FAT16");
 	return 0;
 }
 
@@ -573,18 +572,13 @@ int Int13hExt() {
 	asm mov [vAX], ax;
 	asm mov [vBX], bx; 0xAA55 Extension installed
 	asm mov [vCX], cx; =1: AH042h-44h,47h,48h supported
-//	putch(10);
-//	cputs("Int13h 41h Ext=");	printhex16(vAX);
-//	cputs(", BIOS_Status=");	printhex16(BIOS_Status);
 	if (BIOS_ERR) {
 		cputs(" Ext NOT present");
 		Int13hError();
 		return 1;
 		}
 	else {
-	cputs(",Int13h Ext");
-//		cputs(",Extension found BX(AA55)=");printhex16(vBX);
-//		cputs(" CX=");						printhex16(vCX);
+	if (debug) cputs(",Int13h Ext");
 		}
 	return 0;
 }
@@ -875,16 +869,7 @@ int fillstr(char *s, char filler, int start, int end) {
 		*c = filler;
 		c++;
 		start++;
-		}
-	
-	}
-int search_delimiter(char *s) {
-	while (*s) {
-		if (*s == '/') return s;
-		if (*s == '\\') return s;
-		s++;
-	}
-	return 0;
+		}	
 }
 
 int is_delimiter(char *s) {
@@ -902,21 +887,22 @@ int fatNextSearch() {//get next part of filename to do a search
 //	OUT: isfilename: 0=part of directory, 1=filename
 //	OUT: fat_notfound
 	char *searchstrp;
-//	char *searchstartp;
 	char *p; 
-	int  len;
-	int delimiter;
-	int dot;
-putch(10); cputs("fatNextSearch upto1="); cputs(upto);
+	unsigned int  len;
+	unsigned int delimiter;
+	unsigned int dot;
+putch(10); cputs("fatNextSearch upto="); cputs(upto);
 
-	isfilename=0;//default is directory
-	if (*upto == '/' ) upto++;//remove leading delimiter
-	if (*upto == '\\') upto++;
+//	if (*upto == '/' ) upto++;//remove leading delimiter
+//	if (*upto == '\\') upto++;
+	delimiter=is_delimiter(upto);
+	if (delimiter == 1) upto++;
+	if (delimiter == 2) {fat_notfound=1; return; }
 	
 	searchstrp   = &searchstr;//clear searchstr
-//	searchstartp = &searchstr;
 	len=0;
 	delimiter=is_delimiter(upto);
+	if (delimiter == 2) {fat_notfound=1; return; }
 
 	while (delimiter == 0) {		
 		*searchstrp = *upto;
@@ -926,25 +912,46 @@ putch(10); cputs("fatNextSearch upto1="); cputs(upto);
 		delimiter=is_delimiter(upto);
 	}
 	isfilename=0;//default directory
-	if (delimiter == 2) isfilename=1;//last name is always a file name
-	
-putch(10);
-cputs("Fertig delimiter="); printunsign(delimiter);
+	if (delimiter == 2) isfilename=1;//last name is always a file name	
+/*cputs(" delimiter="); printunsign(delimiter);
 cputs(", isfilename="); printunsign(isfilename);
 cputs(", upto="); printunsign(upto);
 cputs("="); cputs(upto);
 cputs(", len="); printunsign(len);
 cputs(", searchstr="); cputsLen(searchstr, len);
-
+*/
 	dot=memchr1(searchstr, '.', len);
-	if (len > 11) {
-		fat_notfound=1;
-		return;
-	}
-	if (isfilename == 0) {//is directory name
-		fillstr(searchstr, ' ', len, 11);		
-	}	
-cputs(", searchstr(0-11)="); cputsLen(searchstr, 11);
+	if (dot ==0) {//no extension, max. 8 char
+		if (len > 8) {fat_notfound=1; return; }
+		fillstr(searchstr, ' ', len, 11);
+		}
+	else {//remove dot in name
+		if (dot > 8) {fat_notfound=1; return; }
+		fillstr(searchstr, ' ', dot, 8);
+cputs(",UpV="); printunsign(upto);
+		upto = upto + dot;
+//cputs(",UpN="); printunsign(upto);
+cputs(",len="); printunsign(len);
+cputs(",dot="); printunsign(dot);
+		
+		while (dot < len) {
+			*searchstrp = *upto;
+			searchstrp++; 
+			upto++; 
+			dot++;
+			}
+cputs(",ssp="); printunsign(searchstrp);
+cputs("="); cputs(searchstrp);
+
+		fillstr(searchstr, ' ', dot, 3);		
+		}	
+putch(10);
+cputs("End-NS="); cputsLen(searchstr, 11);
+//cputs(" delimiter="); printunsign(delimiter);
+//cputs(", isfilename="); printunsign(isfilename);
+cputs(",upto="); printunsign(upto);
+cputs("="); cputs(upto);
+cputs(",len="); printunsign(len);
 }
 
 // 7.
@@ -952,17 +959,17 @@ int fatGetStartCluster() {
 	if (fat_notfound) return;
 	upto = &filename;
 	fatfile_cluster = 0;
-cputs("GetStartCluster filename=");cputs(filename);
-cputs(", upto="); cputs(upto);
+	if (debug) {
+		cputs("GetStartCluster filename=");cputs(filename);
+		cputs(", upto="); cputs(upto); }
 	fatNextSearch();
-
 }
 
 // 8.
 int fatOpenFile() {//set handle for root or subdir
 	unsigned long bytes_per_cluster;
 	fat_notfound=0;
-cputs("fatOpenfile ");	
+	if (debug) cputs("fatOpenfile ");	
 	if (filename[0] == 0) {//empty filename
 		fatfile_root = 1;
 		fatfile_nextCluster = 0xFFFF;
@@ -998,7 +1005,7 @@ cputs("fatOpenfile ");
 int fileOpen() {//remove drive letter and insert in drive
 	int rc;
 	toupper(filename);
-cputs(" fileOpen ");
+	if (debug) cputs(" fileOpen ");
 	rc=fatOpenFile();
 	if (rc) return 0;//error
 //	else return fhandle;
@@ -1007,7 +1014,7 @@ cputs(" fileOpen ");
 //------------------------------- Init,  main ---------------
 int Init() {
 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
-cputs(" Init ");
+	if (debug) cputs("Init ");
 
 	if (Params()) cputs("** NO DRIVE PARAMS FOUND **");//no hard disk
 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32
@@ -1024,11 +1031,19 @@ cputs(" Init ");
 
 int main() {
 	Drive=0x80;
-cputs("main ");
 	if (Init() != 0) return 1;
 	strcpy(&filename, "/binslash/dos.com");
 	fileOpen();	
-/*	strcpy(&filename, "tet/abc.com");
+	strcpy(&filename, "tet/abc.d");
 	fileOpen();	
-*/
+	strcpy(&filename, "T.dot/abc.");
+	fileOpen();	
+	strcpy(&filename, "test1.c");
+	fileOpen();	
+	strcpy(&filename, "w.123");
+	fileOpen();	
+	strcpy(&filename, "test2");
+	fileOpen();	
+	strcpy(&filename, " ");
+	fileOpen();	
 }
