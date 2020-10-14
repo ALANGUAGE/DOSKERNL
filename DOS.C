@@ -236,9 +236,9 @@ int strlen(char *s) { int c;
     while (*s!=0) {s++; c++;}
     return c;
 }
-int strcpy(char *s, char *t) {
-    do { *s=*t; s++; t++; }
-    while (*t!=0);
+int strcpy(char *s, char *t) {//new
+    while (*t!=0) {
+    	*s=*t; s++; t++; }
     *s=0;
     return s;
 }
@@ -862,23 +862,13 @@ int fatDirSearch() {//search a directory chain. IN:searchstr
 	}	
 }
 
-int fillstr(char *s, char filler, int start, int end) {
-	char *c;
-	c = s + start;
-	while (start < end) {
-		*c = filler;
-		c++;
-		start++;
-		}	
-}
-
 int is_delimiter(char *s) {
 	if (*s == '/' ) return 1;
 	if (*s == '\\') return 1;
 	if (*s ==    0) return 2;
+	if (*s ==  '.') return 3;
 	return 0;
-}
-	
+}	
 // 6.
 int fatNextSearch() {//get next part of filename to do a search
 //	IN:  upto: points to start of search in filename 
@@ -890,68 +880,45 @@ int fatNextSearch() {//get next part of filename to do a search
 	char *p; 
 	unsigned int  len;
 	unsigned int delimiter;
-	unsigned int dot;
-putch(10); cputs("fatNextSearch upto="); cputs(upto);
-
-//	if (*upto == '/' ) upto++;//remove leading delimiter
-//	if (*upto == '\\') upto++;
+putch(10); cputs("A:"); cputs(upto);
 	delimiter=is_delimiter(upto);
 	if (delimiter == 1) upto++;
 	if (delimiter == 2) {fat_notfound=1; return; }
-	
-	searchstrp   = &searchstr;//clear searchstr
+
+	strcpy(&searchstr, "           ");//11 blank padded
+	searchstrp = &searchstr;//clear searchstr
 	len=0;
 	delimiter=is_delimiter(upto);
-	if (delimiter == 2) {fat_notfound=1; return; }
-
-	while (delimiter == 0) {		
+	while (delimiter == 0) { //no slash, zero, point
 		*searchstrp = *upto;
 		searchstrp++;
 		upto++;	
 		len++;
 		delimiter=is_delimiter(upto);
-	}
+	} 
+	if (len > 8) {fat_notfound=1; return; }
 	isfilename=0;//default directory
-	if (delimiter == 2) isfilename=1;//last name is always a file name	
-/*cputs(" delimiter="); printunsign(delimiter);
-cputs(", isfilename="); printunsign(isfilename);
-cputs(", upto="); printunsign(upto);
-cputs("="); cputs(upto);
-cputs(", len="); printunsign(len);
-cputs(", searchstr="); cputsLen(searchstr, len);
-*/
-	dot=memchr1(searchstr, '.', len);
-	if (dot ==0) {//no extension, max. 8 char
-		if (len > 8) {fat_notfound=1; return; }
-		fillstr(searchstr, ' ', len, 11);
-		}
-	else {//remove dot in name
-		if (dot > 8) {fat_notfound=1; return; }
-		fillstr(searchstr, ' ', dot, 8);
-cputs(",UpV="); printunsign(upto);
-		upto = upto + dot;
-//cputs(",UpN="); printunsign(upto);
-cputs(",len="); printunsign(len);
-cputs(",dot="); printunsign(dot);
-		
-		while (dot < len) {
+	if (delimiter == 2) isfilename=1;//last name is always a file name
+	if (delimiter == 3) {//remove dot in name		
+		searchstrp = &searchstr;
+		searchstrp += 8;//start extension		
+		len=0;
+		upto++;
+		delimiter=is_delimiter(upto);
+		while (delimiter == 0) { //no slash, zero, point
 			*searchstrp = *upto;
-			searchstrp++; 
-			upto++; 
-			dot++;
-			}
-cputs(",ssp="); printunsign(searchstrp);
-cputs("="); cputs(searchstrp);
-
-		fillstr(searchstr, ' ', dot, 3);		
-		}	
+			searchstrp++;
+			upto++;	
+			len++;
+			delimiter=is_delimiter(upto);
+		} 
+		if (len > 3) {fat_notfound=1; return; }
+		if (delimiter == 2) isfilename=1;//last name is always a file name
+	}	
 putch(10);
-cputs("End-NS="); cputsLen(searchstr, 11);
-//cputs(" delimiter="); printunsign(delimiter);
-//cputs(", isfilename="); printunsign(isfilename);
-cputs(",upto="); printunsign(upto);
-cputs("="); cputs(upto);
-cputs(",len="); printunsign(len);
+cputs("End:"); cputsLen(searchstr, 11);
+cputs(",isFN="); printunsign(isfilename);
+cputs(",upto="); cputs(upto);
 }
 
 // 7.
@@ -971,6 +938,9 @@ int fatOpenFile() {//set handle for root or subdir
 	fat_notfound=0;
 	if (debug) cputs("fatOpenfile ");	
 	if (filename[0] == 0) {//empty filename
+//	if (strlen(filename) == 0) {//empty filename
+		fat_notfound=1;//todo: return
+		
 		fatfile_root = 1;
 		fatfile_nextCluster = 0xFFFF;
 		fatfile_sectorCount = fat_RootDirSectorsL;
@@ -1005,8 +975,8 @@ int fatOpenFile() {//set handle for root or subdir
 int fileOpen() {//remove drive letter and insert in drive
 	int rc;
 	toupper(filename);
-	if (debug) cputs(" fileOpen ");
 	rc=fatOpenFile();
+	cputs(" rc="); printunsign(rc);
 	if (rc) return 0;//error
 //	else return fhandle;
 }
@@ -1032,18 +1002,31 @@ int Init() {
 int main() {
 	Drive=0x80;
 	if (Init() != 0) return 1;
-	strcpy(&filename, "/binslash/dos.com");
+	strcpy(&filename, "alfa5/binslash/dos.com");
 	fileOpen();	
+	fatNextSearch();	
 	strcpy(&filename, "tet/abc.d");
 	fileOpen();	
 	strcpy(&filename, "T.dot/abc.");
 	fileOpen();	
+	fatNextSearch();
 	strcpy(&filename, "test1.c");
 	fileOpen();	
-	strcpy(&filename, "w.123");
+	strcpy(&filename, "123456789.123");
 	fileOpen();	
 	strcpy(&filename, "test2");
 	fileOpen();	
+	fatNextSearch();
 	strcpy(&filename, " ");
 	fileOpen();	
+	strcpy(&filename, "");
+	fileOpen();	
 }
+/*cputs(" delimiter="); printunsign(delimiter);
+cputs(", isfilename="); printunsign(isfilename);
+cputs(", upto="); printunsign(upto);
+cputs("="); cputs(upto);
+cputs(", len="); printunsign(len);
+cputs(", searchstr="); cputsLen(searchstr, len);
+*/
+
