@@ -431,7 +431,8 @@ int getPartitionData() {
 	pt_StartSector &= 0x3F;
 //	pt_StartSector++;//Sector start with 1 todo
 	pt_StartCylinder &= 0xC0;
-	pt_StartCylinder = pt_StartCylindfatfile_c	pt_StartCylinder=(int)DiskBuf[j] + pt_StartCylinder;
+	pt_StartCylinder = pt_StartCylinder << 2;
+	pt_StartCylinder=(int)DiskBuf[j] + pt_StartCylinder;	
 	j++;					pt_FileSystem=DiskBuf[j];
 //	0=not used, 1=FAT12, 4=FAT16, 5=extended, 6=large<2GB
 	j++;					pt_EndHead=DiskBuf[j];
@@ -888,24 +889,15 @@ int fatNextSearch() {//get next part of filename to do a search
 	char *p; 
 	unsigned int  len;
 	unsigned int delimiter;
-<<<<<<< HEAD
 putch(10); cputs("N:"); cputs(upto);
-=======
-	unsigned int dot;
-putch(10); cputs("fatNextSearch upto="); cputs(upto);
-
-//	if (*upto == '/' ) upto++;//remove leading delimiter
-//	if (*upto == '\\') upto++;
->>>>>>> parent of 33a5cdd... 6. fatNextSearch nearly working
 	delimiter=is_delimiter(upto);
 	if (delimiter == 1) upto++;
 	if (delimiter == 2) {fat_notfound=1; return; }
-	
+
+	strcpy(&searchstr, "           ");	
 	searchstrp   = &searchstr;//clear searchstr
 	len=0;
 	delimiter=is_delimiter(upto);
-	if (delimiter == 2) {fat_notfound=1; return; }
-
 	while (delimiter == 0) {		
 		*searchstrp = *upto;
 		searchstrp++;
@@ -913,61 +905,28 @@ putch(10); cputs("fatNextSearch upto="); cputs(upto);
 		len++;
 		delimiter=is_delimiter(upto);
 	}
+	if (len > 8) {fat_notfound=1; return;}
 	isfilename=0;//default directory
 	if (delimiter == 2) isfilename=1;//last name is always a file name	
-/*cputs(" delimiter="); printunsign(delimiter);
-cputs(", isfilename="); printunsign(isfilename);
-cputs(", upto="); printunsign(upto);
-cputs("="); cputs(upto);
-cputs(", len="); printunsign(len);
-cputs(", searchstr="); cputsLen(searchstr, len);
-*/
-	dot=memchr1(searchstr, '.', len);
-	if (dot ==0) {//no extension, max. 8 char
-		if (len > 8) {fat_notfound=1; return; }
-		fillstr(searchstr, ' ', len, 11);
-		}
-	else {//remove dot in name
-		if (dot > 8) {fat_notfound=1; return; }
-		fillstr(searchstr, ' ', dot, 8);
-cputs(",UpV="); printunsign(upto);
-		upto = upto + dot;
-//cputs(",UpN="); printunsign(upto);
-cputs(",len="); printunsign(len);
-cputs(",dot="); printunsign(dot);
-		
-		while (dot < len) {
+	if (delimter == 3) {
+		searchstrp = &searchstr;
+		searchstrp += 8;//start extension
+		len=0;
+		upto++;
+		delimiter = is_delimiter(upto);
+		while (delimiter == 0) {		
 			*searchstrp = *upto;
-<<<<<<< HEAD
 			searchstrp++;
 			upto++;	
 			len++;
 			delimiter=is_delimiter(upto);
-		} 
-		if (len > 3) {fat_notfound=1; return; }
+		}
+		if (len > 3) {fat_notfound=1; return;}
 		if (delimiter == 2) isfilename=1;//last name is always a file name
 	}	
 cputs(", End:"); cputsLen(searchstr, 11);
 cputs(",isFN="); printunsign(isfilename);
 cputs(",upto="); cputs(upto);
-=======
-			searchstrp++; 
-			upto++; 
-			dot++;
-			}
-cputs(",ssp="); printunsign(searchstrp);
-cputs("="); cputs(searchstrp);
-
-		fillstr(searchstr, ' ', dot, 3);		
-		}	
-putch(10);
-cputs("End-NS="); cputsLen(searchstr, 11);
-//cputs(" delimiter="); printunsign(delimiter);
-//cputs(", isfilename="); printunsign(isfilename);
-cputs(",upto="); printunsign(upto);
-cputs("="); cputs(upto);
-cputs(",len="); printunsign(len);
->>>>>>> parent of 33a5cdd... 6. fatNextSearch nearly working
 }
 
 // 7.
@@ -988,14 +947,8 @@ int fatOpenFile() {//opening root or subdirextory
 	unsigned long bytes_per_cluster;
 	fat_notfound=0;
 	if (debug) cputs("fatOpenfile ");	
-<<<<<<< HEAD
-
 //	if (eqstr(filename, "") == 0) {
-	if (filename[0] == 0) {
-		
-=======
 	if (filename[0] == 0) {//empty filename
->>>>>>> parent of 33a5cdd... 6. fatNextSearch nearly working
 		fatfile_root = 1;
 		fatfile_nextCluster = 0xFFFF;
 		fatfile_sectorCount = fat_RootDirSectorsL;
@@ -1033,10 +986,7 @@ int fileOpen() {//todo: remove drive letter and insert in drive
 	toupper(filename);
 	if (debug) cputs(" fileOpen ");
 	rc=fatOpenFile();
-<<<<<<< HEAD
 	if (debug) { cputs(" rc="); printunsign(rc); }
-=======
->>>>>>> parent of 33a5cdd... 6. fatNextSearch nearly working
 	if (rc) return 0;//error
 //	else return fhandle;
 }
