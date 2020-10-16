@@ -236,9 +236,9 @@ int strlen(char *s) { int c;
     while (*s!=0) {s++; c++;}
     return c;
 }
-int strcpy(char *s, char *t) {//new
-    while (*t!=0) {
-    	*s=*t; s++; t++; }
+int strcpy(char *s, char *t) {
+    do { *s=*t; s++; t++; }
+    while (*t!=0);
     *s=0;
     return s;
 }
@@ -860,13 +860,23 @@ int fatDirSearch() {//search a directory chain. IN:searchstr
 	}	
 }
 
+int fillstr(char *s, char filler, int start, int end) {
+	char *c;
+	c = s + start;
+	while (start < end) {
+		*c = filler;
+		c++;
+		start++;
+		}	
+}
+
 int is_delimiter(char *s) {
 	if (*s == '/' ) return 1;
 	if (*s == '\\') return 1;
 	if (*s ==    0) return 2;
-	if (*s ==  '.') return 3;
 	return 0;
-}	
+}
+	
 // 6.
 int fatNextSearch() {//get next part of filename to do a search
 //	IN:  upto: points to start of search in filename 
@@ -878,33 +888,57 @@ int fatNextSearch() {//get next part of filename to do a search
 	char *p; 
 	unsigned int  len;
 	unsigned int delimiter;
+<<<<<<< HEAD
 putch(10); cputs("N:"); cputs(upto);
+=======
+	unsigned int dot;
+putch(10); cputs("fatNextSearch upto="); cputs(upto);
+
+//	if (*upto == '/' ) upto++;//remove leading delimiter
+//	if (*upto == '\\') upto++;
+>>>>>>> parent of 33a5cdd... 6. fatNextSearch nearly working
 	delimiter=is_delimiter(upto);
 	if (delimiter == 1) upto++;
 	if (delimiter == 2) {fat_notfound=1; return; }
-
-	strcpy(&searchstr, "           ");//11 blank padded
-	searchstrp = &searchstr;//clear searchstr
+	
+	searchstrp   = &searchstr;//clear searchstr
 	len=0;
 	delimiter=is_delimiter(upto);
-	while (delimiter == 0) { //no slash, zero, point
+	if (delimiter == 2) {fat_notfound=1; return; }
+
+	while (delimiter == 0) {		
 		*searchstrp = *upto;
 		searchstrp++;
 		upto++;	
 		len++;
 		delimiter=is_delimiter(upto);
-	} 
-	if (len > 8) {fat_notfound=1; return; }
+	}
 	isfilename=0;//default directory
-	if (delimiter == 2) isfilename=1;//last name is always a file name
-	if (delimiter == 3) {//remove dot in name		
-		searchstrp = &searchstr;
-		searchstrp += 8;//start extension		
-		len=0;
-		upto++;
-		delimiter=is_delimiter(upto);
-		while (delimiter == 0) { //no slash, zero, point
+	if (delimiter == 2) isfilename=1;//last name is always a file name	
+/*cputs(" delimiter="); printunsign(delimiter);
+cputs(", isfilename="); printunsign(isfilename);
+cputs(", upto="); printunsign(upto);
+cputs("="); cputs(upto);
+cputs(", len="); printunsign(len);
+cputs(", searchstr="); cputsLen(searchstr, len);
+*/
+	dot=memchr1(searchstr, '.', len);
+	if (dot ==0) {//no extension, max. 8 char
+		if (len > 8) {fat_notfound=1; return; }
+		fillstr(searchstr, ' ', len, 11);
+		}
+	else {//remove dot in name
+		if (dot > 8) {fat_notfound=1; return; }
+		fillstr(searchstr, ' ', dot, 8);
+cputs(",UpV="); printunsign(upto);
+		upto = upto + dot;
+//cputs(",UpN="); printunsign(upto);
+cputs(",len="); printunsign(len);
+cputs(",dot="); printunsign(dot);
+		
+		while (dot < len) {
 			*searchstrp = *upto;
+<<<<<<< HEAD
 			searchstrp++;
 			upto++;	
 			len++;
@@ -916,6 +950,24 @@ putch(10); cputs("N:"); cputs(upto);
 cputs(", End:"); cputsLen(searchstr, 11);
 cputs(",isFN="); printunsign(isfilename);
 cputs(",upto="); cputs(upto);
+=======
+			searchstrp++; 
+			upto++; 
+			dot++;
+			}
+cputs(",ssp="); printunsign(searchstrp);
+cputs("="); cputs(searchstrp);
+
+		fillstr(searchstr, ' ', dot, 3);		
+		}	
+putch(10);
+cputs("End-NS="); cputsLen(searchstr, 11);
+//cputs(" delimiter="); printunsign(delimiter);
+//cputs(", isfilename="); printunsign(isfilename);
+cputs(",upto="); printunsign(upto);
+cputs("="); cputs(upto);
+cputs(",len="); printunsign(len);
+>>>>>>> parent of 33a5cdd... 6. fatNextSearch nearly working
 }
 
 // 7.
@@ -936,10 +988,14 @@ int fatOpenFile() {//opening root or subdirextory
 	unsigned long bytes_per_cluster;
 	fat_notfound=0;
 	if (debug) cputs("fatOpenfile ");	
+<<<<<<< HEAD
 
 //	if (eqstr(filename, "") == 0) {
 	if (filename[0] == 0) {
 		
+=======
+	if (filename[0] == 0) {//empty filename
+>>>>>>> parent of 33a5cdd... 6. fatNextSearch nearly working
 		fatfile_root = 1;
 		fatfile_nextCluster = 0xFFFF;
 		fatfile_sectorCount = fat_RootDirSectorsL;
@@ -975,8 +1031,12 @@ int fatOpenFile() {//opening root or subdirextory
 int fileOpen() {//todo: remove drive letter and insert in drive
 	int rc;
 	toupper(filename);
+	if (debug) cputs(" fileOpen ");
 	rc=fatOpenFile();
+<<<<<<< HEAD
 	if (debug) { cputs(" rc="); printunsign(rc); }
+=======
+>>>>>>> parent of 33a5cdd... 6. fatNextSearch nearly working
 	if (rc) return 0;//error
 //	else return fhandle;
 }
@@ -1005,31 +1065,18 @@ int Init() {
 int main() {
 	Drive=0x80;
 	if (Init() != 0) return 1;
-	strcpy(&filename, "alfa5/binslash/dos.com");
+	strcpy(&filename, "/binslash/dos.com");
 	fileOpen();	
-	fatNextSearch();	
 	strcpy(&filename, "tet/abc.d");
 	fileOpen();	
 	strcpy(&filename, "T.dot/abc.");
 	fileOpen();	
-	fatNextSearch();
 	strcpy(&filename, "test1.c");
 	fileOpen();	
-	strcpy(&filename, "123456789.123");
+	strcpy(&filename, "w.123");
 	fileOpen();	
 	strcpy(&filename, "test2");
 	fileOpen();	
-	fatNextSearch();
 	strcpy(&filename, " ");
 	fileOpen();	
-	strcpy(&filename, "");
-	fileOpen();	
 }
-/*cputs(" delimiter="); printunsign(delimiter);
-cputs(", isfilename="); printunsign(isfilename);
-cputs(", upto="); printunsign(upto);
-cputs("="); cputs(upto);
-cputs(", len="); printunsign(len);
-cputs(", searchstr="); cputsLen(searchstr, len);
-*/
-
