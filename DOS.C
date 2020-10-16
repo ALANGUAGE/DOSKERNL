@@ -81,7 +81,7 @@ unsigned int  dir_DateLastAccessd;		//18 no time info available or zero
 unsigned int  dir_FirstClusterHiBytes;	//20 FAT12/16 always zero
 unsigned int  dir_LastModTime;	//22 modification time on closing
 unsigned int  dir_LastModDate;	//24 modification date on closing
-unsigned int  dir_FirstCluster;	//26 1.clu. of file data,if filesize=0 then 0
+unsigned int  dir_FirstCluster;	//26 1.clu. file data,if filesize=0 then 0
 unsigned long dir_FileSize;		//28 size in bytes, if directory then zero
 // 32 end direcctory entry structure
 
@@ -431,9 +431,7 @@ int getPartitionData() {
 	pt_StartSector &= 0x3F;
 //	pt_StartSector++;//Sector start with 1 todo
 	pt_StartCylinder &= 0xC0;
-	pt_StartCylinder = pt_StartCylinder << 2;
-	j++;
-	pt_StartCylinder=(int)DiskBuf[j] + pt_StartCylinder;
+	pt_StartCylinder = pt_StartCylindfatfile_c	pt_StartCylinder=(int)DiskBuf[j] + pt_StartCylinder;
 	j++;					pt_FileSystem=DiskBuf[j];
 //	0=not used, 1=FAT12, 4=FAT16, 5=extended, 6=large<2GB
 	j++;					pt_EndHead=DiskBuf[j];
@@ -501,8 +499,8 @@ int readMBR() {
 int getBootSector() {
 	int i;
 	if (debug) cputs(" Read boot sector");
-  	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
-  		pt_StartSector, 1, DiskBufSeg, DiskBuf);
+  	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead,
+  	pt_StartCylinder, pt_StartSector, 1, DiskBufSeg, DiskBuf);
 	if (BIOS_ERR) {
 		Int13hError();
 		return 0;
@@ -779,7 +777,7 @@ int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
 }
 
 // 2.
-int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
+int fatDirSectorSearch(unsigned long startSector,unsigned long numsectors){
     //search for file name. IN:searchstr
     char *p;
 	unsigned int EndDiskBuf;
@@ -880,7 +878,7 @@ int fatNextSearch() {//get next part of filename to do a search
 	char *p; 
 	unsigned int  len;
 	unsigned int delimiter;
-putch(10); cputs("A:"); cputs(upto);
+putch(10); cputs("N:"); cputs(upto);
 	delimiter=is_delimiter(upto);
 	if (delimiter == 1) upto++;
 	if (delimiter == 2) {fat_notfound=1; return; }
@@ -915,8 +913,7 @@ putch(10); cputs("A:"); cputs(upto);
 		if (len > 3) {fat_notfound=1; return; }
 		if (delimiter == 2) isfilename=1;//last name is always a file name
 	}	
-putch(10);
-cputs("End:"); cputsLen(searchstr, 11);
+cputs(", End:"); cputsLen(searchstr, 11);
 cputs(",isFN="); printunsign(isfilename);
 cputs(",upto="); cputs(upto);
 }
@@ -925,6 +922,8 @@ cputs(",upto="); cputs(upto);
 int fatGetStartCluster() {
 	if (fat_notfound) return;
 	upto = &filename;
+	if (is_delimiter(upto) == 1) upto++;
+
 	fatfile_cluster = 0;
 	if (debug) {
 		cputs("GetStartCluster filename=");cputs(filename);
@@ -933,13 +932,13 @@ int fatGetStartCluster() {
 }
 
 // 8.
-int fatOpenFile() {//set handle for root or subdir
+int fatOpenFile() {//opening root or subdirextory
 	unsigned long bytes_per_cluster;
 	fat_notfound=0;
 	if (debug) cputs("fatOpenfile ");	
-	if (filename[0] == 0) {//empty filename
-//	if (strlen(filename) == 0) {//empty filename
-		fat_notfound=1;//todo: return
+
+//	if (eqstr(filename, "") == 0) {
+	if (filename[0] == 0) {
 		
 		fatfile_root = 1;
 		fatfile_nextCluster = 0xFFFF;
@@ -953,6 +952,7 @@ int fatOpenFile() {//set handle for root or subdir
 	} else {//search in subdir
 		fatfile_root = 0;
 		fatGetStartCluster();
+		
 		if (fat_notfound) return 1;
 		bytes_per_cluster   = (long) bs_clust_size * bs_sect_size;
 		fatfile_lastBytes   = fatfile_fileSize % bytes_per_cluster;
@@ -961,7 +961,7 @@ int fatOpenFile() {//set handle for root or subdir
 		if (fatfile_fileSize == 0) fatfile_dir = 1;
 		else                       fatfile_dir = 0;
 
-//		fatClusterAnalyse();
+//		fatClusterAnalyse(fatfil);
 		fatfile_sectorCount = (int) bs_clust_size;
 	}
 	fatfile_currentCluster = fatfile_cluster;
@@ -972,13 +972,16 @@ int fatOpenFile() {//set handle for root or subdir
 }
 
 // 9.
-int fileOpen() {//remove drive letter and insert in drive
+int fileOpen() {//todo: remove drive letter and insert in drive
 	int rc;
 	toupper(filename);
 	rc=fatOpenFile();
-	cputs(" rc="); printunsign(rc);
+	if (debug) { cputs(" rc="); printunsign(rc); }
 	if (rc) return 0;//error
 //	else return fhandle;
+}
+// 10.
+int fatReadFile() {
 }
 
 //------------------------------- Init,  main ---------------
