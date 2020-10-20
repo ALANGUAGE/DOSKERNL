@@ -5,7 +5,7 @@ char Version1[]="DOS.COM V0.2.0";//test bed
 // AL*r/m8=AX; AX*r/m16=DX:AX; EAX*r/m32=EDX:EAX
 // > 16.777.216 sectors (8GB) only LBA
 #define ORGDATA		16384//start of arrays
-#define debug 1
+#define debug 0
 unsigned int vAX ;unsigned int vBX ;unsigned int vCX; unsigned int vDX;
 unsigned int vSP; unsigned int vBP; unsigned int vCS; unsigned int vDS;
 unsigned int vSS; unsigned int vES; //debugging
@@ -470,13 +470,13 @@ int readMBR() {
 		return 0;
 		}
 	else {
-		if (debug) cputs(" Read partition.");
+//		cputs(" Read partition.");
 		if(checkBootSign()==0) return 0;
 		do {
 			getPartitionData();
 
 			if (pt_Bootable == 0x80) {
-				if (debug) cputs("Boot partition found");
+//				cputs("Boot partition found");
 				if (pt_FileSystem == 1) {
 					cputs(", FAT12 partition < 32MB");
 					isFAT=1;
@@ -486,14 +486,13 @@ int readMBR() {
 					isFAT=4;
 					}
 				if (pt_FileSystem == 6) {
-					if (debug) cputs(", large FAT16 partition < 2GB");
+//					cputs(", large FAT16 partition < 2GB");
 					isFAT=6;
 					}
 				pt_PartNo=99;//end of loop
 			}
 			pt_PartNo ++;
 		} while (pt_PartNo <4);
-		if (debug) { cputs(".FileSystem:"); printunsign(pt_FileSystem); }
 		return isFAT;
 	}
 }
@@ -503,12 +502,12 @@ int getBootSector() {
 	if (debug) cputs(" Read boot sector");
   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead,
   	pt_StartCylinder, pt_StartSector, 1, DiskBufSeg, DiskBuf);
-	if (debug) printhex16(BIOS_Status);
 	if (BIOS_ERR) {
 		Int13hError();
 		return 0;
 		}
 	else {
+//		printhex16(BIOS_Status);
 		if(checkBootSign()==0) return 0;
 		memcpy(&bs_jmp, &DiskBuf, 62);
 		if (bs_jmp[0] != 0xEB) cputs(".ATTN boot byte NOT EBh");
@@ -909,7 +908,7 @@ putch(10); cputs("N:"); cputs(upto);
 	if (len > 8) {fat_notfound=1; return;}
 	isfilename=0;//default directory
 	if (delimiter == 2) isfilename=1;//last name is always a file name	
-	if (delimiter == 3) {
+	if (delimter == 3) {
 		searchstrp = &searchstr;
 		searchstrp += 8;//start extension
 		len=0;
@@ -1008,7 +1007,6 @@ int Init() {
 		}
 	if(getBootSector()==0) 	return 1;
 	if (FATInit())			return 1;
-	if (debug) PrintDriveParameter();
 	if(trueFATtype != 16) 	return 1;
 	Int13hExt();
 	return 0;
