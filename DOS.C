@@ -24,7 +24,8 @@ unsigned char filename[67];
 unsigned char searchstr  [12];//with null
 char *upto;		//IN:part of filename to search/OUT:to search next time
 char isfilename;//is filename or part of directory?
-char fat_notfound;
+char fatfound;
+//char fat_notfound;
 
 //Params from int13h, Function 8
 unsigned int  pa_Cylinders;
@@ -789,7 +790,7 @@ int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
     //search for file name. IN:searchstr
     char *p;
 	unsigned int EndDiskBuf;
-	fat_notfound=0;	
+	fatfound=0;
 	do {
 		readLogical(startSector);
 		p=&DiskBuf;
@@ -801,75 +802,17 @@ int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
 				filename[11] = 0;
 				fatfile_cluster   = dir_FirstCluster;
 				fatfile_fileSize  = dir_FileSize;
+				fatfound=1;
 			}
-			if (*p == 0) {//only empty entries following
-					fat_notfound=1;
-					return;
-				}
+			if (*p == 0) return; //only empty entries following
 			p+=32;//get next entry
 		} while (p < EndDiskBuf);
 		startSector++;		
 		numsectors--;
 	} while (numsectors > 0);
 	fatfile_cluster=0;//not found but not end
-cputs(",NF2="); printunsign(fat_notfound);		
-	
 }
 
-// 4.
-int fatClusterAnalyse(unsigned int cluster) {
-//OUT: fatfile_sectorStartL, fatfile_nextCluster
-	unsigned long fatSectorL;
-	unsigned int offset;
-	char *p;
-	
-	fatfile_sectorStartL = (long) cluster - 2;
-	fatfile_sectorStartL = fatfile_sectorStartL * clust_sizeL;
-	fatfile_sectorStartL = fatfile_sectorStartL + fat_DataStartSectorL;
-	
-	fatSectorL = (long) cluster + cluster;
-	fatSectorL = fatSectorL / sector_sizeL;		
-	fatSectorL = fatSectorL + fat_FatStartSectorL; 
-
-	readLogical(fatSectorL);
-	
-	offset = cluster + cluster;
-	offset = offset % bs_sect_size;
-	
-	p=&DiskBuf;
-	p = p + offset;	
-	memcpy(&fatfile_nextCluster, p, 2);
-}
-
-// 5.
-int fatDirSearch() {//search a directory chain. IN:searchstr
-	
-//	fatClusterAnalyse(fatfile_cluster);
-	//OUT: fatfile_sectorStartL, fatfile_nextCluster
-	
-	
-//cputs(",RDirStartSecL="); printlong(fat_RootDirStartSectorL);
-//cputs(",nextClus="); printunsign(fatfile_nextCluster);		
-//cputs(",RootDirsecL="); printlong(fat_RootDirSectorsL);
-
-//fatDirSectorList(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
-//getkey();
-
-	fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
-
-	while (fatfile_cluster == 0) {//not found but not end
-cputs(",NC5=");	 printhex16(fatfile_nextCluster);		
-		if (fatfile_nextCluster >= 0xFFF8) {
-			fat_notfound=1;
-			return;	
-		}		
-		fatfile_cluster=fatfile_nextCluster;
-		fatClusterAnalyse(fatfile_cluster);
-		fatDirSectorSearch(fatfile_sectorStartL, fat_RootDirSectorsL);
-	}
-cputs(",NF5="); printunsign(fat_notfound);		
-
-}
 
 int is_delimiter(char *s) {
 	if (*s == '/' ) return 1;
@@ -884,14 +827,14 @@ int fatNextSearch() {//get next part of filename to do a search
 //	OUT: upto: points to search for next time
 //	OUT: searchstr: part of filename in DIR-format with blanks (11bytes)
 //	OUT: isfilename: 0=part of directory, 1=filename
-//	OUT: fat_notfound
+//	OUT: fatfound
 	char *searchstrp;
 	char *p; 
 	unsigned int  len;
 	unsigned int delimiter;
 	delimiter=is_delimiter(upto);
 	if (delimiter == 1) upto++;
-	if (delimiter == 2) {fat_notfound=1; return; }
+	if (delimiter == 2) return; 
 
 	strcpy(&searchstr, "           ");//11 blank padded
 	searchstrp = &searchstr;//clear searchstr
@@ -904,7 +847,7 @@ int fatNextSearch() {//get next part of filename to do a search
 		len++;
 		delimiter=is_delimiter(upto);
 	} 
-	if (len > 8) {fat_notfound=1; return; }
+	if (len > 8) return;
 	isfilename=0;//todo: default directory, not yet implemented
 	if (delimiter == 2) isfilename=1;//last name is always a file name
 	if (delimiter == 3) {//remove dot in name		
@@ -920,31 +863,27 @@ int fatNextSearch() {//get next part of filename to do a search
 			len++;
 			delimiter=is_delimiter(upto);
 		} 
-		if (len > 3) {fat_notfound=1; return; }
+		if (len > 3) return;
 		if (delimiter == 2) isfilename=1;//last name is always a file name
-	}	
+	}
+	fatfound=1;	
 }
 
 // 7.
 int fatGetStartCluster() {//lastBytes, lastSectors
-	fat_notfound=0;
+	fatfound=0;
 	toupper(filename);
 	upto = &filename;
 	fatNextSearch();
 
-	if (debug) {
-		putch(10);
- 		cputsLen(searchstr, 11);
-		cputs(",FName="); 
-		printunsign(isfilename);
-		}
-	if (isfilename == 0) { //todo not implemented
-		fat_notfound=1;
-		return;
-		}	
-	fatDirSearch();
-cputs(",NF7="); printunsign(fat_notfound);		
-			
+	if (debug) {putch(10); cputsLen(searchstr, 11);
+		cputs(",FName="); printunsign(isfilename); }
+	if (isfilename == 0) return; //todo not implemented
+	if (fatfound) 	fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
+	if (fatfound) {
+cputs(",1.Cl="); printunsign(fatfile_cluster);
+cputs(",Size="); printlong(fatfile_fileSize);
+	}
 }
 
 //------------------------------- Init,  main ---------------
@@ -970,35 +909,7 @@ int main() {
 	
 	strcpy(&filename, "dos.com");
 	fatGetStartCluster();	
-//	strcpy(&filename, "abc.qwe");
-//	fatGetStartCluster();	
 	strcpy(&filename, "test1.c");
 	fatGetStartCluster();//fatfile_sectorStartL,fatfile_nextCluster	
 	if (debug) cputs(" End.");
 }
-/*
-10. fatReadFile
-9. fileOpen toupper, remove drive letter
-8. fatOpenFile set handle, init root or subdir
-	s7 fatGetStartCluster
-	s4 fatClusterAnalyse
-7. fatGestStartCluster
-	6 fatNextSearch
-	3 fatRootSearch
-	s5 fatDirSearch
-6. fatNextSearch Upto,search,isFilename =>7
-5. fatDirSearch a directory chain for search
-	4 fatClusterAnalyse
-	2 fatDirSectorSearch
-4. fatClusterAnalysedetermines sector by cluster number, next cluster
-	1 ReadLogical
-3. fatRootSearch search the root for an entry
-	2 fatDirSectorSearch
-2. fatDirSectorSearch search a block of sectors for entries,
-		get starting cluster, file size, notfound
-	1 readLogical
-2.a printDirEntry
-2.b fatDirSectorList
-	1 readLogical					
-1. readLogical
-	DiskSectorReadWrite	 */
