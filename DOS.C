@@ -820,7 +820,16 @@ int is_delimiter(char *s) {
 	if (*s ==    0) return 2;
 	if (*s ==  '.') return 3;
 	return 0;
-}	
+}
+
+// 4.
+int Cluster2Sector(unsigned int cluster) {
+//OUT: fatfile_sectorStartL
+	fatfile_sectorStartL = (long) cluster - 2;
+	fatfile_sectorStartL = fatfile_sectorStartL * clust_sizeL;
+	fatfile_sectorStartL = fatfile_sectorStartL + fat_DataStartSectorL;
+}
+	
 // 6.
 int fatNextSearch() {//get next part of filename to do a search
 //	IN:  upto: points to start of search in filename 
@@ -877,15 +886,27 @@ int fatGetStartCluster() {//lastBytes, lastSectors
 	fatNextSearch();
 
 	if (debug) {putch(10); cputsLen(searchstr, 11);
-		cputs(",FName="); printunsign(isfilename); }
+//		cputs(",FName="); printunsign(isfilename); 
+		}
 	if (isfilename == 0) return; //todo not implemented
 	if (fatfound) 	fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
-	if (fatfound) {
-cputs(",1.Cl="); printunsign(fatfile_cluster);
-cputs(",Size="); printlong(fatfile_fileSize);
-	}
 }
 
+// 10.
+int fatReadFile() {
+//	IN: fatfile_cluster, fatfile_fileSize
+	fatGetStartCluster();
+	if (fatfound == 0) return;
+cputs(",1.Cl="); printunsign(fatfile_cluster);
+cputs(",Size="); printlong(fatfile_fileSize);
+	Cluster2Sector(fatfile_cluster);
+cputs(",secStartL="); printlong(fatfile_sectorStartL);
+cputs(",ClSizeL="); printlong(clust_sizeL);
+	readLogical(fatfile_sectorStartL);
+	//mdump(DiskBuf, 512);
+	
+		
+}
 //------------------------------- Init,  main ---------------
 int Init() {
 	Drive=0x80;
@@ -905,11 +926,13 @@ int Init() {
 }
 int main() {
 	if (Init() != 0) return 1;
-//	PrintDriveParameter();
+	if (debug) PrintDriveParameter();
 	
 	strcpy(&filename, "dos.com");
-	fatGetStartCluster();	
+	fatReadFile();	
+	strcpy(&filename, "cm.bat");
+	fatReadFile();	
 	strcpy(&filename, "test1.c");
-	fatGetStartCluster();//fatfile_sectorStartL,fatfile_nextCluster	
+	fatReadFile();//fatfile_sectorStartL,fatfile_nextCluster	
 	if (debug) cputs(" End.");
 }

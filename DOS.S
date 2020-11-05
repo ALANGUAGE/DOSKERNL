@@ -3965,37 +3965,75 @@ is_delimiter: PROC
 .is_delimiter113:
  mov ax, 0
  jmp .retnis_delimiter
-;-823 }	
+;-823 }
 
-;-824 // 6.
+;-824 
 
-;-825 int fatNextSearch() {//get next part of filename to do a search
+;-825 // 4.
+
+;-826 int Cluster2Sector(unsigned int cluster) {
 
  .retnis_delimiter:
  LEAVE
  ret
 ENDP
 
+Cluster2Sector: PROC
+;-827 //OUT: fatfile_sectorStartL
+
+;-828 	fatfile_sectorStartL = (long) cluster - 2;
+
+;Function : Cluster2Sector, Number local Var: 1
+; # type sign width local variables
+;100 var unsg word cluster = bp+4;
+ ENTER  0,0
+ xor eax, eax
+ mov ax, [bp+4]
+ sub ax, 2
+ mov dword [fatfile_sectorStartL], eax
+;-829 	fatfile_sectorStartL = fatfile_sectorStartL * clust_sizeL;
+
+ mov eax, [fatfile_sectorStartL]
+;todo:save high part:mov [Longvar+2(+4)],(e)dx
+ mul dword [clust_sizeL]
+ mov dword [fatfile_sectorStartL], eax
+;-830 	fatfile_sectorStartL = fatfile_sectorStartL + fat_DataStartSectorL;
+
+ mov eax, [fatfile_sectorStartL]
+ add eax, [fat_DataStartSectorL]
+ mov dword [fatfile_sectorStartL], eax
+;-831 }
+
+;-832 	
+
+;-833 // 6.
+
+;-834 int fatNextSearch() {//get next part of filename to do a search
+
+ LEAVE
+ ret
+ENDP
+
 fatNextSearch: PROC
-;-826 //	IN:  upto: points to start of search in filename 
+;-835 //	IN:  upto: points to start of search in filename 
 
-;-827 //	OUT: upto: points to search for next time
+;-836 //	OUT: upto: points to search for next time
 
-;-828 //	OUT: searchstr: part of filename in DIR-format with blanks (11bytes)
+;-837 //	OUT: searchstr: part of filename in DIR-format with blanks (11bytes)
 
-;-829 //	OUT: isfilename: 0=part of directory, 1=filename
+;-838 //	OUT: isfilename: 0=part of directory, 1=filename
 
-;-830 //	OUT: fatfound
+;-839 //	OUT: fatfound
 
-;-831 	char *searchstrp;
+;-840 	char *searchstrp;
 
-;-832 	char *p; 
+;-841 	char *p; 
 
-;-833 	unsigned int  len;
+;-842 	unsigned int  len;
 
-;-834 	unsigned int delimiter;
+;-843 	unsigned int delimiter;
 
-;-835 	delimiter=is_delimiter(upto);
+;-844 	delimiter=is_delimiter(upto);
 
 ;Function : fatNextSearch, Number local Var: 4
 ; # type sign width local variables
@@ -4008,22 +4046,22 @@ fatNextSearch: PROC
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-836 	if (delimiter == 1) upto++;
+;-845 	if (delimiter == 1) upto++;
 
  mov ax, [bp-8]
  cmp ax, 1
  jne .fatNextSearch114
  inc  word[upto]
-;-837 	if (delimiter == 2) return; 
+;-846 	if (delimiter == 2) return; 
 
 .fatNextSearch114:
  mov ax, [bp-8]
  cmp ax, 2
  jne .fatNextSearch115
  jmp .retnfatNextSearch
-;-838 
+;-847 
 
-;-839 	strcpy(&searchstr, "           ");//11 blank padded
+;-848 	strcpy(&searchstr, "           ");//11 blank padded
 
 .fatNextSearch115:
  push fatNextSearch_0
@@ -4031,51 +4069,51 @@ fatNextSearch: PROC
  push ax
  call strcpy
  add  sp, 4
-;-840 	searchstrp = &searchstr;//clear searchstr
+;-849 	searchstrp = &searchstr;//clear searchstr
 
  mov ax, searchstr
  mov [bp-2], ax
-;-841 	len=0;
+;-850 	len=0;
 
  mov ax, 0
  mov [bp-6], ax
-;-842 	delimiter=is_delimiter(upto);
+;-851 	delimiter=is_delimiter(upto);
 
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-843 	while (delimiter == 0) { //no slash, zero, point
+;-852 	while (delimiter == 0) { //no slash, zero, point
 
 .fatNextSearch116:
  mov ax, [bp-8]
  cmp ax, 0
  jne .fatNextSearch117
-;-844 		*searchstrp = *upto;
+;-853 		*searchstrp = *upto;
 
  mov bx, [upto]
  mov al, [bx]
  mov ah, 0
  mov  bx, [bp-2]
  mov  [bx], al
-;-845 		searchstrp++;
+;-854 		searchstrp++;
 
  inc  word[bp-2]
-;-846 		upto++;	
+;-855 		upto++;	
 
  inc  word[upto]
-;-847 		len++;
+;-856 		len++;
 
  inc  word[bp-6]
-;-848 		delimiter=is_delimiter(upto);
+;-857 		delimiter=is_delimiter(upto);
 
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-849 	} 
+;-858 	} 
 
-;-850 	if (len > 8) return;
+;-859 	if (len > 8) return;
 
  jmp .fatNextSearch116
 .fatNextSearch117:
@@ -4083,75 +4121,75 @@ fatNextSearch: PROC
  cmp ax, 8
  jle .fatNextSearch118
  jmp .retnfatNextSearch
-;-851 	isfilename=0;//todo: default directory, not yet implemented
+;-860 	isfilename=0;//todo: default directory, not yet implemented
 
 .fatNextSearch118:
  mov ax, 0
  mov byte [isfilename], al
-;-852 	if (delimiter == 2) isfilename=1;//last name is always a file name
+;-861 	if (delimiter == 2) isfilename=1;//last name is always a file name
 
  mov ax, [bp-8]
  cmp ax, 2
  jne .fatNextSearch119
  mov ax, 1
  mov byte [isfilename], al
-;-853 	if (delimiter == 3) {//remove dot in name		
+;-862 	if (delimiter == 3) {//remove dot in name		
 
 .fatNextSearch119:
  mov ax, [bp-8]
  cmp ax, 3
  jne .fatNextSearch120
-;-854 		searchstrp = &searchstr;
+;-863 		searchstrp = &searchstr;
 
  mov ax, searchstr
  mov [bp-2], ax
-;-855 		searchstrp += 8;//start extension		
+;-864 		searchstrp += 8;//start extension		
 
  add  word[bp-2], 8
-;-856 		len=0;
+;-865 		len=0;
 
  mov ax, 0
  mov [bp-6], ax
-;-857 		upto++;
+;-866 		upto++;
 
  inc  word[upto]
-;-858 		delimiter=is_delimiter(upto);
+;-867 		delimiter=is_delimiter(upto);
 
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-859 		while (delimiter == 0) { //no slash, zero, point
+;-868 		while (delimiter == 0) { //no slash, zero, point
 
 .fatNextSearch121:
  mov ax, [bp-8]
  cmp ax, 0
  jne .fatNextSearch122
-;-860 			*searchstrp = *upto;
+;-869 			*searchstrp = *upto;
 
  mov bx, [upto]
  mov al, [bx]
  mov ah, 0
  mov  bx, [bp-2]
  mov  [bx], al
-;-861 			searchstrp++;
+;-870 			searchstrp++;
 
  inc  word[bp-2]
-;-862 			upto++;	
+;-871 			upto++;	
 
  inc  word[upto]
-;-863 			len++;
+;-872 			len++;
 
  inc  word[bp-6]
-;-864 			delimiter=is_delimiter(upto);
+;-873 			delimiter=is_delimiter(upto);
 
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-865 		} 
+;-874 		} 
 
-;-866 		if (len > 3) return;
+;-875 		if (len > 3) return;
 
  jmp .fatNextSearch121
 .fatNextSearch122:
@@ -4159,7 +4197,7 @@ fatNextSearch: PROC
  cmp ax, 3
  jle .fatNextSearch123
  jmp .retnfatNextSearch
-;-867 		if (delimiter == 2) isfilename=1;//last name is always a file name
+;-876 		if (delimiter == 2) isfilename=1;//last name is always a file name
 
 .fatNextSearch123:
  mov ax, [bp-8]
@@ -4167,21 +4205,21 @@ fatNextSearch: PROC
  jne .fatNextSearch124
  mov ax, 1
  mov byte [isfilename], al
-;-868 	}
+;-877 	}
 
 .fatNextSearch124:
-;-869 	fatfound=1;	
+;-878 	fatfound=1;	
 
 .fatNextSearch120:
  mov ax, 1
  mov byte [fatfound], al
-;-870 }
+;-879 }
 
-;-871 
+;-880 
 
-;-872 // 7.
+;-881 // 7.
 
-;-873 int fatGetStartCluster() {//lastBytes, lastSectors
+;-882 int fatGetStartCluster() {//lastBytes, lastSectors
 
  .retnfatNextSearch:
  LEAVE
@@ -4190,64 +4228,50 @@ fatNextSearch_0 db "           ",0
 ENDP
 
 fatGetStartCluster: PROC
-;-874 	fatfound=0;
+;-883 	fatfound=0;
 
  mov ax, 0
  mov byte [fatfound], al
-;-875 	toupper(filename);
+;-884 	toupper(filename);
 
  lea  ax, [filename]
  push ax
  call toupper
  add  sp, 2
-;-876 	upto = &filename;
+;-885 	upto = &filename;
 
  mov ax, filename
  mov word [upto], ax
-;-877 	fatNextSearch();
+;-886 	fatNextSearch();
 
  call fatNextSearch
-;-878 
+;-887 
 
-;-879 	if (debug) {
+;-888 	if (debug) {putch(10); cputsLen(searchstr, 11);
 
  mov ax, 1
  or  al, al
  je .fatGetStartCluster125
-;-880 		putch(10);
-
  push 10
  call putch
  add  sp, 2
-;-881  		cputsLen(searchstr, 11);
-
  push 11
  lea  ax, [searchstr]
  push ax
  call cputsLen
  add  sp, 4
-;-882 		cputs(",FName="); 
+;-889 //		cputs(",FName="); printunsign(isfilename); 
 
- push fatGetStartCluster_0
- call cputs
- add  sp, 2
-;-883 		printunsign(isfilename);
+;-890 		}
 
- mov al, byte [isfilename]
- mov ah, 0
- push ax
- call printunsign
- add  sp, 2
-;-884 		}
-
-;-885 	if (isfilename == 0) return; //todo not implemented
+;-891 	if (isfilename == 0) return; //todo not implemented
 
 .fatGetStartCluster125:
  mov al, [isfilename]
  cmp al, 0
  jne .fatGetStartCluster126
  jmp .retnfatGetStartCluster
-;-886 	if (fatfound) 	fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
+;-892 	if (fatfound) 	fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
 
 .fatGetStartCluster126:
  mov al, [fatfound]
@@ -4257,55 +4281,103 @@ fatGetStartCluster: PROC
  push dword [fat_RootDirStartSectorL]
  call fatDirSectorSearch
  add  sp, 8
-;-887 	if (fatfound) {
+;-893 }
 
 .fatGetStartCluster127:
- mov al, [fatfound]
- or  al, al
- je .fatGetStartCluster128
-;-888 cputs(",1.Cl="); printunsign(fatfile_cluster);
+;-894 
 
- push fatGetStartCluster_1
+;-895 // 10.
+
+;-896 int fatReadFile() {
+
+ .retnfatGetStartCluster:
+ ret
+ENDP
+
+fatReadFile: PROC
+;-897 //	IN: fatfile_cluster, fatfile_fileSize
+
+;-898 	fatGetStartCluster();
+
+ call fatGetStartCluster
+;-899 	if (fatfound == 0) return;
+
+ mov al, [fatfound]
+ cmp al, 0
+ jne .fatReadFile128
+ jmp .retnfatReadFile
+;-900 cputs(",1.Cl="); printunsign(fatfile_cluster);
+
+.fatReadFile128:
+ push fatReadFile_0
  call cputs
  add  sp, 2
  push word [fatfile_cluster]
  call printunsign
  add  sp, 2
-;-889 cputs(",Size="); printlong(fatfile_fileSize);
+;-901 cputs(",Size="); printlong(fatfile_fileSize);
 
- push fatGetStartCluster_2
+ push fatReadFile_1
  call cputs
  add  sp, 2
  push dword [fatfile_fileSize]
  call printlong
  add  sp, 4
-;-890 	}
+;-902 	Cluster2Sector(fatfile_cluster);
 
-;-891 }
+ push word [fatfile_cluster]
+ call Cluster2Sector
+ add  sp, 2
+;-903 cputs(",secStartL="); printlong(fatfile_sectorStartL);
 
-.fatGetStartCluster128:
-;-892 
+ push fatReadFile_2
+ call cputs
+ add  sp, 2
+ push dword [fatfile_sectorStartL]
+ call printlong
+ add  sp, 4
+;-904 cputs(",ClSizeL="); printlong(clust_sizeL);
 
-;-893 //------------------------------- Init,  main ---------------
+ push fatReadFile_3
+ call cputs
+ add  sp, 2
+ push dword [clust_sizeL]
+ call printlong
+ add  sp, 4
+;-905 	readLogical(fatfile_sectorStartL);
 
-;-894 int Init() {
+ push dword [fatfile_sectorStartL]
+ call readLogical
+ add  sp, 4
+;-906 	//mdump(DiskBuf, 512);
 
- .retnfatGetStartCluster:
+;-907 	
+
+;-908 		
+
+;-909 }
+
+;-910 //------------------------------- Init,  main ---------------
+
+;-911 int Init() {
+
+ .retnfatReadFile:
  ret
-fatGetStartCluster_0 db ",FName=",0
-fatGetStartCluster_1 db ",1.Cl=",0
-fatGetStartCluster_2 db ",Size=",0
+fatReadFile_0 db ",1.Cl=",0
+fatReadFile_1 db ",Size=",0
+fatReadFile_2 db ",secStartL=",0
+fatReadFile_3 db ",ClSizeL=",0
 ENDP
 
 Init: PROC
-;-895 	Drive=0x80;
+;-912 	Drive=0x80;
 
  mov ax, 128
  mov byte [Drive], al
-;-896 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
+;-913 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
 
  mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
-;-897 	if (debug) cputs(" Init");
+;-914 	if (debug) cputs(" Init");
 
  mov ax, 1
  or  al, al
@@ -4313,7 +4385,7 @@ Init: PROC
  push Init_0
  call cputs
  add  sp, 2
-;-898 	if (Params()) cputs(" ** NO DRIVE PARAMS FOUND **");//no hard disk
+;-915 	if (Params()) cputs(" ** NO DRIVE PARAMS FOUND **");//no hard disk
 
 .Init129:
  call Params
@@ -4322,28 +4394,28 @@ Init: PROC
  push Init_1
  call cputs
  add  sp, 2
-;-899 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32	
+;-916 	FATtype=readMBR();//0=error,1=FAT12,6=FAT16,11=FAT32	
 
 .Init130:
  call readMBR
  mov word [FATtype], ax
-;-900 	if (FATtype == 0) {
+;-917 	if (FATtype == 0) {
 
  mov ax, [FATtype]
  cmp ax, 0
  jne .Init131
-;-901 		cputs(" ** no active FAT partition found **");
+;-918 		cputs(" ** no active FAT partition found **");
 
  push Init_2
  call cputs
  add  sp, 2
-;-902 		return 1;
+;-919 		return 1;
 
  mov ax, 1
  jmp .retnInit
-;-903 		}
+;-920 		}
 
-;-904 	if(getBootSector()==0) 	return 1;
+;-921 	if(getBootSector()==0) 	return 1;
 
 .Init131:
  call getBootSector
@@ -4351,7 +4423,7 @@ Init: PROC
  jne .Init132
  mov ax, 1
  jmp .retnInit
-;-905 	if (FATInit())			return 1;
+;-922 	if (FATInit())			return 1;
 
 .Init132:
  call FATInit
@@ -4359,7 +4431,7 @@ Init: PROC
  je .Init133
  mov ax, 1
  jmp .retnInit
-;-906 	if(trueFATtype != 16) 	return 1;
+;-923 	if(trueFATtype != 16) 	return 1;
 
 .Init133:
  mov al, [trueFATtype]
@@ -4367,17 +4439,17 @@ Init: PROC
  je  .Init134
  mov ax, 1
  jmp .retnInit
-;-907 	Int13hExt();
+;-924 	Int13hExt();
 
 .Init134:
  call Int13hExt
-;-908 	return 0;
+;-925 	return 0;
 
  mov ax, 0
  jmp .retnInit
-;-909 }
+;-926 }
 
-;-910 int main() {
+;-927 int main() {
 
  .retnInit:
  ret
@@ -4387,52 +4459,68 @@ Init_2 db " ** no active FAT partition found **",0
 ENDP
 
 main: PROC
-;-911 	if (Init() != 0) return 1;
+;-928 	if (Init() != 0) return 1;
 
  call Init
  cmp al, 0
  je  .main135
  mov ax, 1
  jmp .retnmain
-;-912 //	PrintDriveParameter();
-
-;-913 	
-
-;-914 	strcpy(&filename, "dos.com");
+;-929 	if (debug) PrintDriveParameter();
 
 .main135:
+ mov ax, 1
+ or  al, al
+ je .main136
+ call PrintDriveParameter
+;-930 	
+
+;-931 	strcpy(&filename, "dos.com");
+
+.main136:
  push main_0
  lea  ax, [filename]
  push ax
  call strcpy
  add  sp, 4
-;-915 	fatGetStartCluster();	
+;-932 	fatReadFile();	
 
- call fatGetStartCluster
-;-916 	strcpy(&filename, "test1.c");
+ call fatReadFile
+;-933 	strcpy(&filename, "cm.bat");
 
  push main_1
  lea  ax, [filename]
  push ax
  call strcpy
  add  sp, 4
-;-917 	fatGetStartCluster();//fatfile_sectorStartL,fatfile_nextCluster	
+;-934 	fatReadFile();	
 
- call fatGetStartCluster
-;-918 	if (debug) cputs(" End.");
+ call fatReadFile
+;-935 	strcpy(&filename, "test1.c");
+
+ push main_2
+ lea  ax, [filename]
+ push ax
+ call strcpy
+ add  sp, 4
+;-936 	fatReadFile();//fatfile_sectorStartL,fatfile_nextCluster	
+
+ call fatReadFile
+;-937 	if (debug) cputs(" End.");
 
  mov ax, 1
  or  al, al
- je .main136
- push main_2
+ je .main137
+ push main_3
  call cputs
  add  sp, 2
-;-919 }
+;-938 }
 
-.main136:
+.main137:
  .retnmain:
  ret
 main_0 db "dos.com",0
-main_1 db "test1.c",0
-main_2 db " End.",0
+main_1 db "cm.bat",0
+main_2 db "test1.c",0
+main_3 db " End.",0
 ENDP
