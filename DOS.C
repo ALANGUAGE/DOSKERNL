@@ -898,12 +898,12 @@ int fatReadFile() {
 	fatGetStartCluster();
 	if (fatfound == 0) return;
 cputs(",1.Cl="); printunsign(fatfile_cluster);
-cputs(",Size="); printlong(fatfile_fileSize);
 	Cluster2Sector(fatfile_cluster);
 cputs(",secStartL="); printlong(fatfile_sectorStartL);
-cputs(",ClSizeL="); printlong(clust_sizeL);
+cputs(",ClSz="); printlong(clust_sizeL);
+cputs(",Size="); printlong(fatfile_fileSize);
 	readLogical(fatfile_sectorStartL);
-	//mdump(DiskBuf, 512);
+	mdump(DiskBuf, 512);
 	
 		
 }

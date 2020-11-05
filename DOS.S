@@ -4315,33 +4315,33 @@ fatReadFile: PROC
  push word [fatfile_cluster]
  call printunsign
  add  sp, 2
-;-901 cputs(",Size="); printlong(fatfile_fileSize);
-
- push fatReadFile_1
- call cputs
- add  sp, 2
- push dword [fatfile_fileSize]
- call printlong
- add  sp, 4
-;-902 	Cluster2Sector(fatfile_cluster);
+;-901 	Cluster2Sector(fatfile_cluster);
 
  push word [fatfile_cluster]
  call Cluster2Sector
  add  sp, 2
-;-903 cputs(",secStartL="); printlong(fatfile_sectorStartL);
+;-902 cputs(",secStartL="); printlong(fatfile_sectorStartL);
 
- push fatReadFile_2
+ push fatReadFile_1
  call cputs
  add  sp, 2
  push dword [fatfile_sectorStartL]
  call printlong
  add  sp, 4
-;-904 cputs(",ClSizeL="); printlong(clust_sizeL);
+;-903 cputs(",ClSz="); printlong(clust_sizeL);
+
+ push fatReadFile_2
+ call cputs
+ add  sp, 2
+ push dword [clust_sizeL]
+ call printlong
+ add  sp, 4
+;-904 cputs(",Size="); printlong(fatfile_fileSize);
 
  push fatReadFile_3
  call cputs
  add  sp, 2
- push dword [clust_sizeL]
+ push dword [fatfile_fileSize]
  call printlong
  add  sp, 4
 ;-905 	readLogical(fatfile_sectorStartL);
@@ -4349,8 +4349,13 @@ fatReadFile: PROC
  push dword [fatfile_sectorStartL]
  call readLogical
  add  sp, 4
-;-906 	//mdump(DiskBuf, 512);
+;-906 	mdump(DiskBuf, 512);
 
+ push 512
+ lea  ax, [DiskBuf]
+ push ax
+ call mdump
+ add  sp, 4
 ;-907 	
 
 ;-908 		
@@ -4364,9 +4369,9 @@ fatReadFile: PROC
  .retnfatReadFile:
  ret
 fatReadFile_0 db ",1.Cl=",0
-fatReadFile_1 db ",Size=",0
-fatReadFile_2 db ",secStartL=",0
-fatReadFile_3 db ",ClSizeL=",0
+fatReadFile_1 db ",secStartL=",0
+fatReadFile_2 db ",ClSz=",0
+fatReadFile_3 db ",Size=",0
 ENDP
 
 Init: PROC
