@@ -17,7 +17,6 @@ unsigned int  DiskBufSeg;
 unsigned char dummy[1];//todo remove
 unsigned char DiskBuf [512];
 unsigned char Drive=0x80;
-//unsigned long sect_size_long;
 unsigned long clust_sizeL;
 unsigned long sector_sizeL;
 unsigned char filename[67];
@@ -25,7 +24,34 @@ unsigned char searchstr  [12];//with null
 char *upto;		//IN:part of filename to search/OUT:to search next time
 char isfilename;//is filename or part of directory?
 char fatfound;
-//char fat_notfound;
+unsigned int  cluster;
+unsigned long sector_startL;
+unsigned long file_sizeL;
+
+//FATInit
+unsigned int  fat_FatStartSector;
+unsigned long fat_FatStartSectorL;
+unsigned int  fat_FatSectors;
+unsigned long fat_RootDirStartSectorL;
+unsigned long fat_RootDirSectorsL;
+unsigned long fat_DataStartSectorL;
+unsigned long num_tracksL;
+//unsigned int  fat_num_cylinders;
+unsigned long Sectors_per_cylinderL;
+unsigned long DataSectors32;
+unsigned long CountofClustersL;
+unsigned char trueFATtype;	//12, 16, 32 from FATInit
+unsigned int  FATtype;		//0=error,1=FAT12,6=FAT16,11=FAT32 from ReadMBR
+
+//fatfile
+//unsigned int  fatfile_nextCluster;
+//unsigned int  fatfile_sectorCount;
+//unsigned int  fatfile_lastBytes;
+//unsigned int  fatfile_lastSectors;
+//         int  fatfile_dir;
+//unsigned int  fatfile_currentCluster;
+//unsigned int  fatfile_sectorUpto;
+//unsigned int  fatfile_byteUpto;
 
 //Params from int13h, Function 8
 unsigned int  pa_Cylinders;
@@ -34,7 +60,7 @@ unsigned char pa_Heads;
 unsigned char pa_Attached;
 unsigned int  pt_PartNo;
 
-//start hard disk partition structure 16 bytes in MBR. do not change
+//start hard disk partition structure 16 bytes in MBR. do not change!!!!!
 unsigned char pt_Bootable;		// 00 80h = active partition, else 00
 unsigned char pt_StartHead;		// 01
 unsigned char pt_StartSector;	// 02 bits 0-5
@@ -47,7 +73,7 @@ unsigned long pt_HiddenSector;	// 08 sectors preceding partition
 unsigned long pt_PartLen;    	// 12 length of partition in sectors
 //  16 end hard disk partition structure
 
-//start boot BIOS Parameter Block structure. do not change
+//start boot BIOS Parameter Block structure. do not change!!!!!
 unsigned char bs_jmp[]="12";// 00 +LenByte:Must be 0xEB, 0x3C, 0x90
 unsigned char bs_sys_id[]="1234567";// 03 OEM name,version "MSDOS5.0"
 unsigned int  bs_sect_size;	// 11 bytes per sector (512)
@@ -70,7 +96,7 @@ unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
 unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
 // 62 end boot BIOS Parameter Block
 
-//start directory entry structure, do not change
+//start directory entry structure, do not change!!!!!
 unsigned char dir_Filename[]="1234567";	//00 +lengthbyte=11
 unsigned char dir_Ext[]="12";	//07 +lengthbyte=3
 unsigned char dir_Attrib;		//11 directory=10h, Label=08h, read only=1
@@ -85,37 +111,6 @@ unsigned int  dir_LastModDate;	//24 modification date on closing
 unsigned int  dir_FirstCluster;	//26 1.clu. of file data,if filesize=0 then 0
 unsigned long dir_FileSize;		//28 size in bytes, if directory then zero
 // 32 end direcctory entry structure
-
-//FATInit
-unsigned int  fat_FatStartSector;
-unsigned long fat_FatStartSectorL;
-unsigned int  fat_FatSectors;
-unsigned long fat_RootDirStartSectorL;
-unsigned long fat_RootDirSectorsL;
-unsigned long fat_DataStartSectorL;
-unsigned long fat_num_tracks;
-unsigned int  fat_num_cylinders;
-unsigned long Sectors_per_cylinder;
-unsigned long DataSectors32;
-unsigned long CountofClusters;
-unsigned char trueFATtype;	//12, 16, 32 from FATInit
-unsigned int  FATtype;		//0=error,1=FAT12,6=FAT16,11=FAT32 from ReadMBR
-
-//fatfile
-//unsigned char fat_filename [8];
-//unsigned char fat_fileext  [3];
-		 int  fatfile_root;
-unsigned int  fatfile_cluster;
-unsigned int  fatfile_nextCluster;
-unsigned int  fatfile_sectorCount;
-unsigned long fatfile_sectorStartL;
-unsigned int  fatfile_lastBytes;
-unsigned int  fatfile_lastSectors;
-         int  fatfile_dir;
-unsigned int  fatfile_currentCluster;
-unsigned int  fatfile_sectorUpto;
-unsigned int  fatfile_byteUpto;
-unsigned long fatfile_fileSize;
 
 int test() {
 	__asm{
@@ -541,25 +536,25 @@ int FATInit() {
 	if (bs_tot_sect16 !=0) bs_tot_sect32 = (long) bs_tot_sect16;
 	DataSectors32=bs_tot_sect32 - fat_DataStartSectorL;
 
-	CountofClusters=DataSectors32 / clust_sizeL;//d=d/b
+	CountofClustersL=DataSectors32 / clust_sizeL;//d=d/b
 
 	templong = (long) bs_sectors_per_track;
-	fat_num_tracks = bs_tot_sect32 / templong;//d=d/w
+	num_tracksL = bs_tot_sect32 / templong;//d=d/w
 
-	templong = (long) bs_num_heads;
-	fat_num_cylinders = fat_num_tracks / templong;//w=d/w
+//	templong = (long) bs_num_heads;
+//	fat_num_cylinders = num_tracksL / templong;//w=d/w
 
-	Sectors_per_cylinder = bs_sectors_per_track *  bs_num_heads;//d=w*w
-	asm mov [Sectors_per_cylinder + 2], dx;store high word
+	Sectors_per_cylinderL = bs_sectors_per_track *  bs_num_heads;//d=w*w
+	asm mov [Sectors_per_cylinderL + 2], dx;store high word
 
 	templong = (long) 65525;
-	if (CountofClusters > templong) {
+	if (CountofClustersL > templong) {
 		trueFATtype=32;
 		cputs(" FAT32 NOT supported");
 		return 1;
 		}
 	templong= (long) 4086;
-	if (CountofClusters < templong) {
+	if (CountofClustersL < templong) {
 		trueFATtype=12;
 		cputs(" FAT12");
 		return 0;
@@ -653,11 +648,11 @@ int PrintDriveParameter() {
 	cputs("fat_DataStartSectorL=");	printunsign(fat_DataStartSectorL);
 	cputs(", DataSectors32=");	printlong(DataSectors32);
 	putch(10);
-	cputs("CountofClusters=");	printlong(CountofClusters);
-	cputs(", Sectors_per_cylinder="); printlong(Sectors_per_cylinder);
+	cputs("CountofClustersL=");	printlong(CountofClustersL);
+	cputs(", Sectors_per_cylinderL="); printlong(Sectors_per_cylinderL);
 	putch(10);
-	cputs("fat_num_tracks=");	printlong(fat_num_tracks);
-	cputs(", fat_num_cylinders="); printunsign(fat_num_cylinders);
+	cputs("num_tracksL=");	printlong(num_tracksL);
+//	cputs(", fat_num_cylinders="); printunsign(fat_num_cylinders);
 	getkey();
 }
 
@@ -672,8 +667,8 @@ int error2(char *s) {
 int readLogical(unsigned long SectorL) {//OUT:1 sector in DiskBuf
 	unsigned int track; unsigned int head; unsigned int sect;
 	SectorL = SectorL + bs_hid_sects;//d=d+d
-	track = SectorL / Sectors_per_cylinder;  //w=d/d
-	head  = SectorL % Sectors_per_cylinder;  //w=d%d
+	track = SectorL / Sectors_per_cylinderL;  //w=d/d
+	head  = SectorL % Sectors_per_cylinderL;  //w=d%d
 	sect  = head            % bs_sectors_per_track;  //w=w%w
 	sect++;
 	head  = head            / bs_sectors_per_track;	 //w=w/w
@@ -782,7 +777,7 @@ int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
 		numsectors--;
 //mdump(DiskBuf, 512);
 	} while (numsectors > 0);
-	fatfile_cluster=0;//not found but not end
+	cluster=0;//not found but not end
 }
 
 // 2.
@@ -800,8 +795,8 @@ int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
 				memcpy(dir_Filename, p, 32);//copy whole dir structure
 				memcpy(filename, p, 11);
 				filename[11] = 0;
-				fatfile_cluster   = dir_FirstCluster;
-				fatfile_fileSize  = dir_FileSize;
+				cluster   = dir_FirstCluster;
+				file_sizeL  = dir_FileSize;
 				fatfound=1;
 			}
 			if (*p == 0) return; //only empty entries following
@@ -810,7 +805,7 @@ int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
 		startSector++;		
 		numsectors--;
 	} while (numsectors > 0);
-	fatfile_cluster=0;//not found but not end
+	cluster=0;//not found but not end
 }
 
 
@@ -823,11 +818,11 @@ int is_delimiter(char *s) {
 }
 
 // 4.
-int Cluster2Sector(unsigned int cluster) {
-//OUT: fatfile_sectorStartL
-	fatfile_sectorStartL = (long) cluster - 2;
-	fatfile_sectorStartL = fatfile_sectorStartL * clust_sizeL;
-	fatfile_sectorStartL = fatfile_sectorStartL + fat_DataStartSectorL;
+int Cluster2Sector(unsigned int clust) {
+//OUT: sector_startL
+	sector_startL = (long) clust - 2;
+	sector_startL = sector_startL * clust_sizeL;
+	sector_startL = sector_startL + fat_DataStartSectorL;
 }
 	
 // 6.
@@ -894,15 +889,18 @@ int fatGetStartCluster() {//lastBytes, lastSectors
 
 // 10.
 int fatReadFile() {
-//	IN: fatfile_cluster, fatfile_fileSize
+//	IN: cluster, file_sizeL
 	fatGetStartCluster();
-	if (fatfound == 0) return;
-cputs(",1.Cl="); printunsign(fatfile_cluster);
-	Cluster2Sector(fatfile_cluster);
-cputs(",secStartL="); printlong(fatfile_sectorStartL);
+	if (fatfound == 0) {
+		cputs(" file not found"); 
+		return;
+		}
+cputs(",1.Cl="); printunsign(cluster);
+	Cluster2Sector(cluster);
+//cputs(",secStartL="); printlong(sector_startL);
 cputs(",ClSz="); printlong(clust_sizeL);
-cputs(",Size="); printlong(fatfile_fileSize);
-	readLogical(fatfile_sectorStartL);
+cputs(",Size="); printlong(file_sizeL);
+	readLogical(sector_startL);
 	mdump(DiskBuf, 512);
 	
 		
@@ -926,13 +924,11 @@ int Init() {
 }
 int main() {
 	if (Init() != 0) return 1;
-	if (debug) PrintDriveParameter();
+//	if (debug) PrintDriveParameter();
 	
-	strcpy(&filename, "dos.com");
-	fatReadFile();	
-	strcpy(&filename, "cm.bat");
-	fatReadFile();	
-	strcpy(&filename, "test1.c");
-	fatReadFile();//fatfile_sectorStartL,fatfile_nextCluster	
+	strcpy(&filename, "dos.com");	fatReadFile();	
+	strcpy(&filename, "readme.md");	fatReadFile();	
+	strcpy(&filename, "cm.bat");	fatReadFile();	
+	strcpy(&filename, "test1.c");	fatReadFile();
 	if (debug) cputs(" End.");
 }
