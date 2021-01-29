@@ -1,9 +1,9 @@
 ;A.COM V1.1.4, Input: DOS.C, Output: DOS.S
 org  256 
 jmp main
-;-1 char Version1[]="DOS.COM V0.2.1";//test bed
+;-1 char Version1[]="DOS.COM V0.2.3";//test bed
 
-Version1 db "DOS.COM V0.2.1",0
+Version1 db "DOS.COM V0.2.3",0
 ;-2 //Finder /hg/DOS/DOS3.vhd
 
 ;-3 //rigth click / open / Parallels Mounter
@@ -14,7 +14,7 @@ Version1 db "DOS.COM V0.2.1",0
 
 ;-6 // > 16.777.216 sectors (8GB) only LBA
 
-;-7 #define ORGDATA		16384//start of arrays
+;-7 #define ORGDATA		16384//=16K start of arrays
 
 ;-8 #define debug 1
 
@@ -90,326 +90,337 @@ isfilename db 0
 ;-26 char fatfound;
 
 fatfound db 0
-;-27 
+;-27 unsigned char Buffer [16394];//16K+10
 
-;-28 //start array of every open file
+section .bss
+absolute 16976
+Buffer resb 16394
+section .text
+;-28 
 
-;-29 //unsigned char FileIsOpen;
+;-29 char          handle;
 
-;-30 unsigned int  BegCluster;
+handle db 0
+;-30 //start array of handles of every open file
+
+;-31 //unsigned char FileIsOpen;
+
+;-32 unsigned int  BegCluster;		//first cluster of file
 
 BegCluster dw 0
-;-31 unsigned int  CurCluster;
+;-33 unsigned int  CurCluster;		//current cluster
 
 CurCluster dw 0
-;-32 //unsigned int  OffAtCluster;
-
-;-33 unsigned int  NextCluster;
+;-34 unsigned int  NextCluster;
 
 NextCluster dw 0
-;-34 unsigned long CurSectorL;
+;-35 unsigned long CurSectorL;		//current sector in current cluster
 
 CurSectorL dd 0
-;-35 unsigned long FileSizeL;
+;-36 unsigned long FileSizeL;
 
 FileSizeL dd 0
-;-36 //unsigned long Position;
+;-37 //unsigned int  CurPosition;	//current byte location in cur sector
 
-;-37 
+;-38 //unsigned long SeekL;			//current byte location in file
 
-;-38 //FATInit
+;-39 //	end array of handles of every open file
 
-;-39 unsigned int  fat_FatStartSector;
+;-40 
+
+;-41 //FATInit
+
+;-42 unsigned int  fat_FatStartSector;
 
 fat_FatStartSector dw 0
-;-40 unsigned long fat_FatStartSectorL;
+;-43 unsigned long fat_FatStartSectorL;
 
 fat_FatStartSectorL dd 0
-;-41 unsigned int  fat_FatSectors;
+;-44 unsigned int  fat_FatSectors;
 
 fat_FatSectors dw 0
-;-42 unsigned long fat_RootDirStartSectorL;
+;-45 unsigned long fat_RootDirStartSectorL;
 
 fat_RootDirStartSectorL dd 0
-;-43 unsigned long fat_RootDirSectorsL;
+;-46 unsigned long fat_RootDirSectorsL;
 
 fat_RootDirSectorsL dd 0
-;-44 unsigned long fat_DataStartSectorL;
+;-47 unsigned long fat_DataStartSectorL;
 
 fat_DataStartSectorL dd 0
-;-45 unsigned long num_tracksL;
+;-48 unsigned long num_tracksL;
 
 num_tracksL dd 0
-;-46 //unsigned int  fat_num_cylinders;
+;-49 //unsigned int  fat_num_cylinders;
 
-;-47 unsigned long Sectors_per_cylinderL;
+;-50 unsigned long Sectors_per_cylinderL;
 
 Sectors_per_cylinderL dd 0
-;-48 unsigned long DataSectors32;
+;-51 unsigned long DataSectors32;
 
 DataSectors32 dd 0
-;-49 unsigned long CountofClustersL;
+;-52 unsigned long CountofClustersL;
 
 CountofClustersL dd 0
-;-50 unsigned char trueFATtype;	//12, 16, 32 from FATInit
+;-53 unsigned char trueFATtype;	//12, 16, 32 from FATInit
 
 trueFATtype db 0
-;-51 //unsigned int  FATtype;//0=error,1=FAT12,6=FAT16,11=FAT32 from ReadMBR
+;-54 //unsigned int  FATtype;//0=error,1=FAT12,6=FAT16,11=FAT32 from ReadMBR
 
-;-52 
+;-55 
 
-;-53 //Params from int13h, Function 8
+;-56 //Params from int13h, Function 8
 
-;-54 unsigned int  pa_Cylinders;
+;-57 unsigned int  pa_Cylinders;
 
 pa_Cylinders dw 0
-;-55 unsigned char pa_Sectors;
+;-58 unsigned char pa_Sectors;
 
 pa_Sectors db 0
-;-56 unsigned char pa_Heads;
+;-59 unsigned char pa_Heads;
 
 pa_Heads db 0
-;-57 unsigned char pa_Attached;
+;-60 unsigned char pa_Attached;
 
 pa_Attached db 0
-;-58 unsigned int  pt_PartNo;
+;-61 unsigned int  pt_PartNo;
 
 pt_PartNo dw 0
-;-59 
+;-62 
 
-;-60 //start hard disk partition structure 16 bytes in MBR. do not change!!!!!
+;-63 //start hard disk partition structure 16 bytes in MBR. do not change!!!!!
 
-;-61 unsigned char pt_Bootable;		// 00 80h = active partition, else 00
+;-64 unsigned char pt_Bootable;		// 00 80h = active partition, else 00
 
 pt_Bootable db 0
-;-62 unsigned char pt_StartHead;		// 01
+;-65 unsigned char pt_StartHead;		// 01
 
 pt_StartHead db 0
-;-63 unsigned char pt_StartSector;	// 02 bits 0-5
+;-66 unsigned char pt_StartSector;	// 02 bits 0-5
 
 pt_StartSector db 0
-;-64 unsigned int  pt_StartCylinder;	//    bits 8,9 in bits 6,7 of sector
+;-67 unsigned int  pt_StartCylinder;	//    bits 8,9 in bits 6,7 of sector
 
 pt_StartCylinder dw 0
-;-65 unsigned char pt_FileSystem;	// 04 0=nu,1=FAT12,4=16,5=ExtP,6=large16
+;-68 unsigned char pt_FileSystem;	// 04 0=nu,1=FAT12,4=16,5=ExtP,6=large16
 
 pt_FileSystem db 0
-;-66 unsigned char pt_EndHead;		// 05
+;-69 unsigned char pt_EndHead;		// 05
 
 pt_EndHead db 0
-;-67 unsigned char pt_EndSector;		// 06 bits 0-5
+;-70 unsigned char pt_EndSector;		// 06 bits 0-5
 
 pt_EndSector db 0
-;-68 unsigned int  pt_EndCylinder;	//    bits 8,9 in bits 6,7 of sector
+;-71 unsigned int  pt_EndCylinder;	//    bits 8,9 in bits 6,7 of sector
 
 pt_EndCylinder dw 0
-;-69 unsigned long pt_HiddenSector;	// 08 sectors preceding partition
+;-72 unsigned long pt_HiddenSector;	// 08 sectors preceding partition
 
 pt_HiddenSector dd 0
-;-70 unsigned long pt_PartLen;    	// 12 length of partition in sectors
+;-73 unsigned long pt_PartLen;    	// 12 length of partition in sectors
 
 pt_PartLen dd 0
-;-71 //  16 end hard disk partition structure
+;-74 //  16 end hard disk partition structure
 
-;-72 
+;-75 
 
-;-73 //start boot BIOS Parameter Block structure. do not change!!!!!
+;-76 //start boot BIOS Parameter Block structure. do not change!!!!!
 
-;-74 unsigned char bs_jmp[]="12";// 00 +LenByte:Must be 0xEB, 0x3C, 0x90
+;-77 unsigned char bs_jmp[]="12";// 00 +LenByte:Must be 0xEB, 0x3C, 0x90
 
 bs_jmp db "12",0
-;-75 unsigned char bs_sys_id[]="1234567";// 03 OEM name,version "MSDOS5.0"
+;-78 unsigned char bs_sys_id[]="1234567";// 03 OEM name,version "MSDOS5.0"
 
 bs_sys_id db "1234567",0
-;-76 unsigned int  bs_sect_size;	// 11 bytes per sector (512)
+;-79 unsigned int  bs_sect_size;	// 11 bytes per sector (512)
 
 bs_sect_size dw 0
-;-77 unsigned char bs_clust_size;// 13 sectors per CurCluster (1,2,4,..,128)
+;-80 unsigned char bs_clust_size;// 13 sectors per CurCluster (1,2,4,..,128)
 
 bs_clust_size db 0
-;-78 unsigned int  bs_res_sects;	// 14 reserved sectors starting at 0
+;-81 unsigned int  bs_res_sects;	// 14 reserved sectors starting at 0
 
 bs_res_sects dw 0
-;-79 unsigned char bs_num_fats;	// 16 number of FAT (1 or 2)
+;-82 unsigned char bs_num_fats;	// 16 number of FAT (1 or 2)
 
 bs_num_fats db 0
-;-80 unsigned int  bs_root_entr;	// 17 number of root directory entries (512)
+;-83 unsigned int  bs_root_entr;	// 17 number of root directory entries (512)
 
 bs_root_entr dw 0
-;-81 unsigned int  bs_tot_sect16;// 19 number of total sectors (0 if > 32Mb)
+;-84 unsigned int  bs_tot_sect16;// 19 number of total sectors (0 if > 32Mb)
 
 bs_tot_sect16 dw 0
-;-82 unsigned char bs_media_desc;// 21 media descriptor byte (F8h for HD)
+;-85 unsigned char bs_media_desc;// 21 media descriptor byte (F8h for HD)
 
 bs_media_desc db 0
-;-83 unsigned int  bs_fat_size;	// 22 sectors per fat
+;-86 unsigned int  bs_fat_size;	// 22 sectors per fat
 
 bs_fat_size dw 0
-;-84 unsigned int  bs_sectors_per_track; // 24 (DOS 3+)sectors per track
+;-87 unsigned int  bs_sectors_per_track; // 24 (DOS 3+)sectors per track
 
 bs_sectors_per_track dw 0
-;-85 unsigned int  bs_num_heads;	// 26 (DOS 3+)number of heads
+;-88 unsigned int  bs_num_heads;	// 26 (DOS 3+)number of heads
 
 bs_num_heads dw 0
-;-86 unsigned long bs_hid_sects;	// 28 (DOS 3+)number of hidden sectors
+;-89 unsigned long bs_hid_sects;	// 28 (DOS 3+)number of hidden sectors
 
 bs_hid_sects dd 0
-;-87 unsigned long bs_tot_sect32;// 32 (DOS 4+) number of sectors if ofs 19 = 0
+;-90 unsigned long bs_tot_sect32;// 32 (DOS 4+) number of sectors if ofs 19 = 0
 
 bs_tot_sect32 dd 0
-;-88 unsigned char bs_drive_num;	// 36 (DOS 4+) physical drive number
+;-91 unsigned char bs_drive_num;	// 36 (DOS 4+) physical drive number
 
 bs_drive_num db 0
-;-89 unsigned char bs_reserved;  // 37 (DOS 4+) for Windows NT check disk
+;-92 unsigned char bs_reserved;  // 37 (DOS 4+) for Windows NT check disk
 
 bs_reserved db 0
-;-90 unsigned char bs_ext_signat;// 38 (DOS 4+) Ext. signature,get next 3(29h)
+;-93 unsigned char bs_ext_signat;// 38 (DOS 4+) Ext. signature,get next 3(29h)
 
 bs_ext_signat db 0
-;-91 unsigned long bs_serial_num;// 39 (DOS 4+) Volume serial number random
+;-94 unsigned long bs_serial_num;// 39 (DOS 4+) Volume serial number random
 
 bs_serial_num dd 0
-;-92 unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
+;-95 unsigned char bs_label[]="1234567890";//43 (DOS 4+) Volume label "NO NAME"
 
 bs_label db "1234567890",0
-;-93 unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
+;-96 unsigned char bs_fs_id[]="1234567";  // 54 (DOS 4+) File system type "FAT16"
 
 bs_fs_id db "1234567",0
-;-94 // 62 end boot BIOS Parameter Block
+;-97 // 62 end boot BIOS Parameter Block
 
-;-95 
+;-98 
 
-;-96 //start directory entry structure, do not change!!!!!
+;-99 //start directory entry structure, do not change!!!!!
 
-;-97 unsigned char dir_Filename[]="1234567";	//00 +lengthbyte=11
+;-100 unsigned char dir_Filename[]="1234567";	//00 +lengthbyte=11
 
 dir_Filename db "1234567",0
-;-98 unsigned char dir_Ext[]="12";	//07 +lengthbyte=3
+;-101 unsigned char dir_Ext[]="12";	//07 +lengthbyte=3
 
 dir_Ext db "12",0
-;-99 unsigned char dir_Attrib;		//11 directory=10h, Label=08h, read only=1
+;-102 unsigned char dir_Attrib;		//11 directory=10h, Label=08h, read only=1
 
 dir_Attrib db 0
-;-100 unsigned char dir_NTReserved;	//12 low case in body=8h, in ext=10h
+;-103 unsigned char dir_NTReserved;	//12 low case in body=8h, in ext=10h
 
 dir_NTReserved db 0
-;-101 unsigned char dir_TimeCreatedMS;//13 in 10 milliseconda or zero
+;-104 unsigned char dir_TimeCreatedMS;//13 in 10 milliseconda or zero
 
 dir_TimeCreatedMS db 0
-;-102 unsigned int  dir_TimeCreated;	//14 creation time, resolution 2 sec. or 0
+;-105 unsigned int  dir_TimeCreated;	//14 creation time, resolution 2 sec. or 0
 
 dir_TimeCreated dw 0
-;-103 unsigned int  dir_DateCreated;	//16 creation date or zero
+;-106 unsigned int  dir_DateCreated;	//16 creation date or zero
 
 dir_DateCreated dw 0
-;-104 unsigned int  dir_DateLastAccessd;		//18 no time info available or zero
+;-107 unsigned int  dir_DateLastAccessd;		//18 no time info available or zero
 
 dir_DateLastAccessd dw 0
-;-105 unsigned int  dir_FirstClusterHiBytes;	//20 FAT12/16 always zero
+;-108 unsigned int  dir_FirstClusterHiBytes;	//20 FAT12/16 always zero
 
 dir_FirstClusterHiBytes dw 0
-;-106 unsigned int  dir_LastModTime;	//22 modification time on closing
+;-109 unsigned int  dir_LastModTime;	//22 modification time on closing
 
 dir_LastModTime dw 0
-;-107 unsigned int  dir_LastModDate;	//24 modification date on closing
+;-110 unsigned int  dir_LastModDate;	//24 modification date on closing
 
 dir_LastModDate dw 0
-;-108 unsigned int  dir_FirstCluster;	//26 1.clu. of file data,if filesize=0 then 0
+;-111 unsigned int  dir_FirstCluster;	//26 1.clu. of file data,if filesize=0 then0
 
 dir_FirstCluster dw 0
-;-109 unsigned long dir_FileSize;		//28 size in bytes, if directory then zero
+;-112 unsigned long dir_FileSize;		//28 size in bytes, if directory then zero
 
 dir_FileSize dd 0
-;-110 // 32 end direcctory entry structure
+;-113 // 32 end direcctory entry structure
 
-;-111 
+;-114 
 
-;-112 int test() {
+;-115 int test() {
 
 
 test: PROC
-;-113 	__asm{
+;-116 	__asm{
 
 
-;-114 }	}
+;-117 }	}
 
 
-;-115 
+;-118 
 
-;-116 //------------------------------------   IO  -------------------
+;-119 //------------------------------------   IO  -------------------
 
-;-117 
+;-120 
 
-;-118 int writetty()     {//char in AL
+;-121 int writetty()     {//char in AL
 
  ret
 ENDP
 
 writetty: PROC
-;-119     ah=0x0E;
+;-122     ah=0x0E;
 
  mov  ah, 14
-;-120     push bx;
+;-123     push bx;
 
 push bx;
-;-121     bx=0;			//page in BH
+;-124     bx=0;			//page in BH
 
  mov  bx, 0
-;-122     inth 0x10;		//16
+;-125     inth 0x10;		//16
 
  int  16
-;-123     pop bx;
+;-126     pop bx;
 
 pop bx;
-;-124 }
+;-127 }
 
-;-125 int putch(char c)  {
+;-128 int putch(char c)  {
 
  ret
 ENDP
 
 putch: PROC
-;-126     if (c==10)  {
+;-129     if (c==10)  {
 
 ;Function : putch, Number local Var: 1
 ; # type sign width local variables
-;91 var sign byte c = bp+4;
+;93 var sign byte c = bp+4;
  ENTER  0,0
  mov al, [bp+4]
  cmp al, 10
  jne .putch1
-;-127         al=13;
+;-130         al=13;
 
  mov  al, 13
-;-128         writetty();
+;-131         writetty();
 
  call writetty
-;-129     }
+;-132     }
 
-;-130     al=c;
+;-133     al=c;
 
 .putch1:
  mov  al, [bp+4]
-;-131     writetty();
+;-134     writetty();
 
  call writetty
-;-132 }
+;-135 }
 
-;-133 int cputs(char *s) {
+;-136 int cputs(char *s) {
 
  LEAVE
  ret
 ENDP
 
 cputs: PROC
-;-134     char c;
+;-137     char c;
 
-;-135     while(*s) {
+;-138     while(*s) {
 
 ;Function : cputs, Number local Var: 2
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 var sign byte c = bp-2;
+;93 ptr sign byte s = bp+4
+;94 var sign byte c = bp-2;
  ENTER  2,0
 .cputs2:
  mov bx, [bp+4]
@@ -417,172 +428,172 @@ cputs: PROC
  mov ah, 0
  or  al, al
  je .cputs3
-;-136         c=*s;
+;-139         c=*s;
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-137         putch(c);
+;-140         putch(c);
 
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call putch
  add  sp, 2
-;-138         s++;
+;-141         s++;
 
  inc  word[bp+4]
-;-139     }
+;-142     }
 
-;-140 }
+;-143 }
 
  jmp .cputs2
 .cputs3:
-;-141 int cputsLen(char *s, int len) {
+;-144 int cputsLen(char *s, int len) {
 
  LEAVE
  ret
 ENDP
 
 cputsLen: PROC
-;-142 	char c;
+;-145 	char c;
 
-;-143 	do {
+;-146 	do {
 
 ;Function : cputsLen, Number local Var: 3
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 var sign word len = bp+6
-;93 var sign byte c = bp-2;
+;93 ptr sign byte s = bp+4
+;94 var sign word len = bp+6
+;95 var sign byte c = bp-2;
  ENTER  2,0
 .cputsLen4:
-;-144 		c=*s;
+;-147 		c=*s;
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-145 		putch(c);
+;-148 		putch(c);
 
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call putch
  add  sp, 2
-;-146 		s++;
+;-149 		s++;
 
  inc  word[bp+4]
-;-147 		len--;
+;-150 		len--;
 
  dec  word[bp+6]
-;-148 	} while (len > 0);
+;-151 	} while (len > 0);
 
  mov ax, [bp+6]
  cmp ax, 0
  jle .cputsLen5
  jmp .cputsLen4
 .cputsLen5:
-;-149 }
+;-152 }
 
-;-150 
+;-153 
 
-;-151 int getch() {
+;-154 int getch() {
 
  LEAVE
  ret
 ENDP
 
 getch: PROC
-;-152     ah=0x10;//MF2-KBD read char
+;-155     ah=0x10;//MF2-KBD read char
 
  mov  ah, 16
-;-153     inth 0x16;//AH=Scan code, AL=char
+;-156     inth 0x16;//AH=Scan code, AL=char
 
  int  22
-;-154 }
+;-157 }
 
-;-155 int waitkey() {
+;-158 int waitkey() {
 
  ret
 ENDP
 
 waitkey: PROC
-;-156     ah=0x11;//get kbd status
+;-159     ah=0x11;//get kbd status
 
  mov  ah, 17
-;-157     inth 0x16;//AH:Scan code, AL:char read, resting in buffer
+;-160     inth 0x16;//AH:Scan code, AL:char read, resting in buffer
 
  int  22
-;-158     //zero flag: 0=IS char, 1=NO char
+;-161     //zero flag: 0=IS char, 1=NO char
 
-;-159     __emit__(0x74,0xFA);// jz back 2 bytes until char read
+;-162     __emit__(0x74,0xFA);// jz back 2 bytes until char read
 
  db 116,250
-;-160 }
+;-163 }
 
-;-161 int getkey() {
+;-164 int getkey() {
 
  ret
 ENDP
 
 getkey: PROC
-;-162     waitkey();
+;-165     waitkey();
 
  call waitkey
-;-163     getch();
+;-166     getch();
 
  call getch
-;-164     ah=0;//clear scan code
+;-167     ah=0;//clear scan code
 
  mov  ah, 0
-;-165     if (al == 0) getch() + 0x100;
+;-168     if (al == 0) getch() + 0x100;
 
  cmp  al, 0
  jne .getkey6
  call getch
  add ax, 256
-;-166     //put ext code in AX
+;-169     //put ext code in AX
 
-;-167 }
+;-170 }
 
 .getkey6:
-;-168 int kbdEcho() {
+;-171 int kbdEcho() {
 
  ret
 ENDP
 
 kbdEcho: PROC
-;-169     getkey();
+;-172     getkey();
 
  call getkey
-;-170     writetty();//destroys AH
+;-173     writetty();//destroys AH
 
  call writetty
-;-171 }
+;-174 }
 
-;-172 
+;-175 
 
-;-173 int printhex4(unsigned char c) {
+;-176 int printhex4(unsigned char c) {
 
  ret
 ENDP
 
 printhex4: PROC
-;-174     c += 48;
+;-177     c += 48;
 
 ;Function : printhex4, Number local Var: 1
 ; # type sign width local variables
-;91 var unsg byte c = bp+4;
+;93 var unsg byte c = bp+4;
  ENTER  0,0
  add  byte[bp+4], 48
-;-175     if (c > 57) c += 7;
+;-178     if (c > 57) c += 7;
 
  mov al, [bp+4]
  cmp al, 57
  jle .printhex47
  add  byte[bp+4], 7
-;-176     putch(c);
+;-179     putch(c);
 
 .printhex47:
  mov al, byte [bp+4]
@@ -590,23 +601,23 @@ printhex4: PROC
  push ax
  call putch
  add  sp, 2
-;-177 }
+;-180 }
 
-;-178 int printhex8(unsigned char c) {
+;-181 int printhex8(unsigned char c) {
 
  LEAVE
  ret
 ENDP
 
 printhex8: PROC
-;-179     unsigned char nib;
+;-182     unsigned char nib;
 
-;-180     nib = c >> 4; printhex4(nib);
+;-183     nib = c >> 4; printhex4(nib);
 
 ;Function : printhex8, Number local Var: 2
 ; # type sign width local variables
-;91 var unsg byte c = bp+4
-;92 var unsg byte nib = bp-2;
+;93 var unsg byte c = bp+4
+;94 var unsg byte nib = bp-2;
  ENTER  2,0
  mov al, [bp+4]
  shr al, 4
@@ -616,7 +627,7 @@ printhex8: PROC
  push ax
  call printhex4
  add  sp, 2
-;-181     nib = c & 15; printhex4(nib);
+;-184     nib = c & 15; printhex4(nib);
 
  mov al, [bp+4]
  and al, 15
@@ -626,23 +637,23 @@ printhex8: PROC
  push ax
  call printhex4
  add  sp, 2
-;-182 }
+;-185 }
 
-;-183 int printhex16(unsigned int i) {
+;-186 int printhex16(unsigned int i) {
 
  LEAVE
  ret
 ENDP
 
 printhex16: PROC
-;-184     unsigned int half;
+;-187     unsigned int half;
 
-;-185     half = i >>  8; printhex8(half);
+;-188     half = i >>  8; printhex8(half);
 
 ;Function : printhex16, Number local Var: 2
 ; # type sign width local variables
-;91 var unsg word i = bp+4
-;92 var unsg word half = bp-2;
+;93 var unsg word i = bp+4
+;94 var unsg word half = bp-2;
  ENTER  2,0
  mov ax, [bp+4]
  shr ax, 8
@@ -650,7 +661,7 @@ printhex16: PROC
  push word [bp-2]
  call printhex8
  add  sp, 2
-;-186     half = i & 255; printhex8(half);
+;-189     half = i & 255; printhex8(half);
 
  mov ax, [bp+4]
  and ax, 255
@@ -658,44 +669,44 @@ printhex16: PROC
  push word [bp-2]
  call printhex8
  add  sp, 2
-;-187 }
+;-190 }
 
-;-188 
+;-191 
 
-;-189 int printunsign(unsigned int n) {
+;-192 int printunsign(unsigned int n) {
 
  LEAVE
  ret
 ENDP
 
 printunsign: PROC
-;-190     unsigned int e;
+;-193     unsigned int e;
 
-;-191     if (n >= 10) {
+;-194     if (n >= 10) {
 
 ;Function : printunsign, Number local Var: 2
 ; # type sign width local variables
-;91 var unsg word n = bp+4
-;92 var unsg word e = bp-2;
+;93 var unsg word n = bp+4
+;94 var unsg word e = bp-2;
  ENTER  2,0
  mov ax, [bp+4]
  cmp ax, 10 ;unsigned : 0
  jb  .printunsign8
-;-192         e=n/10;
+;-195         e=n/10;
 
  mov ax, [bp+4]
  mov bx, 10
  mov dx, 0
  div bx
  mov [bp-2], ax
-;-193         printunsign(e);
+;-196         printunsign(e);
 
  push word [bp-2]
  call printunsign
  add  sp, 2
-;-194         }
+;-197         }
 
-;-195     n=n%10;
+;-198     n=n%10;
 
 .printunsign8:
  mov ax, [bp+4]
@@ -704,124 +715,124 @@ printunsign: PROC
  div bx
  mov ax, dx
  mov [bp+4], ax
-;-196     n+='0';
+;-199     n+='0';
 
  add  word[bp+4], 48
-;-197     putch(n);
+;-200     putch(n);
 
  push word [bp+4]
  call putch
  add  sp, 2
-;-198 }
+;-201 }
 
-;-199 
+;-202 
 
-;-200 int printlong(unsigned long L) {
+;-203 int printlong(unsigned long L) {
 
  LEAVE
  ret
 ENDP
 
 printlong: PROC
-;-201     ax = L;     // get low in ax
+;-204     ax = L;     // get low in ax
 
 ;Function : printlong, Number local Var: 1
 ; # type sign width local variables
-;91 var unsg long L = bp+4;
+;93 var unsg long L = bp+4;
  ENTER  0,0
  mov  ax, [bp+4]
-;-202     edx=L;
+;-205     edx=L;
 
  mov  edx, [bp+4]
-;-203     edx >> 16;  // get high in dx
+;-206     edx >> 16;  // get high in dx
 
  shr  edx, 16
-;-204 __asm{
+;-207 __asm{
 
 
-;-205   	mov     bx,10          ;CONST
+;-208   	mov     bx,10          ;CONST
 
   	mov     bx,10          ;CONST
-;-206     push    bx             ;Sentinel
+;-209     push    bx             ;Sentinel
 
     push    bx             ;Sentinel
-;-207 .a: mov     cx,ax          ;Temporarily store LowDividend in CX
+;-210 .a: mov     cx,ax          ;Temporarily store LowDividend in CX
 
 .a: mov     cx,ax          ;Temporarily store LowDividend in CX
-;-208     mov     ax,dx          ;First divide the HighDividend
+;-211     mov     ax,dx          ;First divide the HighDividend
 
     mov     ax,dx          ;First divide the HighDividend
-;-209     xor     dx,dx          ;Setup for division DX:AX / BX
+;-212     xor     dx,dx          ;Setup for division DX:AX / BX
 
     xor     dx,dx          ;Setup for division DX:AX / BX
-;-210 ;// DX:AX DIV BX = AX remainder dx
+;-213 ;// DX:AX DIV BX = AX remainder dx
 
 ;// DX:AX DIV BX = AX remainder dx
-;-211     div     bx             ; -> AX is HighQuotient, Remainder is re-used
+;-214     div     bx             ; -> AX is HighQuotient, Remainder is re-used
 
     div     bx             ; -> AX is HighQuotient, Remainder is re-used
-;-212     db		145;=91h xchg ax,cx; move it to CX restoring LowDividend
+;-215     db		145;=91h xchg ax,cx; move it to CX restoring LowDividend
 
     db		145;=91h xchg ax,cx; move it to CX restoring LowDividend
-;-213     div     bx             ; -> AX is LowQuotient, Remainder DX=[0,9]
+;-216     div     bx             ; -> AX is LowQuotient, Remainder DX=[0,9]
 
     div     bx             ; -> AX is LowQuotient, Remainder DX=[0,9]
-;-214     push    dx             ;(1) Save remainder for now
+;-217     push    dx             ;(1) Save remainder for now
 
     push    dx             ;(1) Save remainder for now
-;-215     mov     dx,cx          ;Build true 32-bit quotient in DX:AX
+;-218     mov     dx,cx          ;Build true 32-bit quotient in DX:AX
 
     mov     dx,cx          ;Build true 32-bit quotient in DX:AX
-;-216     or      cx,ax          ;Is the true 32-bit quotient zero?
+;-219     or      cx,ax          ;Is the true 32-bit quotient zero?
 
     or      cx,ax          ;Is the true 32-bit quotient zero?
-;-217     jnz     .a             ;No, use as next dividend
+;-220     jnz     .a             ;No, use as next dividend
 
     jnz     .a             ;No, use as next dividend
-;-218     pop     ax             ;(1a) First pop (Is digit for sure)
+;-221     pop     ax             ;(1a) First pop (Is digit for sure)
 
     pop     ax             ;(1a) First pop (Is digit for sure)
-;-219 .b: add     al, 48;"0"     ;Turn into character [0,9] -> ["0","9"]
+;-222 .b: add     al, 48;"0"     ;Turn into character [0,9] -> ["0","9"]
 
 .b: add     al, 48;"0"     ;Turn into character [0,9] -> ["0","9"]
-;-220 }	writetty();		__asm{
+;-223 }	writetty();		__asm{
 
 
  call writetty
 
-;-221     pop     ax             ;(1b) All remaining pops
+;-224     pop     ax             ;(1b) All remaining pops
 
     pop     ax             ;(1b) All remaining pops
-;-222     cmp     ax,bx          ;Was it the sentinel?
+;-225     cmp     ax,bx          ;Was it the sentinel?
 
     cmp     ax,bx          ;Was it the sentinel?
-;-223     jb      .b             ;Not yet
+;-226     jb      .b             ;Not yet
 
     jb      .b             ;Not yet
-;-224 }
+;-227 }
 
 
-;-225 }
+;-228 }
 
-;-226 //--------------------------------  string  ---------------------
+;-229 //--------------------------------  string  ---------------------
 
-;-227 int strlen(char *s) { int c;
+;-230 int strlen(char *s) { int c;
 
  LEAVE
  ret
 ENDP
 
 strlen: PROC
-;-228     c=0;
+;-231     c=0;
 
 ;Function : strlen, Number local Var: 2
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 var sign word c = bp-2;
+;93 ptr sign byte s = bp+4
+;94 var sign word c = bp-2;
  ENTER  2,0
  mov ax, 0
  mov [bp-2], ax
-;-229     while (*s!=0) {s++; c++;}
+;-232     while (*s!=0) {s++; c++;}
 
 .strlen9:
  mov bx, [bp+4]
@@ -831,15 +842,15 @@ strlen: PROC
  je  .strlen10
  inc  word[bp+4]
  inc  word[bp-2]
-;-230     return c;
+;-233     return c;
 
  jmp .strlen9
 .strlen10:
  mov ax, [bp-2]
  jmp .retnstrlen
-;-231 }
+;-234 }
 
-;-232 int strcpy(char *s, char *t) {//new
+;-235 int strcpy(char *s, char *t) {//new
 
  .retnstrlen:
  LEAVE
@@ -847,12 +858,12 @@ strlen: PROC
 ENDP
 
 strcpy: PROC
-;-233     while (*t!=0) {
+;-236     while (*t!=0) {
 
 ;Function : strcpy, Number local Var: 2
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 ptr sign byte t = bp+6;
+;93 ptr sign byte s = bp+4
+;94 ptr sign byte t = bp+6;
  ENTER  0,0
 .strcpy11:
  mov bx, [bp+6]
@@ -860,7 +871,7 @@ strcpy: PROC
  mov ah, 0
  cmp ax, 0
  je  .strcpy12
-;-234     	*s=*t; s++; t++; }
+;-237     	*s=*t; s++; t++; }
 
  mov bx, [bp+6]
  mov al, [bx]
@@ -869,20 +880,20 @@ strcpy: PROC
  mov  [bx], al
  inc  word[bp+4]
  inc  word[bp+6]
-;-235     *s=0;
+;-238     *s=0;
 
  jmp .strcpy11
 .strcpy12:
  mov ax, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-236     return s;
+;-239     return s;
 
  mov ax, [bp+4]
  jmp .retnstrcpy
-;-237 }
+;-240 }
 
-;-238 int eqstr(char *p, char *q) {
+;-241 int eqstr(char *p, char *q) {
 
  .retnstrcpy:
  LEAVE
@@ -890,12 +901,12 @@ strcpy: PROC
 ENDP
 
 eqstr: PROC
-;-239     while(*p) {
+;-242     while(*p) {
 
 ;Function : eqstr, Number local Var: 2
 ; # type sign width local variables
-;91 ptr sign byte p = bp+4
-;92 ptr sign byte q = bp+6;
+;93 ptr sign byte p = bp+4
+;94 ptr sign byte q = bp+6;
  ENTER  0,0
 .eqstr13:
  mov bx, [bp+4]
@@ -903,7 +914,7 @@ eqstr: PROC
  mov ah, 0
  or  al, al
  je .eqstr14
-;-240         if (*p != *q) return 0;
+;-243         if (*p != *q) return 0;
 
  mov bx, [bp+4]
  mov al, [bx]
@@ -914,16 +925,16 @@ eqstr: PROC
  je  .eqstr15
  mov ax, 0
  jmp .retneqstr
-;-241         p++;
+;-244         p++;
 
 .eqstr15:
  inc  word[bp+4]
-;-242         q++;
+;-245         q++;
 
  inc  word[bp+6]
-;-243     }
+;-246     }
 
-;-244     if(*q) return 0;
+;-247     if(*q) return 0;
 
  jmp .eqstr13
 .eqstr14:
@@ -934,16 +945,16 @@ eqstr: PROC
  je .eqstr16
  mov ax, 0
  jmp .retneqstr
-;-245     return 1;
+;-248     return 1;
 
 .eqstr16:
  mov ax, 1
  jmp .retneqstr
-;-246 }
+;-249 }
 
-;-247 
+;-250 
 
-;-248 int memcmp(char *s, char *t, unsigned int i) {
+;-251 int memcmp(char *s, char *t, unsigned int i) {
 
  .retneqstr:
  LEAVE
@@ -951,16 +962,16 @@ eqstr: PROC
 ENDP
 
 memcmp: PROC
-;-249     do {
+;-252     do {
 
 ;Function : memcmp, Number local Var: 3
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 ptr sign byte t = bp+6
-;93 var unsg word i = bp+8;
+;93 ptr sign byte s = bp+4
+;94 ptr sign byte t = bp+6
+;95 var unsg word i = bp+8;
  ENTER  0,0
 .memcmp17:
-;-250         if (*s < *t) return 0xFFFF;
+;-253         if (*s < *t) return 0xFFFF;
 
  mov bx, [bp+4]
  mov al, [bx]
@@ -971,7 +982,7 @@ memcmp: PROC
  jge .memcmp18
  mov ax, 65535
  jmp .retnmemcmp
-;-251         if (*s > *t) return 1;
+;-254         if (*s > *t) return 1;
 
 .memcmp18:
  mov bx, [bp+4]
@@ -983,28 +994,28 @@ memcmp: PROC
  jle .memcmp19
  mov ax, 1
  jmp .retnmemcmp
-;-252         s++; t++; i--;
+;-255         s++; t++; i--;
 
 .memcmp19:
  inc  word[bp+4]
  inc  word[bp+6]
  dec  word[bp+8]
-;-253     } while (i != 0);
+;-256     } while (i != 0);
 
  mov ax, [bp+8]
  cmp ax, 0
  je  .memcmp20
  jmp .memcmp17
 .memcmp20:
-;-254     return 0;
+;-257     return 0;
 
  mov ax, 0
  jmp .retnmemcmp
-;-255 }
+;-258 }
 
-;-256 
+;-259 
 
-;-257 int strcat(char *s, char *t) {
+;-260 int strcat(char *s, char *t) {
 
  .retnmemcmp:
  LEAVE
@@ -1012,12 +1023,12 @@ memcmp: PROC
 ENDP
 
 strcat: PROC
-;-258     while (*s != 0) s++;
+;-261     while (*s != 0) s++;
 
 ;Function : strcat, Number local Var: 2
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 ptr sign byte t = bp+6;
+;93 ptr sign byte s = bp+4
+;94 ptr sign byte t = bp+6;
  ENTER  0,0
 .strcat21:
  mov bx, [bp+4]
@@ -1026,7 +1037,7 @@ strcat: PROC
  cmp ax, 0
  je  .strcat22
  inc  word[bp+4]
-;-259     strcpy(s, t);
+;-262     strcpy(s, t);
 
  jmp .strcat21
 .strcat22:
@@ -1034,20 +1045,20 @@ strcat: PROC
  push word [bp+4]
  call strcpy
  add  sp, 4
-;-260 }
+;-263 }
 
-;-261 int toupper(char *s) {
+;-264 int toupper(char *s) {
 
  LEAVE
  ret
 ENDP
 
 toupper: PROC
-;-262     while(*s) {
+;-265     while(*s) {
 
 ;Function : toupper, Number local Var: 1
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4;
+;93 ptr sign byte s = bp+4;
  ENTER  0,0
 .toupper23:
  mov bx, [bp+4]
@@ -1055,7 +1066,7 @@ toupper: PROC
  mov ah, 0
  or  al, al
  je .toupper24
-;-263         if (*s >= 'a') if (*s <= 'z') *s=*s-32;
+;-266         if (*s >= 'a') if (*s <= 'z') *s=*s-32;
 
  mov bx, [bp+4]
  mov al, [bx]
@@ -1073,30 +1084,30 @@ toupper: PROC
  sub ax, 32
  mov  bx, [bp+4]
  mov  [bx], al
-;-264         s++;
+;-267         s++;
 
 .toupper26:
 .toupper25:
  inc  word[bp+4]
-;-265     }
+;-268     }
 
-;-266 }
+;-269 }
 
  jmp .toupper23
 .toupper24:
-;-267 int strchr(char *s, char c) {
+;-270 int strchr(char *s, char c) {
 
  LEAVE
  ret
 ENDP
 
 strchr: PROC
-;-268     while(*s) {
+;-271     while(*s) {
 
 ;Function : strchr, Number local Var: 2
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 var sign byte c = bp+6;
+;93 ptr sign byte s = bp+4
+;94 var sign byte c = bp+6;
  ENTER  0,0
 .strchr27:
  mov bx, [bp+4]
@@ -1104,7 +1115,7 @@ strchr: PROC
  mov ah, 0
  or  al, al
  je .strchr28
-;-269         if (*s==c) return s;
+;-272         if (*s==c) return s;
 
  mov bx, [bp+4]
  mov al, [bx]
@@ -1113,21 +1124,21 @@ strchr: PROC
  jne .strchr29
  mov ax, [bp+4]
  jmp .retnstrchr
-;-270         s++;
+;-273         s++;
 
 .strchr29:
  inc  word[bp+4]
-;-271     }
+;-274     }
 
-;-272     return 0;
+;-275     return 0;
 
  jmp .strchr27
 .strchr28:
  mov ax, 0
  jmp .retnstrchr
-;-273 }
+;-276 }
 
-;-274 int memchr(char *s, char c, unsigned int i) {
+;-277 int memchr(char *s, char c, unsigned int i) {
 
  .retnstrchr:
  LEAVE
@@ -1135,19 +1146,19 @@ strchr: PROC
 ENDP
 
 memchr: PROC
-;-275     while(i > 0) {
+;-278     while(i > 0) {
 
 ;Function : memchr, Number local Var: 3
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 var sign byte c = bp+6
-;93 var unsg word i = bp+8;
+;93 ptr sign byte s = bp+4
+;94 var sign byte c = bp+6
+;95 var unsg word i = bp+8;
  ENTER  0,0
 .memchr30:
  mov ax, [bp+8]
  cmp ax, 0
  jle .memchr31
-;-276         if (*s==c) return s;
+;-279         if (*s==c) return s;
 
  mov bx, [bp+4]
  mov al, [bx]
@@ -1156,22 +1167,22 @@ memchr: PROC
  jne .memchr32
  mov ax, [bp+4]
  jmp .retnmemchr
-;-277         s++; i--;
+;-280         s++; i--;
 
 .memchr32:
  inc  word[bp+4]
  dec  word[bp+8]
-;-278     }
+;-281     }
 
-;-279     return 0;
+;-282     return 0;
 
  jmp .memchr30
 .memchr31:
  mov ax, 0
  jmp .retnmemchr
-;-280 }
+;-283 }
 
-;-281 int memchr1(char *s, char c, unsigned int i) {
+;-284 int memchr1(char *s, char c, unsigned int i) {
 
  .retnmemchr:
  LEAVE
@@ -1179,26 +1190,26 @@ memchr: PROC
 ENDP
 
 memchr1: PROC
-;-282 	unsigned int pos;
+;-285 	unsigned int pos;
 
-;-283 	pos=1;
+;-286 	pos=1;
 
 ;Function : memchr1, Number local Var: 4
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 var sign byte c = bp+6
-;93 var unsg word i = bp+8
-;94 var unsg word pos = bp-2;
+;93 ptr sign byte s = bp+4
+;94 var sign byte c = bp+6
+;95 var unsg word i = bp+8
+;96 var unsg word pos = bp-2;
  ENTER  2,0
  mov ax, 1
  mov [bp-2], ax
-;-284     while(i > 0) {
+;-287     while(i > 0) {
 
 .memchr133:
  mov ax, [bp+8]
  cmp ax, 0
  jle .memchr134
-;-285         if (*s==c) return pos;
+;-288         if (*s==c) return pos;
 
  mov bx, [bp+4]
  mov al, [bx]
@@ -1207,23 +1218,23 @@ memchr1: PROC
  jne .memchr135
  mov ax, [bp-2]
  jmp .retnmemchr1
-;-286         s++; i--; pos++;
+;-289         s++; i--; pos++;
 
 .memchr135:
  inc  word[bp+4]
  dec  word[bp+8]
  inc  word[bp-2]
-;-287     }
+;-290     }
 
-;-288     return 0;
+;-291     return 0;
 
  jmp .memchr133
 .memchr134:
  mov ax, 0
  jmp .retnmemchr1
-;-289 }
+;-292 }
 
-;-290 int instr1(char *s, char c) {
+;-293 int instr1(char *s, char c) {
 
  .retnmemchr1:
  LEAVE
@@ -1231,12 +1242,12 @@ memchr1: PROC
 ENDP
 
 instr1: PROC
-;-291     while(*s) {
+;-294     while(*s) {
 
 ;Function : instr1, Number local Var: 2
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 var sign byte c = bp+6;
+;93 ptr sign byte s = bp+4
+;94 var sign byte c = bp+6;
  ENTER  0,0
 .instr136:
  mov bx, [bp+4]
@@ -1244,7 +1255,7 @@ instr1: PROC
  mov ah, 0
  or  al, al
  je .instr137
-;-292         if (*s==c) return 1;
+;-295         if (*s==c) return 1;
 
  mov bx, [bp+4]
  mov al, [bx]
@@ -1253,23 +1264,23 @@ instr1: PROC
  jne .instr138
  mov ax, 1
  jmp .retninstr1
-;-293         s++;
+;-296         s++;
 
 .instr138:
  inc  word[bp+4]
-;-294     }
+;-297     }
 
-;-295     return 0;
+;-298     return 0;
 
  jmp .instr136
 .instr137:
  mov ax, 0
  jmp .retninstr1
-;-296 }
+;-299 }
 
-;-297 
+;-300 
 
-;-298 int memcpy(char *s, char *t, unsigned int i) {
+;-301 int memcpy(char *s, char *t, unsigned int i) {
 
  .retninstr1:
  LEAVE
@@ -1277,359 +1288,369 @@ instr1: PROC
 ENDP
 
 memcpy: PROC
-;-299 	unsigned int r;
+;-302 	unsigned int r;
 
-;-300 	r = s;
+;-303 	r = s;
 
 ;Function : memcpy, Number local Var: 4
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4
-;92 ptr sign byte t = bp+6
-;93 var unsg word i = bp+8
-;94 var unsg word r = bp-2;
+;93 ptr sign byte s = bp+4
+;94 ptr sign byte t = bp+6
+;95 var unsg word i = bp+8
+;96 var unsg word r = bp-2;
  ENTER  2,0
  mov ax, [bp+4]
  mov [bp-2], ax
-;-301 	do {
+;-304 	do {
 
 .memcpy39:
-;-302 		*s = *t;
+;-305 		*s = *t;
 
  mov bx, [bp+6]
  mov al, [bx]
  mov ah, 0
  mov  bx, [bp+4]
  mov  [bx], al
-;-303 		s++; t++; i--;
+;-306 		s++; t++; i--;
 
  inc  word[bp+4]
  inc  word[bp+6]
  dec  word[bp+8]
-;-304 	} while (i != 0);
+;-307 	} while (i != 0);
 
  mov ax, [bp+8]
  cmp ax, 0
  je  .memcpy40
  jmp .memcpy39
 .memcpy40:
-;-305 	ax=r;//	return r;
+;-308 	ax=r;//	return r;
 
  mov  ax, [bp-2]
-;-306 }
+;-309 }
 
-;-307 
+;-310 
 
-;-308 int mdump(unsigned char *adr, unsigned int len ) {
+;-311 int mdump(unsigned char *adr, unsigned int len ) {
 
  LEAVE
  ret
 ENDP
 
 mdump: PROC
-;-309     unsigned char c; int i; int j; int k;
+;-312     unsigned char c; unsigned char chal; int i; int j; int k;
 
-;-310     j=0;
+;-313     j=0;
 
-;Function : mdump, Number local Var: 6
+;Function : mdump, Number local Var: 7
 ; # type sign width local variables
-;91 ptr unsg byte adr = bp+4
-;92 var unsg word len = bp+6
-;93 var unsg byte c = bp-2
-;94 var sign word i = bp-4
-;95 var sign word j = bp-6
-;96 var sign word k = bp-8;
- ENTER  8,0
- mov ax, 0
- mov [bp-6], ax
-;-311     k=0;
-
+;93 ptr unsg byte adr = bp+4
+;94 var unsg word len = bp+6
+;95 var unsg byte c = bp-2
+;96 var unsg byte chal = bp-4
+;97 var sign word i = bp-6
+;98 var sign word j = bp-8
+;99 var sign word k = bp-10;
+ ENTER  10,0
  mov ax, 0
  mov [bp-8], ax
-;-312     while (j < len ) {
+;-314     k=0;
+
+ mov ax, 0
+ mov [bp-10], ax
+;-315     while (j < len ) {
 
 .mdump41:
- mov ax, [bp-6]
+ mov ax, [bp-8]
  cmp ax, [bp+6]
  jge .mdump42
-;-313 	    k++;;
+;-316 	    k++;;
 
- inc  word[bp-8]
-;-314 	    if (k > 8) {
+ inc  word[bp-10]
+;-317 	    if (k > 8) {
 
- mov ax, [bp-8]
+ mov ax, [bp-10]
  cmp ax, 8
  jle .mdump43
-;-315 		    getkey();
+;-318 		    chal = getkey();//remove scan code
 
  call getkey
-;-316 		    k=1;
+ mov [bp-4], al
+;-319 		    if (chal =='q') return;
 
+ mov al, [bp-4]
+ cmp al, 113
+ jne .mdump44
+ jmp .retnmdump
+;-320 		    k=1;
+
+.mdump44:
  mov ax, 1
- mov [bp-8], ax
-;-317 		    }
+ mov [bp-10], ax
+;-321 		    }
 
-;-318         putch(10);
+;-322         putch(10);
 
 .mdump43:
  push 10
  call putch
  add  sp, 2
-;-319         printhex16(adr);
+;-323         printhex16(adr);
 
  push word [bp+4]
  call printhex16
  add  sp, 2
-;-320         putch(':');
+;-324         putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-321         i=0;
+;-325         i=0;
 
  mov ax, 0
- mov [bp-4], ax
-;-322         while (i < 16) {
+ mov [bp-6], ax
+;-326         while (i < 16) {
 
-.mdump44:
- mov ax, [bp-4]
+.mdump45:
+ mov ax, [bp-6]
  cmp ax, 16
- jge .mdump45
-;-323             putch(' ');
+ jge .mdump46
+;-327             putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-324             c = *adr;
+;-328             c = *adr;
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-325             printhex8(c);
+;-329             printhex8(c);
 
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call printhex8
  add  sp, 2
-;-326             adr++;
+;-330             adr++;
 
  inc  word[bp+4]
-;-327             i++;
-
- inc  word[bp-4]
-;-328             j++;
+;-331             i++;
 
  inc  word[bp-6]
-;-329             }
+;-332             j++;
 
-;-330         putch(' ');
+ inc  word[bp-8]
+;-333             }
 
- jmp .mdump44
-.mdump45:
+;-334         putch(' ');
+
+ jmp .mdump45
+.mdump46:
  push 32
  call putch
  add  sp, 2
-;-331         adr -=16;
+;-335         adr -=16;
 
  sub  word[bp+4], 16
-;-332         i=0;
+;-336         i=0;
 
  mov ax, 0
- mov [bp-4], ax
-;-333         while(i < 16) {
+ mov [bp-6], ax
+;-337         while(i < 16) {
 
-.mdump46:
- mov ax, [bp-4]
+.mdump47:
+ mov ax, [bp-6]
  cmp ax, 16
- jge .mdump47
-;-334             c= *adr;
+ jge .mdump48
+;-338             c= *adr;
 
  mov bx, [bp+4]
  mov al, [bx]
  mov ah, 0
  mov [bp-2], al
-;-335             if (c < 32) putch('.');
+;-339             if (c < 32) putch('.');
 
  mov al, [bp-2]
  cmp al, 32
- jge .mdump48
+ jge .mdump49
  push 46
  call putch
  add  sp, 2
-;-336                 else putch(c);
+;-340                 else putch(c);
 
- jmp .mdump49
-.mdump48:
+ jmp .mdump50
+.mdump49:
  mov al, byte [bp-2]
  mov ah, 0
  push ax
  call putch
  add  sp, 2
-;-337             adr++;
+;-341             adr++;
 
-.mdump49:
+.mdump50:
  inc  word[bp+4]
-;-338             i++;
+;-342             i++;
 
- inc  word[bp-4]
-;-339         }
+ inc  word[bp-6]
+;-343         }
 
-;-340     }
+;-344     }
 
- jmp .mdump46
-.mdump47:
-;-341     getkey();
+ jmp .mdump47
+.mdump48:
+;-345     getkey();
 
  jmp .mdump41
 .mdump42:
  call getkey
-;-342     putch(10);
+;-346     putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-343 
-
-;-344 }
-
-;-345 
-
-;-346 //--------------------------------  disk IO  -------------------
-
 ;-347 
 
-;-348 int DiskSectorReadWrite(char rw, char drive, char head, int cyl,
+;-348 }
 
+;-349 
+
+;-350 //--------------------------------  disk IO  -------------------
+
+;-351 
+
+;-352 int DiskSectorReadWrite(char rw, char drive, char head, int cyl,
+
+ .retnmdump:
  LEAVE
  ret
 ENDP
 
 DiskSectorReadWrite: PROC
-;-349 char sector, char count, int BufSeg, int BufOfs) {//CHS max. 8GB
+;-353 char sector, char count, int BufSeg, int BufOfs) {//CHS max. 8GB
 
-;-350 	BIOS_ERR=0;
+;-354 	BIOS_ERR=0;
 
 ;Function : DiskSectorReadWrite, Number local Var: 8
 ; # type sign width local variables
-;91 var sign byte rw = bp+4
-;92 var sign byte drive = bp+6
-;93 var sign byte head = bp+8
-;94 var sign word cyl = bp+10
-;95 var sign byte sector = bp+12
-;96 var sign byte count = bp+14
-;97 var sign word BufSeg = bp+16
-;98 var sign word BufOfs = bp+18;
+;93 var sign byte rw = bp+4
+;94 var sign byte drive = bp+6
+;95 var sign byte head = bp+8
+;96 var sign word cyl = bp+10
+;97 var sign byte sector = bp+12
+;98 var sign byte count = bp+14
+;99 var sign word BufSeg = bp+16
+;100 var sign word BufOfs = bp+18;
  ENTER  0,0
  mov ax, 0
  mov byte [BIOS_ERR], al
-;-351 	dl=drive;
+;-355 	dl=drive;
 
  mov  dl, [bp+6]
-;-352 	dh=head;//may include 2 more cylinder bits
+;-356 	dh=head;//may include 2 more cylinder bits
 
  mov  dh, [bp+8]
-;-353 	es=BufSeg;
+;-357 	es=BufSeg;
 
  mov  es, [bp+16]
-;-354 	bx=BufOfs;
+;-358 	bx=BufOfs;
 
  mov  bx, [bp+18]
-;-355 	cx=cyl;
+;-359 	cx=cyl;
 
  mov  cx, [bp+10]
-;-356 	cx &= 0x300;//2 high bits of cyl
+;-360 	cx &= 0x300;//2 high bits of cyl
 
  and  cx, 768
-;-357 	cx >> 2;//in 2 high bits of cl
+;-361 	cx >> 2;//in 2 high bits of cl
 
  shr  cx, 2
-;-358 	sector &= 0x3F;//only 6 bits for sector
+;-362 	sector &= 0x3F;//only 6 bits for sector
 
  and  byte[bp+12], 63
-;-359 	cl += sector;
+;-363 	cl += sector;
 
  add  cl, [bp+12]
-;-360 	ch=cyl;//low byte of cyl in ch, word 2 byte
+;-364 	ch=cyl;//low byte of cyl in ch, word 2 byte
 
  mov  ch, [bp+10]
-;-361 	al=count;
+;-365 	al=count;
 
  mov  al, [bp+14]
-;-362 	ah=rw;
+;-366 	ah=rw;
 
  mov  ah, [bp+4]
-;-363 	inth 0x13;
+;-367 	inth 0x13;
 
  int  19
-;-364     __emit__(0x73, 04); //jnc over BIOS_ERR++
+;-368     __emit__(0x73, 04); //jnc over BIOS_ERR++
 
  db 115,4
-;-365 	BIOS_ERR++;
+;-369 	BIOS_ERR++;
 
  inc  byte[BIOS_ERR]
-;-366 }
+;-370 }
 
-;-367 int Int13hfunction(char drive, char function) {
+;-371 int Int13hfunction(char drive, char function) {
 
  LEAVE
  ret
 ENDP
 
 Int13hfunction: PROC
-;-368 	BIOS_ERR=0;
+;-372 	BIOS_ERR=0;
 
 ;Function : Int13hfunction, Number local Var: 2
 ; # type sign width local variables
-;91 var sign byte drive = bp+4
-;92 var sign byte function = bp+6;
+;93 var sign byte drive = bp+4
+;94 var sign byte function = bp+6;
  ENTER  0,0
  mov ax, 0
  mov byte [BIOS_ERR], al
-;-369 	dl=drive;
+;-373 	dl=drive;
 
  mov  dl, [bp+4]
-;-370 	ah=function;//0=reset, 1=status, 8=parms
+;-374 	ah=function;//0=reset, 1=status, 8=parms
 
  mov  ah, [bp+6]
-;-371 	inth 0x13;
+;-375 	inth 0x13;
 
  int  19
-;-372     __emit__(0x73, 04); //jnc over BIOS_ERR++
+;-376     __emit__(0x73, 04); //jnc over BIOS_ERR++
 
  db 115,4
-;-373 	BIOS_ERR++;//Status or error code in AX
+;-377 	BIOS_ERR++;//Status or error code in AX
 
  inc  byte[BIOS_ERR]
-;-374 }
+;-378 }
 
-;-375 int Int13hError() {
+;-379 int Int13hError() {
 
  LEAVE
  ret
 ENDP
 
 Int13hError: PROC
-;-376 	cputs("** DISK ERROR AX=");
+;-380 	cputs("** DISK ERROR AX=");
 
  push Int13hError_0
  call cputs
  add  sp, 2
-;-377 	printhex16(BIOS_Status);
+;-381 	printhex16(BIOS_Status);
 
  push word [BIOS_Status]
  call printhex16
  add  sp, 2
-;-378 	cputs(".  ");
+;-382 	cputs(".  ");
 
  push Int13hError_1
  call cputs
  add  sp, 2
-;-379 	//Int13hfunction(Drive, 0);//Reset, loose BIOS_ERR
+;-383 	//Int13hfunction(Drive, 0);//Reset, loose BIOS_ERR
 
-;-380 }
+;-384 }
 
-;-381 int Status(drive) {
+;-385 int Status(drive) {
 
  ret
 Int13hError_0 db "** DISK ERROR AX=",0
@@ -1637,44 +1658,44 @@ Int13hError_1 db ".  ",0
 ENDP
 
 Status: PROC
-;-382 	putch(10);
+;-386 	putch(10);
 
 ;Function : Status, Number local Var: 1
 ; # type sign width local variables
-;91 var sign word drive = bp+4;
+;93 var sign word drive = bp+4;
  ENTER  0,0
  push 10
  call putch
  add  sp, 2
-;-383 	cputs("Status last Op=");
+;-387 	cputs("Status last Op=");
 
  push Status_0
  call cputs
  add  sp, 2
-;-384 	BIOS_Status=Int13hfunction(drive, 1);
+;-388 	BIOS_Status=Int13hfunction(drive, 1);
 
  push 1
  push word [bp+4]
  call Int13hfunction
  add  sp, 4
  mov word [BIOS_Status], ax
-;-385 	if (BIOS_ERR) Int13hError();
+;-389 	if (BIOS_ERR) Int13hError();
 
  mov al, [BIOS_ERR]
  or  al, al
- je .Status50
+ je .Status51
  call Int13hError
-;-386 	printhex16(BIOS_Status);
+;-390 	printhex16(BIOS_Status);
 
-.Status50:
+.Status51:
  push word [BIOS_Status]
  call printhex16
  add  sp, 2
-;-387 }
+;-391 }
 
-;-388 
+;-392 
 
-;-389 int Params() {
+;-393 int Params() {
 
  LEAVE
  ret
@@ -1682,17 +1703,17 @@ Status_0 db "Status last Op=",0
 ENDP
 
 Params: PROC
-;-390 	if (debug) cputs(" DriveParams");
+;-394 	if (debug) cputs(" DriveParams");
 
  mov ax, 1
  or  al, al
- je .Params51
+ je .Params52
  push Params_0
  call cputs
  add  sp, 2
-;-391 	BIOS_Status=Int13hfunction(Drive, 8);
+;-395 	BIOS_Status=Int13hfunction(Drive, 8);
 
-.Params51:
+.Params52:
  push 8
  mov al, byte [Drive]
  mov ah, 0
@@ -1700,93 +1721,93 @@ Params: PROC
  call Int13hfunction
  add  sp, 4
  mov word [BIOS_Status], ax
-;-392 	if (BIOS_ERR) {
+;-396 	if (BIOS_ERR) {
 
  mov al, [BIOS_ERR]
  or  al, al
- je .Params52
-;-393 		Int13hError();
+ je .Params53
+;-397 		Int13hError();
 
  call Int13hError
-;-394 		return 1;
+;-398 		return 1;
 
  mov ax, 1
  jmp .retnParams
-;-395 		}
+;-399 		}
 
-;-396 	else {
+;-400 	else {
 
- jmp .Params53
-.Params52:
-;-397 		asm mov [pa_Heads],        dh
+ jmp .Params54
+.Params53:
+;-401 		asm mov [pa_Heads],        dh
 
  mov [pa_Heads],        dh
-;-398 		asm mov [pa_Attached],     dl
+;-402 		asm mov [pa_Attached],     dl
 
  mov [pa_Attached],     dl
-;-399 		// CX =       ---CH--- ---CL---
+;-403 		// CX =       ---CH--- ---CL---
 
-;-400 		// cylinder : 76543210 98
+;-404 		// cylinder : 76543210 98
 
-;-401 		// sector   :            543210
+;-405 		// sector   :            543210
 
-;-402 		asm mov [pa_Sectors],      cl
+;-406 		asm mov [pa_Sectors],      cl
 
  mov [pa_Sectors],      cl
-;-403 		pa_Sectors &= 0x3F;// 63
+;-407 		pa_Sectors &= 0x3F;// 63
 
  and  byte[pa_Sectors], 63
-;-404 //		pa_Sectors++;//1 to 64
+;-408 //		pa_Sectors++;//1 to 64
 
-;-405 
+;-409 
 
-;-406 		asm mov [pa_Cylinders],    cx
+;-410 		asm mov [pa_Cylinders],    cx
 
  mov [pa_Cylinders],    cx
-;-407 		pa_Cylinders &= 0xC0;//;bit 9 and 10 only
+;-411 		pa_Cylinders &= 0xC0;//;bit 9 and 10 only
 
  and  word[pa_Cylinders], 192
-;-408 		pa_Cylinders = pa_Cylinders << 2;//compiler flaw:
+;-412 		pa_Cylinders = pa_Cylinders << 2;//compiler flaw:
 
  mov ax, [pa_Cylinders]
  shl ax, 2
  mov word [pa_Cylinders], ax
-;-409 		asm add [pa_Cylinders],    ch;//byte add, low byte is empty
+;-413 		asm add [pa_Cylinders],    ch;//byte add, low byte is empty
 
  add [pa_Cylinders],    ch;//byte add, low byte is empty
-;-410 
+;-414 
 
-;-411 		if (pa_Attached == 0) {
+;-415 		if (pa_Attached == 0) {
 
  mov al, [pa_Attached]
  cmp al, 0
- jne .Params54
-;-412 			cputs(" ** no hard disk found");
+ jne .Params55
+;-416 			cputs(" ** no hard disk found");
 
  push Params_1
  call cputs
  add  sp, 2
-;-413 			return 1;
+;-417 			return 1;
 
  mov ax, 1
  jmp .retnParams
-;-414 			}
+;-418 			}
 
-;-415 	}
+;-419 	}
+
+.Params55:
+;-420 	return 0;
 
 .Params54:
-;-416 	return 0;
-
-.Params53:
  mov ax, 0
  jmp .retnParams
-;-417 }
+;-421 }
 
-;-418 
+;-422 
 
-;-419 
+;-423 
 
-;-420 int getPartitionData() {
+;-424 int getPartitionData() {
 
  .retnParams:
  ret
@@ -1795,20 +1816,20 @@ Params_1 db " ** no hard disk found",0
 ENDP
 
 getPartitionData: PROC
-;-421 	unsigned int j; char c; char *p;
+;-425 	unsigned int j; char c; char *p;
 
-;-422 	j = pt_PartNo << 4;
+;-426 	j = pt_PartNo << 4;
 
 ;Function : getPartitionData, Number local Var: 3
 ; # type sign width local variables
-;91 var unsg word j = bp-2
-;92 var sign byte c = bp-4
-;93 ptr sign byte p = bp-6;
+;93 var unsg word j = bp-2
+;94 var sign byte c = bp-4
+;95 ptr sign byte p = bp-6;
  ENTER  6,0
  mov ax, [pt_PartNo]
  shl ax, 4
  mov [bp-2], ax
-;-423 	j = j + 0x1be;			pt_Bootable=DiskBuf[j];//80H=boot
+;-427 	j = j + 0x1be;			pt_Bootable=DiskBuf[j];//80H=boot
 
  mov ax, [bp-2]
  add ax, 446
@@ -1816,103 +1837,103 @@ getPartitionData: PROC
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  mov byte [pt_Bootable], al
-;-424 	j++;					pt_StartHead=DiskBuf[j];
+;-428 	j++;					pt_StartHead=DiskBuf[j];
 
  inc  word[bp-2]
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  mov byte [pt_StartHead], al
-;-425 	j++;					pt_StartSector=DiskBuf[j];
+;-429 	j++;					pt_StartSector=DiskBuf[j];
 
  inc  word[bp-2]
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  mov byte [pt_StartSector], al
-;-426 	pt_StartCylinder=(int)pt_StartSector;
+;-430 	pt_StartCylinder=(int)pt_StartSector;
 
  xor ax, ax
  mov al, [pt_StartSector]
  mov word [pt_StartCylinder], ax
-;-427 	pt_StartSector &= 0x3F;
+;-431 	pt_StartSector &= 0x3F;
 
  and  byte[pt_StartSector], 63
-;-428 //	pt_StartSector++;//Sector start with 1 todo
+;-432 //	pt_StartSector++;//Sector start with 1 todo
 
-;-429 	pt_StartCylinder &= 0xC0;
+;-433 	pt_StartCylinder &= 0xC0;
 
  and  word[pt_StartCylinder], 192
-;-430 	pt_StartCylinder = pt_StartCylinder << 2;
+;-434 	pt_StartCylinder = pt_StartCylinder << 2;
 
  mov ax, [pt_StartCylinder]
  shl ax, 2
  mov word [pt_StartCylinder], ax
-;-431 	j++;
+;-435 	j++;
 
  inc  word[bp-2]
-;-432 	pt_StartCylinder=(int)DiskBuf[j] + pt_StartCylinder;
+;-436 	pt_StartCylinder=(int)DiskBuf[j] + pt_StartCylinder;
 
  xor ax, ax
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  add ax, [pt_StartCylinder]
  mov word [pt_StartCylinder], ax
-;-433 	j++;					pt_FileSystem=DiskBuf[j];
+;-437 	j++;					pt_FileSystem=DiskBuf[j];
 
  inc  word[bp-2]
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  mov byte [pt_FileSystem], al
-;-434 //	0=not used, 1=FAT12, 4=FAT16, 5=extended, 6=large<2GB
+;-438 //	0=not used, 1=FAT12, 4=FAT16, 5=extended, 6=large<2GB
 
-;-435 	j++;					pt_EndHead=DiskBuf[j];
+;-439 	j++;					pt_EndHead=DiskBuf[j];
 
  inc  word[bp-2]
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  mov byte [pt_EndHead], al
-;-436 	j++;					pt_EndSector=DiskBuf[j];
+;-440 	j++;					pt_EndSector=DiskBuf[j];
 
  inc  word[bp-2]
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  mov byte [pt_EndSector], al
-;-437 	pt_EndCylinder=    (int)pt_EndSector;//see next 5 line
+;-441 	pt_EndCylinder=    (int)pt_EndSector;//see next 5 line
 
  xor ax, ax
  mov al, [pt_EndSector]
  mov word [pt_EndCylinder], ax
-;-438 	pt_EndSector &= 0x3F;
+;-442 	pt_EndSector &= 0x3F;
 
  and  byte[pt_EndSector], 63
-;-439 //	pt_EndSector++;//Sector start with 1 todo
+;-443 //	pt_EndSector++;//Sector start with 1 todo
 
-;-440 	pt_EndCylinder &= 0xC0;
+;-444 	pt_EndCylinder &= 0xC0;
 
  and  word[pt_EndCylinder], 192
-;-441 	pt_EndCylinder = pt_EndCylinder << 2;//OK no short cut!
+;-445 	pt_EndCylinder = pt_EndCylinder << 2;//OK no short cut!
 
  mov ax, [pt_EndCylinder]
  shl ax, 2
  mov word [pt_EndCylinder], ax
-;-442 	j++;
+;-446 	j++;
 
  inc  word[bp-2]
-;-443 	pt_EndCylinder=(int)DiskBuf[j] + pt_EndCylinder;
+;-447 	pt_EndCylinder=(int)DiskBuf[j] + pt_EndCylinder;
 
  xor ax, ax
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  add ax, [pt_EndCylinder]
  mov word [pt_EndCylinder], ax
-;-444 	j++;
+;-448 	j++;
 
  inc  word[bp-2]
-;-445 	p = j + &DiskBuf;//copy pt_HiddenSector, pt_PartLen
+;-449 	p = j + &DiskBuf;//copy pt_HiddenSector, pt_PartLen
 
  mov ax, [bp-2]
  add ax, DiskBuf
  mov [bp-6], ax
-;-446 	memcpy(&pt_HiddenSector, p, 8);
+;-450 	memcpy(&pt_HiddenSector, p, 8);
 
  push 8
  push word [bp-6]
@@ -1920,62 +1941,62 @@ getPartitionData: PROC
  push ax
  call memcpy
  add  sp, 6
-;-447 }
+;-451 }
 
-;-448 
+;-452 
 
-;-449 int checkBootSign() {
+;-453 int checkBootSign() {
 
  LEAVE
  ret
 ENDP
 
 checkBootSign: PROC
-;-450 	int i;
+;-454 	int i;
 
-;-451 	i=510;
+;-455 	i=510;
 
 ;Function : checkBootSign, Number local Var: 1
 ; # type sign width local variables
-;91 var sign word i = bp-2;
+;93 var sign word i = bp-2;
  ENTER  2,0
  mov ax, 510
  mov [bp-2], ax
-;-452 	if (DiskBuf[i] == 0x55) {
+;-456 	if (DiskBuf[i] == 0x55) {
 
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  cmp al, 85
- jne .checkBootSign55
-;-453 		i++;
+ jne .checkBootSign56
+;-457 		i++;
 
  inc  word[bp-2]
-;-454 		if (DiskBuf[i] == 0xAA) return 1;
+;-458 		if (DiskBuf[i] == 0xAA) return 1;
 
  mov bx, [bp-2]
  mov al, [DiskBuf + bx]
  cmp al, 170
- jne .checkBootSign56
+ jne .checkBootSign57
  mov ax, 1
  jmp .retncheckBootSign
-;-455 	}
+;-459 	}
+
+.checkBootSign57:
+;-460 	cputs("  **Magic number NOT found.");
 
 .checkBootSign56:
-;-456 	cputs("  **Magic number NOT found.");
-
-.checkBootSign55:
  push checkBootSign_0
  call cputs
  add  sp, 2
-;-457 	return 0;
+;-461 	return 0;
 
  mov ax, 0
  jmp .retncheckBootSign
-;-458 }
+;-462 }
 
-;-459 
+;-463 
 
-;-460 int readMBR() {
+;-464 int readMBR() {
 
  .retncheckBootSign:
  LEAVE
@@ -1984,21 +2005,21 @@ checkBootSign_0 db "  **Magic number NOT found.",0
 ENDP
 
 readMBR: PROC
-;-461 	int isFAT;
+;-465 	int isFAT;
 
-;-462 	isFAT=0;
+;-466 	isFAT=0;
 
 ;Function : readMBR, Number local Var: 1
 ; # type sign width local variables
-;91 var sign word isFAT = bp-2;
+;93 var sign word isFAT = bp-2;
  ENTER  2,0
  mov ax, 0
  mov [bp-2], ax
-;-463 	pt_PartNo=0;
+;-467 	pt_PartNo=0;
 
  mov ax, 0
  mov word [pt_PartNo], ax
-;-464 	BIOS_Status=DiskSectorReadWrite(2,Drive,0,0,1,1,DiskBufSeg,DiskBuf);
+;-468 	BIOS_Status=DiskSectorReadWrite(2,Drive,0,0,1,1,DiskBufSeg,DiskBuf);
 
  lea  ax, [DiskBuf]
  push ax
@@ -2014,138 +2035,138 @@ readMBR: PROC
  call DiskSectorReadWrite
  add  sp, 16
  mov word [BIOS_Status], ax
-;-465 	if (BIOS_ERR) {
+;-469 	if (BIOS_ERR) {
 
  mov al, [BIOS_ERR]
  or  al, al
- je .readMBR57
-;-466 		Int13hError();
+ je .readMBR58
+;-470 		Int13hError();
 
  call Int13hError
-;-467 		return 0;
+;-471 		return 0;
 
  mov ax, 0
  jmp .retnreadMBR
-;-468 		}
+;-472 		}
 
-;-469 	else {
+;-473 	else {
 
- jmp .readMBR58
-.readMBR57:
-;-470 		if(checkBootSign()==0) return 0;
+ jmp .readMBR59
+.readMBR58:
+;-474 		if(checkBootSign()==0) return 0;
 
  call checkBootSign
  cmp al, 0
- jne .readMBR59
+ jne .readMBR60
  mov ax, 0
  jmp .retnreadMBR
-;-471 		do {
+;-475 		do {
 
-.readMBR59:
 .readMBR60:
-;-472 			getPartitionData();
+.readMBR61:
+;-476 			getPartitionData();
 
  call getPartitionData
-;-473 
+;-477 
 
-;-474 			if (pt_Bootable == 0x80) {
+;-478 			if (pt_Bootable == 0x80) {
 
  mov al, [pt_Bootable]
  cmp al, 128
- jne .readMBR61
-;-475 				if (debug) cputs(" Boot part. found");
+ jne .readMBR62
+;-479 				if (debug) cputs(" Boot part. found");
 
  mov ax, 1
  or  al, al
- je .readMBR62
+ je .readMBR63
  push readMBR_0
  call cputs
  add  sp, 2
-;-476 				if (pt_FileSystem == 1) {
+;-480 				if (pt_FileSystem == 1) {
 
-.readMBR62:
+.readMBR63:
  mov al, [pt_FileSystem]
  cmp al, 1
- jne .readMBR63
-;-477 					cputs(", FAT12 part. <32MB");
+ jne .readMBR64
+;-481 					cputs(", FAT12 part. <32MB");
 
  push readMBR_1
  call cputs
  add  sp, 2
-;-478 					isFAT=1;
+;-482 					isFAT=1;
 
  mov ax, 1
  mov [bp-2], ax
-;-479 					}
+;-483 					}
 
-;-480 				if (pt_FileSystem == 4) {
+;-484 				if (pt_FileSystem == 4) {
 
-.readMBR63:
+.readMBR64:
  mov al, [pt_FileSystem]
  cmp al, 4
- jne .readMBR64
-;-481 					cputs(", small FAT16 part.<32MB");
+ jne .readMBR65
+;-485 					cputs(", small FAT16 part.<32MB");
 
  push readMBR_2
  call cputs
  add  sp, 2
-;-482 					isFAT=4;
+;-486 					isFAT=4;
 
  mov ax, 4
  mov [bp-2], ax
-;-483 					}
+;-487 					}
 
-;-484 				if (pt_FileSystem == 6) {
+;-488 				if (pt_FileSystem == 6) {
 
-.readMBR64:
+.readMBR65:
  mov al, [pt_FileSystem]
  cmp al, 6
- jne .readMBR65
-;-485 					if (debug) cputs(", large FAT16 part.");
+ jne .readMBR66
+;-489 					if (debug) cputs(", large FAT16 part.");
 
  mov ax, 1
  or  al, al
- je .readMBR66
+ je .readMBR67
  push readMBR_3
  call cputs
  add  sp, 2
-;-486 					isFAT=6;
+;-490 					isFAT=6;
 
-.readMBR66:
+.readMBR67:
  mov ax, 6
  mov [bp-2], ax
-;-487 					}
+;-491 					}
 
-;-488 				pt_PartNo=99;//end of loop
+;-492 				pt_PartNo=99;//end of loop
 
-.readMBR65:
+.readMBR66:
  mov ax, 99
  mov word [pt_PartNo], ax
-;-489 			}
+;-493 			}
 
-;-490 			pt_PartNo ++;
+;-494 			pt_PartNo ++;
 
-.readMBR61:
+.readMBR62:
  inc  word[pt_PartNo]
-;-491 		} while (pt_PartNo <4);
+;-495 		} while (pt_PartNo <4);
 
  mov ax, [pt_PartNo]
  cmp ax, 4
- jge .readMBR67
- jmp .readMBR60
-.readMBR67:
-;-492 		return isFAT;
+ jge .readMBR68
+ jmp .readMBR61
+.readMBR68:
+;-496 		return isFAT;
 
  mov ax, [bp-2]
  jmp .retnreadMBR
-;-493 	}
+;-497 	}
 
-;-494 }
+;-498 }
 
-.readMBR58:
-;-495 
+.readMBR59:
+;-499 
 
-;-496 int getBootSector() {
+;-500 int getBootSector() {
 
  .retnreadMBR:
  LEAVE
@@ -2157,24 +2178,24 @@ readMBR_3 db ", large FAT16 part.",0
 ENDP
 
 getBootSector: PROC
-;-497 	int i;
+;-501 	int i;
 
-;-498 	if (debug) cputs(" Boot sector:");
+;-502 	if (debug) cputs(" Boot sector:");
 
 ;Function : getBootSector, Number local Var: 1
 ; # type sign width local variables
-;91 var sign word i = bp-2;
+;93 var sign word i = bp-2;
  ENTER  2,0
  mov ax, 1
  or  al, al
- je .getBootSector68
+ je .getBootSector69
  push getBootSector_0
  call cputs
  add  sp, 2
-;-499   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
+;-503   	BIOS_Status=DiskSectorReadWrite(2, Drive, pt_StartHead, pt_StartCylinder,
 
-.getBootSector68:
-;-500   		pt_StartSector, 1, DiskBufSeg, DiskBuf);
+.getBootSector69:
+;-504   		pt_StartSector, 1, DiskBufSeg, DiskBuf);
 
  lea  ax, [DiskBuf]
  push ax
@@ -2194,43 +2215,43 @@ getBootSector: PROC
  call DiskSectorReadWrite
  add  sp, 16
  mov word [BIOS_Status], ax
-;-501 	if (debug) printhex16(BIOS_Status);
+;-505 	if (debug) printhex16(BIOS_Status);
 
  mov ax, 1
  or  al, al
- je .getBootSector69
+ je .getBootSector70
  push word [BIOS_Status]
  call printhex16
  add  sp, 2
-;-502 	if (BIOS_ERR) {
+;-506 	if (BIOS_ERR) {
 
-.getBootSector69:
+.getBootSector70:
  mov al, [BIOS_ERR]
  or  al, al
- je .getBootSector70
-;-503 		Int13hError();
+ je .getBootSector71
+;-507 		Int13hError();
 
  call Int13hError
-;-504 		return 0;
+;-508 		return 0;
 
  mov ax, 0
  jmp .retngetBootSector
-;-505 		}
+;-509 		}
 
-;-506 	else {
+;-510 	else {
 
- jmp .getBootSector71
-.getBootSector70:
-;-507 		if(checkBootSign()==0) return 0;
+ jmp .getBootSector72
+.getBootSector71:
+;-511 		if(checkBootSign()==0) return 0;
 
  call checkBootSign
  cmp al, 0
- jne .getBootSector72
+ jne .getBootSector73
  mov ax, 0
  jmp .retngetBootSector
-;-508 		memcpy(&bs_jmp, &DiskBuf, 62);
+;-512 		memcpy(&bs_jmp, &DiskBuf, 62);
 
-.getBootSector72:
+.getBootSector73:
  push 62
  lea  ax, [DiskBuf]
  push ax
@@ -2238,41 +2259,41 @@ getBootSector: PROC
  push ax
  call memcpy
  add  sp, 6
-;-509 		if (bs_jmp[0] != 0xEB) cputs(".ATTN boot byte NOT EBh");
+;-513 		if (bs_jmp[0] != 0xEB) cputs(".ATTN boot byte NOT EBh");
 
  mov al, [bs_jmp]
  cmp al, 235
- je  .getBootSector73
+ je  .getBootSector74
  push getBootSector_1
  call cputs
  add  sp, 2
-;-510 		i=2;
+;-514 		i=2;
 
-.getBootSector73:
+.getBootSector74:
  mov ax, 2
  mov [bp-2], ax
-;-511 		if (bs_jmp[i] != 0x90) cputs(".ATTN[2] boot byte NOT 90h");
+;-515 		if (bs_jmp[i] != 0x90) cputs(".ATTN[2] boot byte NOT 90h");
 
  mov bx, [bp-2]
  mov al, [bs_jmp + bx]
  cmp al, 144
- je  .getBootSector74
+ je  .getBootSector75
  push getBootSector_2
  call cputs
  add  sp, 2
-;-512 	}
+;-516 	}
 
-.getBootSector74:
-;-513 	return 1;
+.getBootSector75:
+;-517 	return 1;
 
-.getBootSector71:
+.getBootSector72:
  mov ax, 1
  jmp .retngetBootSector
-;-514 }
+;-518 }
 
-;-515 
+;-519 
 
-;-516 int FATInit() {
+;-520 int FATInit() {
 
  .retngetBootSector:
  LEAVE
@@ -2283,201 +2304,201 @@ getBootSector_2 db ".ATTN[2] boot byte NOT 90h",0
 ENDP
 
 FATInit: PROC
-;-517 	unsigned long templong;//converting word to dword
+;-521 	unsigned long templong;//converting word to dword
 
-;-518 
+;-522 
 
-;-519 	clust_sizeL = (long) bs_clust_size;
+;-523 	clust_sizeL = (long) bs_clust_size;
 
 ;Function : FATInit, Number local Var: 1
 ; # type sign width local variables
-;91 var unsg long templong = bp-4;
+;93 var unsg long templong = bp-4;
  ENTER  4,0
  xor eax, eax
  mov al, [bs_clust_size]
  mov dword [clust_sizeL], eax
-;-520 	sector_sizeL= (long) bs_sect_size;
+;-524 	sector_sizeL= (long) bs_sect_size;
 
  xor eax, eax
  mov ax, [bs_sect_size]
  mov dword [sector_sizeL], eax
-;-521 
+;-525 
 
-;-522 	fat_FatStartSector = bs_res_sects;
+;-526 	fat_FatStartSector = bs_res_sects;
 
  mov ax, [bs_res_sects]
  mov word [fat_FatStartSector], ax
-;-523 	fat_FatStartSectorL= (long) fat_FatStartSector; 
+;-527 	fat_FatStartSectorL= (long) fat_FatStartSector; 
 
  xor eax, eax
  mov ax, [fat_FatStartSector]
  mov dword [fat_FatStartSectorL], eax
-;-524 	fat_FatSectors = bs_fat_size;
+;-528 	fat_FatSectors = bs_fat_size;
 
  mov ax, [bs_fat_size]
  mov word [fat_FatSectors], ax
-;-525 	if (bs_num_fats == 2) fat_FatSectors=fat_FatSectors+fat_FatSectors;
+;-529 	if (bs_num_fats == 2) fat_FatSectors=fat_FatSectors+fat_FatSectors;
 
  mov al, [bs_num_fats]
  cmp al, 2
- jne .FATInit75
+ jne .FATInit76
  mov ax, [fat_FatSectors]
  add ax, [fat_FatSectors]
  mov word [fat_FatSectors], ax
-;-526 
+;-530 
 
-;-527 	fat_RootDirStartSectorL = (long)fat_FatStartSector + fat_FatSectors;
+;-531 	fat_RootDirStartSectorL = (long)fat_FatStartSector + fat_FatSectors;
 
-.FATInit75:
+.FATInit76:
  xor eax, eax
  mov ax, [fat_FatStartSector]
  add ax, [fat_FatSectors]
  mov dword [fat_RootDirStartSectorL], eax
-;-528 	
+;-532 	
 
-;-529 	fat_RootDirSectorsL = (long) bs_root_entr >> 4;//  ./. 16
+;-533 	fat_RootDirSectorsL = (long) bs_root_entr >> 4;//  ./. 16
 
  xor eax, eax
  mov ax, [bs_root_entr]
  shr ax, 4
  mov dword [fat_RootDirSectorsL], eax
-;-530 		
+;-534 		
 
-;-531 	fat_DataStartSectorL = fat_RootDirStartSectorL + fat_RootDirSectorsL;
+;-535 	fat_DataStartSectorL = fat_RootDirStartSectorL + fat_RootDirSectorsL;
 
  mov eax, [fat_RootDirStartSectorL]
  add eax, [fat_RootDirSectorsL]
  mov dword [fat_DataStartSectorL], eax
-;-532 
+;-536 
 
-;-533 	if (bs_tot_sect16 !=0) bs_tot_sect32 = (long) bs_tot_sect16;
+;-537 	if (bs_tot_sect16 !=0) bs_tot_sect32 = (long) bs_tot_sect16;
 
  mov ax, [bs_tot_sect16]
  cmp ax, 0
- je  .FATInit76
+ je  .FATInit77
  xor eax, eax
  mov ax, [bs_tot_sect16]
  mov dword [bs_tot_sect32], eax
-;-534 	DataSectors32=bs_tot_sect32 - fat_DataStartSectorL;
+;-538 	DataSectors32=bs_tot_sect32 - fat_DataStartSectorL;
 
-.FATInit76:
+.FATInit77:
  mov eax, [bs_tot_sect32]
  sub eax, [fat_DataStartSectorL]
  mov dword [DataSectors32], eax
-;-535 
+;-539 
 
-;-536 	CountofClustersL=DataSectors32 / clust_sizeL;//d=d/b
+;-540 	CountofClustersL=DataSectors32 / clust_sizeL;//d=d/b
 
  mov eax, [DataSectors32]
  xor edx, edx
  div dword [clust_sizeL]
  mov dword [CountofClustersL], eax
-;-537 
+;-541 
 
-;-538 	templong = (long) bs_sectors_per_track;
+;-542 	templong = (long) bs_sectors_per_track;
 
  xor eax, eax
  mov ax, [bs_sectors_per_track]
  mov [bp-4], eax
-;-539 	num_tracksL = bs_tot_sect32 / templong;//d=d/w
+;-543 	num_tracksL = bs_tot_sect32 / templong;//d=d/w
 
  mov eax, [bs_tot_sect32]
  xor edx, edx
  div dword [bp-4]
  mov dword [num_tracksL], eax
-;-540 
+;-544 
 
-;-541 //	templong = (long) bs_num_heads;
+;-545 //	templong = (long) bs_num_heads;
 
-;-542 //	fat_num_cylinders = num_tracksL / templong;//w=d/w
+;-546 //	fat_num_cylinders = num_tracksL / templong;//w=d/w
 
-;-543 
+;-547 
 
-;-544 	Sectors_per_cylinderL = bs_sectors_per_track *  bs_num_heads;//d=w*w
+;-548 	Sectors_per_cylinderL = bs_sectors_per_track *  bs_num_heads;//d=w*w
 
  mov ax, [bs_sectors_per_track]
 ;todo:save high part:mov [Longvar+2(+4)],(e)dx
  mul word [bs_num_heads]
  mov dword [Sectors_per_cylinderL], eax
-;-545 	asm mov [Sectors_per_cylinderL + 2], dx;store high word
+;-549 	asm mov [Sectors_per_cylinderL + 2], dx;store high word
 
  mov [Sectors_per_cylinderL + 2], dx;store high word
-;-546 
+;-550 
 
-;-547 	templong = (long) 65525;
+;-551 	templong = (long) 65525;
 
  xor eax, eax
  mov ax, 65525
  mov [bp-4], eax
-;-548 	if (CountofClustersL > templong) {
+;-552 	if (CountofClustersL > templong) {
 
  mov eax, [CountofClustersL]
  cmp eax, [bp-4]
- jle .FATInit77
-;-549 		trueFATtype=32;
+ jle .FATInit78
+;-553 		trueFATtype=32;
 
  mov ax, 32
  mov byte [trueFATtype], al
-;-550 		cputs(" FAT32 NOT supported");
+;-554 		cputs(" FAT32 NOT supported");
 
  push FATInit_0
  call cputs
  add  sp, 2
-;-551 		return 1;
+;-555 		return 1;
 
  mov ax, 1
  jmp .retnFATInit
-;-552 		}
+;-556 		}
 
-;-553 	templong= (long) 4086;
+;-557 	templong= (long) 4086;
 
-.FATInit77:
+.FATInit78:
  xor eax, eax
  mov ax, 4086
  mov [bp-4], eax
-;-554 	if (CountofClustersL < templong) {
+;-558 	if (CountofClustersL < templong) {
 
  mov eax, [CountofClustersL]
  cmp eax, [bp-4]
- jge .FATInit78
-;-555 		trueFATtype=12;
+ jge .FATInit79
+;-559 		trueFATtype=12;
 
  mov ax, 12
  mov byte [trueFATtype], al
-;-556 		cputs(" FAT12");
+;-560 		cputs(" FAT12");
 
  push FATInit_1
  call cputs
  add  sp, 2
-;-557 		return 0;
+;-561 		return 0;
 
  mov ax, 0
  jmp .retnFATInit
-;-558 		}
+;-562 		}
 
-;-559 	trueFATtype=16;
+;-563 	trueFATtype=16;
 
-.FATInit78:
+.FATInit79:
  mov ax, 16
  mov byte [trueFATtype], al
-;-560 	if (debug) cputs(" FAT16");
+;-564 	if (debug) cputs(" FAT16");
 
  mov ax, 1
  or  al, al
- je .FATInit79
+ je .FATInit80
  push FATInit_2
  call cputs
  add  sp, 2
-;-561 	return 0;
+;-565 	return 0;
 
-.FATInit79:
+.FATInit80:
  mov ax, 0
  jmp .retnFATInit
-;-562 }
+;-566 }
 
-;-563 
+;-567 
 
-;-564 int Int13hExt() {
+;-568 int Int13hExt() {
 
  .retnFATInit:
  LEAVE
@@ -2488,10 +2509,10 @@ FATInit_2 db " FAT16",0
 ENDP
 
 Int13hExt: PROC
-;-565 	bx=0x55AA;
+;-569 	bx=0x55AA;
 
  mov  bx, 21930
-;-566 	BIOS_Status=Int13hfunction(Drive, 0x41);
+;-570 	BIOS_Status=Int13hfunction(Drive, 0x41);
 
  push 65
  mov al, byte [Drive]
@@ -2500,55 +2521,55 @@ Int13hExt: PROC
  call Int13hfunction
  add  sp, 4
  mov word [BIOS_Status], ax
-;-567 	asm mov [vAX], ax;
+;-571 	asm mov [vAX], ax;
 
  mov [vAX], ax;
-;-568 	asm mov [vBX], bx; 0xAA55 Extension installed
+;-572 	asm mov [vBX], bx; 0xAA55 Extension installed
 
  mov [vBX], bx; 0xAA55 Extension installed
-;-569 	asm mov [vCX], cx; =1: AH042h-44h,47h,48h supported
+;-573 	asm mov [vCX], cx; =1: AH042h-44h,47h,48h supported
 
  mov [vCX], cx; =1: AH042h-44h,47h,48h supported
-;-570 	if (BIOS_ERR) {
+;-574 	if (BIOS_ERR) {
 
  mov al, [BIOS_ERR]
  or  al, al
- je .Int13hExt80
-;-571 		cputs(" Ext. NOT present");
+ je .Int13hExt81
+;-575 		cputs(" Ext. NOT present");
 
  push Int13hExt_0
  call cputs
  add  sp, 2
-;-572 		Int13hError();
+;-576 		Int13hError();
 
  call Int13hError
-;-573 		return 1;
+;-577 		return 1;
 
  mov ax, 1
  jmp .retnInt13hExt
-;-574 		}
+;-578 		}
 
-;-575 	else if (debug) cputs(",Int13h Ext.");
+;-579 	else if (debug) cputs(",Int13h Ext.");
 
- jmp .Int13hExt81
-.Int13hExt80:
+ jmp .Int13hExt82
+.Int13hExt81:
  mov ax, 1
  or  al, al
- je .Int13hExt82
+ je .Int13hExt83
  push Int13hExt_1
  call cputs
  add  sp, 2
-;-576 	return 0;
+;-580 	return 0;
 
+.Int13hExt83:
 .Int13hExt82:
-.Int13hExt81:
  mov ax, 0
  jmp .retnInt13hExt
-;-577 }
+;-581 }
 
-;-578 
+;-582 
 
-;-579 int PrintDriveParameter() {
+;-583 int PrintDriveParameter() {
 
  .retnInt13hExt:
  ret
@@ -2557,20 +2578,20 @@ Int13hExt_1 db ",Int13h Ext.",0
 ENDP
 
 PrintDriveParameter: PROC
-;-580 	unsigned long Lo;
+;-584 	unsigned long Lo;
 
-;-581 // from Params
+;-585 // from Params
 
-;-582 	putch(10);
+;-586 	putch(10);
 
 ;Function : PrintDriveParameter, Number local Var: 1
 ; # type sign width local variables
-;91 var unsg long Lo = bp-4;
+;93 var unsg long Lo = bp-4;
  ENTER  4,0
  push 10
  call putch
  add  sp, 2
-;-583 	cputs("Params:CylHeadSec=");printunsign(pa_Cylinders);
+;-587 	cputs("Params:CylHeadSec=");printunsign(pa_Cylinders);
 
  push PrintDriveParameter_0
  call cputs
@@ -2578,7 +2599,7 @@ PrintDriveParameter: PROC
  push word [pa_Cylinders]
  call printunsign
  add  sp, 2
-;-584 	putch('/');					printunsign(pa_Heads);
+;-588 	putch('/');					printunsign(pa_Heads);
 
  push 47
  call putch
@@ -2588,7 +2609,7 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-585 	putch('/');					printunsign(pa_Sectors);
+;-589 	putch('/');					printunsign(pa_Sectors);
 
  push 47
  call putch
@@ -2598,7 +2619,7 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-586 	cputs(", NoDrives=");		printhex8  (pa_Attached);
+;-590 	cputs(", NoDrives=");		printhex8  (pa_Attached);
 
  push PrintDriveParameter_1
  call cputs
@@ -2608,19 +2629,19 @@ PrintDriveParameter: PROC
  push ax
  call printhex8
  add  sp, 2
-;-587 	putch('.');
+;-591 	putch('.');
 
  push 46
  call putch
  add  sp, 2
-;-588 //from getPartitionData
+;-592 //from getPartitionData
 
-;-589 	putch(10);
+;-593 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-590 	cputs("getPartitionData:No=");printunsign(pt_PartNo);
+;-594 	cputs("getPartitionData:No=");printunsign(pt_PartNo);
 
  push PrintDriveParameter_2
  call cputs
@@ -2628,7 +2649,7 @@ PrintDriveParameter: PROC
  push word [pt_PartNo]
  call printunsign
  add  sp, 2
-;-591 	cputs(",Boot=");		printhex8(pt_Bootable);
+;-595 	cputs(",Boot=");		printhex8(pt_Bootable);
 
  push PrintDriveParameter_3
  call cputs
@@ -2638,7 +2659,7 @@ PrintDriveParameter: PROC
  push ax
  call printhex8
  add  sp, 2
-;-592 	cputs(" ID=");			printunsign(pt_FileSystem);
+;-596 	cputs(" ID=");			printunsign(pt_FileSystem);
 
  push PrintDriveParameter_4
  call cputs
@@ -2648,7 +2669,7 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-593 	cputs(",HdSeCy=");		printunsign(pt_StartHead);
+;-597 	cputs(",HdSeCy=");		printunsign(pt_StartHead);
 
  push PrintDriveParameter_5
  call cputs
@@ -2658,7 +2679,7 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-594 	cputs("/");				printunsign(pt_StartSector);
+;-598 	cputs("/");				printunsign(pt_StartSector);
 
  push PrintDriveParameter_6
  call cputs
@@ -2668,7 +2689,7 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-595 	cputs("/");				printunsign(pt_StartCylinder);
+;-599 	cputs("/");				printunsign(pt_StartCylinder);
 
  push PrintDriveParameter_7
  call cputs
@@ -2676,7 +2697,7 @@ PrintDriveParameter: PROC
  push word [pt_StartCylinder]
  call printunsign
  add  sp, 2
-;-596 	cputs("-");				printunsign(pt_EndHead);
+;-600 	cputs("-");				printunsign(pt_EndHead);
 
  push PrintDriveParameter_8
  call cputs
@@ -2686,7 +2707,7 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-597 	cputs("/");				printunsign(pt_EndSector);
+;-601 	cputs("/");				printunsign(pt_EndSector);
 
  push PrintDriveParameter_9
  call cputs
@@ -2696,7 +2717,7 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-598 	cputs("/");				printunsign(pt_EndCylinder);
+;-602 	cputs("/");				printunsign(pt_EndCylinder);
 
  push PrintDriveParameter_10
  call cputs
@@ -2704,7 +2725,7 @@ PrintDriveParameter: PROC
  push word [pt_EndCylinder]
  call printunsign
  add  sp, 2
-;-599 	cputs(",Start=");		printlong(pt_HiddenSector);
+;-603 	cputs(",Start=");		printlong(pt_HiddenSector);
 
  push PrintDriveParameter_11
  call cputs
@@ -2712,7 +2733,7 @@ PrintDriveParameter: PROC
  push dword [pt_HiddenSector]
  call printlong
  add  sp, 4
-;-600 	cputs(",Len=");			printlong(pt_PartLen);
+;-604 	cputs(",Len=");			printlong(pt_PartLen);
 
  push PrintDriveParameter_12
  call cputs
@@ -2720,34 +2741,34 @@ PrintDriveParameter: PROC
  push dword [pt_PartLen]
  call printlong
  add  sp, 4
-;-601 	cputs(" Sec=");
+;-605 	cputs(" Sec=");
 
  push PrintDriveParameter_13
  call cputs
  add  sp, 2
-;-602 	Lo = pt_PartLen >> 11;//sectors to MByte
+;-606 	Lo = pt_PartLen >> 11;//sectors to MByte
 
  mov eax, [pt_PartLen]
  shr eax, 11
  mov [bp-4], eax
-;-603 	printlong(Lo);
+;-607 	printlong(Lo);
 
  push dword [bp-4]
  call printlong
  add  sp, 4
-;-604 	cputs(" MByte.");
+;-608 	cputs(" MByte.");
 
  push PrintDriveParameter_14
  call cputs
  add  sp, 2
-;-605 //from getBootSector
+;-609 //from getBootSector
 
-;-606 	putch(10);
+;-610 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-607 	cputs("getBootSector:OEM name (MSDOS5.0)=");cputsLen(bs_sys_id,8);
+;-611 	cputs("getBootSector:OEM name (MSDOS5.0)=");cputsLen(bs_sys_id,8);
 
  push PrintDriveParameter_15
  call cputs
@@ -2757,12 +2778,12 @@ PrintDriveParameter: PROC
  push ax
  call cputsLen
  add  sp, 4
-;-608 	putch(10);
+;-612 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-609 	cputs("Bytes per sector(512)=");printunsign(bs_sect_size);
+;-613 	cputs("Bytes per sector(512)=");printunsign(bs_sect_size);
 
  push PrintDriveParameter_16
  call cputs
@@ -2770,7 +2791,7 @@ PrintDriveParameter: PROC
  push word [bs_sect_size]
  call printunsign
  add  sp, 2
-;-610 	cputs(".Sectors per cluster(1,,128)=");printunsign(bs_clust_size);
+;-614 	cputs(".Sectors per cluster(1,,128)=");printunsign(bs_clust_size);
 
  push PrintDriveParameter_17
  call cputs
@@ -2780,12 +2801,12 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-611 	putch(10);
+;-615 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-612 	cputs("Reserved sectors=");printunsign(bs_res_sects);
+;-616 	cputs("Reserved sectors=");printunsign(bs_res_sects);
 
  push PrintDriveParameter_18
  call cputs
@@ -2793,7 +2814,7 @@ PrintDriveParameter: PROC
  push word [bs_res_sects]
  call printunsign
  add  sp, 2
-;-613 	cputs(".Number of FAT(1,2)=");printunsign(bs_num_fats);
+;-617 	cputs(".Number of FAT(1,2)=");printunsign(bs_num_fats);
 
  push PrintDriveParameter_19
  call cputs
@@ -2803,12 +2824,12 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-614 	putch(10);
+;-618 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-615 	cputs("Root directory entries(512)=");printunsign(bs_root_entr);
+;-619 	cputs("Root directory entries(512)=");printunsign(bs_root_entr);
 
  push PrintDriveParameter_20
  call cputs
@@ -2816,7 +2837,7 @@ PrintDriveParameter: PROC
  push word [bs_root_entr]
  call printunsign
  add  sp, 2
-;-616 	cputs(".Total sectors(0 if > 32MB=");printunsign(bs_tot_sect16);
+;-620 	cputs(".Total sectors(0 if > 32MB=");printunsign(bs_tot_sect16);
 
  push PrintDriveParameter_21
  call cputs
@@ -2824,12 +2845,12 @@ PrintDriveParameter: PROC
  push word [bs_tot_sect16]
  call printunsign
  add  sp, 2
-;-617 	putch(10);
+;-621 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-618 	cputs("Media desc.(F8h for HD)=");printhex8(bs_media_desc);
+;-622 	cputs("Media desc.(F8h for HD)=");printhex8(bs_media_desc);
 
  push PrintDriveParameter_22
  call cputs
@@ -2839,7 +2860,7 @@ PrintDriveParameter: PROC
  push ax
  call printhex8
  add  sp, 2
-;-619 	cputs(".Sectors per FAT=");printunsign(bs_fat_size);
+;-623 	cputs(".Sectors per FAT=");printunsign(bs_fat_size);
 
  push PrintDriveParameter_23
  call cputs
@@ -2847,12 +2868,12 @@ PrintDriveParameter: PROC
  push word [bs_fat_size]
  call printunsign
  add  sp, 2
-;-620 	putch(10);
+;-624 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-621 	cputs("sectors per track=");printunsign(bs_sectors_per_track);
+;-625 	cputs("sectors per track=");printunsign(bs_sectors_per_track);
 
  push PrintDriveParameter_24
  call cputs
@@ -2860,7 +2881,7 @@ PrintDriveParameter: PROC
  push word [bs_sectors_per_track]
  call printunsign
  add  sp, 2
-;-622 	cputs(".number of heads=");printunsign(bs_num_heads);
+;-626 	cputs(".number of heads=");printunsign(bs_num_heads);
 
  push PrintDriveParameter_25
  call cputs
@@ -2868,12 +2889,12 @@ PrintDriveParameter: PROC
  push word [bs_num_heads]
  call printunsign
  add  sp, 2
-;-623 	putch(10);
+;-627 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-624 	cputs("hidden sectors(long)=");printlong(bs_hid_sects);
+;-628 	cputs("hidden sectors(long)=");printlong(bs_hid_sects);
 
  push PrintDriveParameter_26
  call cputs
@@ -2881,7 +2902,7 @@ PrintDriveParameter: PROC
  push dword [bs_hid_sects]
  call printlong
  add  sp, 4
-;-625 	cputs(".sectors(long)=");printlong(bs_tot_sect32);
+;-629 	cputs(".sectors(long)=");printlong(bs_tot_sect32);
 
  push PrintDriveParameter_27
  call cputs
@@ -2889,12 +2910,12 @@ PrintDriveParameter: PROC
  push dword [bs_tot_sect32]
  call printlong
  add  sp, 4
-;-626 	putch(10);
+;-630 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-627 	cputs("physical drive number=");printunsign(bs_drive_num);
+;-631 	cputs("physical drive number=");printunsign(bs_drive_num);
 
  push PrintDriveParameter_28
  call cputs
@@ -2904,7 +2925,7 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-628 	cputs(".Windows NT check disk=");printunsign(bs_reserved);
+;-632 	cputs(".Windows NT check disk=");printunsign(bs_reserved);
 
  push PrintDriveParameter_29
  call cputs
@@ -2914,12 +2935,12 @@ PrintDriveParameter: PROC
  push ax
  call printunsign
  add  sp, 2
-;-629 	putch(10);
+;-633 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-630 	cputs("Extended signature(29h)=");printhex8(bs_ext_signat);
+;-634 	cputs("Extended signature(29h)=");printhex8(bs_ext_signat);
 
  push PrintDriveParameter_30
  call cputs
@@ -2929,7 +2950,7 @@ PrintDriveParameter: PROC
  push ax
  call printhex8
  add  sp, 2
-;-631 	cputs(".Volume serial(long)=");printlong(bs_serial_num);
+;-635 	cputs(".Volume serial(long)=");printlong(bs_serial_num);
 
  push PrintDriveParameter_31
  call cputs
@@ -2937,12 +2958,12 @@ PrintDriveParameter: PROC
  push dword [bs_serial_num]
  call printlong
  add  sp, 4
-;-632 	putch(10);
+;-636 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-633 	cputs("Volume label(NO NAME)=");cputsLen(bs_label,11);
+;-637 	cputs("Volume label(NO NAME)=");cputsLen(bs_label,11);
 
  push PrintDriveParameter_32
  call cputs
@@ -2952,7 +2973,7 @@ PrintDriveParameter: PROC
  push ax
  call cputsLen
  add  sp, 4
-;-634 	cputs(".File system type(FAT16)=");cputsLen(bs_fs_id,8);
+;-638 	cputs(".File system type(FAT16)=");cputsLen(bs_fs_id,8);
 
  push PrintDriveParameter_33
  call cputs
@@ -2962,14 +2983,14 @@ PrintDriveParameter: PROC
  push ax
  call cputsLen
  add  sp, 4
-;-635 //from FATInit
+;-639 //from FATInit
 
-;-636 	putch(10);
+;-640 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-637 	cputs("FATInit:fat_FatStartSector:");	printunsign(fat_FatStartSector);
+;-641 	cputs("FATInit:fat_FatStartSector:");	printunsign(fat_FatStartSector);
 
  push PrintDriveParameter_34
  call cputs
@@ -2977,7 +2998,7 @@ PrintDriveParameter: PROC
  push word [fat_FatStartSector]
  call printunsign
  add  sp, 2
-;-638 	cputs(", fat_FatSectors=");		printunsign(fat_FatSectors);
+;-642 	cputs(", fat_FatSectors=");		printunsign(fat_FatSectors);
 
  push PrintDriveParameter_35
  call cputs
@@ -2985,12 +3006,12 @@ PrintDriveParameter: PROC
  push word [fat_FatSectors]
  call printunsign
  add  sp, 2
-;-639 	putch(10);
+;-643 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-640 	cputs("fat_RootDirStartSectorL="); printlong(fat_RootDirStartSectorL);
+;-644 	cputs("fat_RootDirStartSectorL="); printlong(fat_RootDirStartSectorL);
 
  push PrintDriveParameter_36
  call cputs
@@ -2998,7 +3019,7 @@ PrintDriveParameter: PROC
  push dword [fat_RootDirStartSectorL]
  call printlong
  add  sp, 4
-;-641 	cputs(", fat_RootDirSectors=");	printunsign(fat_RootDirSectorsL);
+;-645 	cputs(", fat_RootDirSectors=");	printunsign(fat_RootDirSectorsL);
 
  push PrintDriveParameter_37
  call cputs
@@ -3006,12 +3027,12 @@ PrintDriveParameter: PROC
  push dword [fat_RootDirSectorsL]
  call printunsign
  add  sp, 4
-;-642 	putch(10);
+;-646 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-643 	cputs("fat_DataStartSectorL=");	printunsign(fat_DataStartSectorL);
+;-647 	cputs("fat_DataStartSectorL=");	printunsign(fat_DataStartSectorL);
 
  push PrintDriveParameter_38
  call cputs
@@ -3019,7 +3040,7 @@ PrintDriveParameter: PROC
  push dword [fat_DataStartSectorL]
  call printunsign
  add  sp, 4
-;-644 	cputs(", DataSectors32=");	printlong(DataSectors32);
+;-648 	cputs(", DataSectors32=");	printlong(DataSectors32);
 
  push PrintDriveParameter_39
  call cputs
@@ -3027,12 +3048,12 @@ PrintDriveParameter: PROC
  push dword [DataSectors32]
  call printlong
  add  sp, 4
-;-645 	putch(10);
+;-649 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-646 	cputs("CountofClustersL=");	printlong(CountofClustersL);
+;-650 	cputs("CountofClustersL=");	printlong(CountofClustersL);
 
  push PrintDriveParameter_40
  call cputs
@@ -3040,7 +3061,7 @@ PrintDriveParameter: PROC
  push dword [CountofClustersL]
  call printlong
  add  sp, 4
-;-647 	cputs(", Sectors_per_cylinderL="); printlong(Sectors_per_cylinderL);
+;-651 	cputs(", Sectors_per_cylinderL="); printlong(Sectors_per_cylinderL);
 
  push PrintDriveParameter_41
  call cputs
@@ -3048,12 +3069,12 @@ PrintDriveParameter: PROC
  push dword [Sectors_per_cylinderL]
  call printlong
  add  sp, 4
-;-648 	putch(10);
+;-652 	putch(10);
 
  push 10
  call putch
  add  sp, 2
-;-649 	cputs("num_tracksL=");	printlong(num_tracksL);
+;-653 	cputs("num_tracksL=");	printlong(num_tracksL);
 
  push PrintDriveParameter_42
  call cputs
@@ -3061,18 +3082,18 @@ PrintDriveParameter: PROC
  push dword [num_tracksL]
  call printlong
  add  sp, 4
-;-650 //	cputs(", fat_num_cylinders="); printunsign(fat_num_cylinders);
+;-654 //	cputs(", fat_num_cylinders="); printunsign(fat_num_cylinders);
 
-;-651 	getkey();
+;-655 	getkey();
 
  call getkey
-;-652 }
+;-656 }
 
-;-653 
+;-657 
 
-;-654 //--------------------------------  file IO  -------------------
+;-658 //--------------------------------  file IO  -------------------
 
-;-655 int error2(char *s) {
+;-659 int error2(char *s) {
 
  LEAVE
  ret
@@ -3122,33 +3143,33 @@ PrintDriveParameter_42 db "num_tracksL=",0
 ENDP
 
 error2: PROC
-;-656 	putch(10);
+;-660 	putch(10);
 
 ;Function : error2, Number local Var: 1
 ; # type sign width local variables
-;91 ptr sign byte s = bp+4;
+;93 ptr sign byte s = bp+4;
  ENTER  0,0
  push 10
  call putch
  add  sp, 2
-;-657 	cputs("*** ERROR *** ");
+;-661 	cputs("*** ERROR *** ");
 
  push error2_0
  call cputs
  add  sp, 2
-;-658 	cputs(s);
+;-662 	cputs(s);
 
  push word [bp+4]
  call cputs
  add  sp, 2
-;-659 	DOS_ERR++;
+;-663 	DOS_ERR++;
 
  inc  byte[DOS_ERR]
-;-660 }
+;-664 }
 
-;-661 // 1.
+;-665 // 1.
 
-;-662 int readLogical(unsigned long SectorL) {//OUT:1 sector in DiskBuf
+;-666 int readLogical(unsigned long SectorL) {//OUT:1 sector in DiskBuf
 
  LEAVE
  ret
@@ -3156,54 +3177,54 @@ error2_0 db "*** ERROR *** ",0
 ENDP
 
 readLogical: PROC
-;-663 	unsigned int track; unsigned int head; unsigned int sect;
+;-667 	unsigned int track; unsigned int head; unsigned int sect;
 
-;-664 	SectorL = SectorL + bs_hid_sects;//d=d+d
+;-668 	SectorL = SectorL + bs_hid_sects;//d=d+d
 
 ;Function : readLogical, Number local Var: 4
 ; # type sign width local variables
-;91 var unsg long SectorL = bp+4
-;92 var unsg word track = bp-2
-;93 var unsg word head = bp-4
-;94 var unsg word sect = bp-6;
+;93 var unsg long SectorL = bp+4
+;94 var unsg word track = bp-2
+;95 var unsg word head = bp-4
+;96 var unsg word sect = bp-6;
  ENTER  6,0
  mov eax, [bp+4]
  add eax, [bs_hid_sects]
  mov [bp+4], eax
-;-665 	track = SectorL / Sectors_per_cylinderL;  //w=d/d
+;-669 	track = SectorL / Sectors_per_cylinderL;  //w=d/d
 
  mov eax, [bp+4]
  xor edx, edx
  div dword [Sectors_per_cylinderL]
  mov [bp-2], ax
-;-666 	head  = SectorL % Sectors_per_cylinderL;  //w=d%d
+;-670 	head  = SectorL % Sectors_per_cylinderL;  //w=d%d
 
  mov eax, [bp+4]
  xor edx, edx
  div dword [Sectors_per_cylinderL]
  mov eax, edx
  mov [bp-4], ax
-;-667 	sect  = head            % bs_sectors_per_track;  //w=w%w
+;-671 	sect  = head            % bs_sectors_per_track;  //w=w%w
 
  mov ax, [bp-4]
  xor dx, dx
  div word [bs_sectors_per_track]
  mov ax, dx
  mov [bp-6], ax
-;-668 	sect++;
+;-672 	sect++;
 
  inc  word[bp-6]
-;-669 	head  = head            / bs_sectors_per_track;	 //w=w/w
+;-673 	head  = head            / bs_sectors_per_track;	 //w=w/w
 
  mov ax, [bp-4]
  xor dx, dx
  div word [bs_sectors_per_track]
  mov [bp-4], ax
-;-670 
+;-674 
 
-;-671 	DiskSectorReadWrite(2, bs_drive_num, head, track/* =cyl */,
+;-675 	DiskSectorReadWrite(2, bs_drive_num, head, track/* =cyl */,
 
-;-672 		sect, 1, DiskBufSeg , DiskBuf);
+;-676 		sect, 1, DiskBufSeg , DiskBuf);
 
  lea  ax, [DiskBuf]
  push ax
@@ -3218,276 +3239,245 @@ readLogical: PROC
  push 2
  call DiskSectorReadWrite
  add  sp, 16
-;-673 }
+;-677 }
 
-;-674 // 2.a
+;-678 // 2.a
 
-;-675 int printDirEntry(int EntryNr) {
+;-679 int printDirEntry(int EntryNr) {
 
  LEAVE
  ret
 ENDP
 
 printDirEntry: PROC
-;-676     unsigned int j;
+;-680     unsigned int j;
 
-;-677 	putch(10);
+;-681 	putch(10);
 
 ;Function : printDirEntry, Number local Var: 2
 ; # type sign width local variables
-;91 var sign word EntryNr = bp+4
-;92 var unsg word j = bp-2;
+;93 var sign word EntryNr = bp+4
+;94 var unsg word j = bp-2;
  ENTER  2,0
  push 10
  call putch
  add  sp, 2
-;-678 	printunsign(EntryNr);
+;-682 	printunsign(EntryNr);
 
  push word [bp+4]
  call printunsign
  add  sp, 2
-;-679 	putch(' ');
+;-683 	putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-680 	cputs(filename);
+;-684 	cputs(filename);
 
  lea  ax, [filename]
  push ax
  call cputs
  add  sp, 2
-;-681 	cputs(" ATTR:");
+;-685 	cputs(" ATTR:");
 
  push printDirEntry_0
  call cputs
  add  sp, 2
-;-682 	printhex8(dir_Attrib);	
+;-686 	printhex8(dir_Attrib);	
 
  mov al, byte [dir_Attrib]
  mov ah, 0
  push ax
  call printhex8
  add  sp, 2
-;-683 	if (dir_Attrib &  1) cputs(" r/o");
+;-687 	if (dir_Attrib &  1) cputs(" r/o");
 
  mov al, [dir_Attrib]
  and al, 1
  or  al, al
- je .printDirEntry83
+ je .printDirEntry84
  push printDirEntry_1
  call cputs
  add  sp, 2
-;-684 	if (dir_Attrib &  2) cputs(" hid");
-
-.printDirEntry83:
- mov al, [dir_Attrib]
- and al, 2
- or  al, al
- je .printDirEntry84
- push printDirEntry_2
- call cputs
- add  sp, 2
-;-685 	if (dir_Attrib &  4) cputs(" sys");
+;-688 	if (dir_Attrib &  2) cputs(" hid");
 
 .printDirEntry84:
  mov al, [dir_Attrib]
- and al, 4
+ and al, 2
  or  al, al
  je .printDirEntry85
- push printDirEntry_3
+ push printDirEntry_2
  call cputs
  add  sp, 2
-;-686 	if (dir_Attrib &  8) cputs(" vol");		
+;-689 	if (dir_Attrib &  4) cputs(" sys");
 
 .printDirEntry85:
  mov al, [dir_Attrib]
- and al, 8
+ and al, 4
  or  al, al
  je .printDirEntry86
- push printDirEntry_4
+ push printDirEntry_3
  call cputs
  add  sp, 2
-;-687 	if (dir_Attrib & 16) cputs(" dir");
+;-690 	if (dir_Attrib &  8) cputs(" vol");		
 
 .printDirEntry86:
  mov al, [dir_Attrib]
- and al, 16
+ and al, 8
  or  al, al
  je .printDirEntry87
- push printDirEntry_5
+ push printDirEntry_4
  call cputs
  add  sp, 2
-;-688 	if (dir_Attrib & 32) cputs(" arc");
+;-691 	if (dir_Attrib & 16) cputs(" dir");
 
 .printDirEntry87:
  mov al, [dir_Attrib]
- and al, 32
+ and al, 16
  or  al, al
  je .printDirEntry88
- push printDirEntry_6
+ push printDirEntry_5
  call cputs
  add  sp, 2
-;-689 	if (dir_Attrib == 0) cputs("    ");
+;-692 	if (dir_Attrib & 32) cputs(" arc");
 
 .printDirEntry88:
  mov al, [dir_Attrib]
+ and al, 32
+ or  al, al
+ je .printDirEntry89
+ push printDirEntry_6
+ call cputs
+ add  sp, 2
+;-693 	if (dir_Attrib == 0) cputs("    ");
+
+.printDirEntry89:
+ mov al, [dir_Attrib]
  cmp al, 0
- jne .printDirEntry89
+ jne .printDirEntry90
  push printDirEntry_7
  call cputs
  add  sp, 2
-;-690 	
+;-694 	
 
-;-691 	putch(' ');
+;-695 	putch(' ');
 
-.printDirEntry89:
+.printDirEntry90:
  push 32
  call putch
  add  sp, 2
-;-692 	j=dir_LastModDate & 31;//day
+;-696 	j=dir_LastModDate & 31;//day
 
  mov ax, [dir_LastModDate]
  and ax, 31
  mov [bp-2], ax
-;-693 	if (j<10) putch(' ');
-
- mov ax, [bp-2]
- cmp ax, 10
- jge .printDirEntry90
- push 32
- call putch
- add  sp, 2
-;-694 	printunsign(j);
-
-.printDirEntry90:
- push word [bp-2]
- call printunsign
- add  sp, 2
-;-695 	putch('.');
-
- push 46
- call putch
- add  sp, 2
-;-696 
-
-;-697 	j=dir_LastModDate >> 5;//month
-
- mov ax, [dir_LastModDate]
- shr ax, 5
- mov [bp-2], ax
-;-698 	j&=  15;
-
- and  word[bp-2], 15
-;-699 	if (j<10) putch('0');
+;-697 	if (j<10) putch(' ');
 
  mov ax, [bp-2]
  cmp ax, 10
  jge .printDirEntry91
- push 48
+ push 32
  call putch
  add  sp, 2
-;-700 	printunsign(j);
+;-698 	printunsign(j);
 
 .printDirEntry91:
  push word [bp-2]
  call printunsign
  add  sp, 2
-;-701 	putch('.');
+;-699 	putch('.');
 
  push 46
  call putch
  add  sp, 2
-;-702 
+;-700 
 
-;-703 	j=dir_LastModDate >> 9;//year
+;-701 	j=dir_LastModDate >> 5;//month
 
  mov ax, [dir_LastModDate]
- shr ax, 9
+ shr ax, 5
  mov [bp-2], ax
-;-704 	j+= 1980;
+;-702 	j&=  15;
 
- add  word[bp-2], 1980
-;-705 	printunsign(j);
-
- push word [bp-2]
- call printunsign
- add  sp, 2
-;-706 	putch(' ');
-
- push 32
- call putch
- add  sp, 2
-;-707 	//putch(' ');
-
-;-708 
-
-;-709 	j=dir_LastModTime  >>11;//hour
-
- mov ax, [dir_LastModTime]
- shr ax, 11
- mov [bp-2], ax
-;-710 	if (j<10) putch(' ');
+ and  word[bp-2], 15
+;-703 	if (j<10) putch('0');
 
  mov ax, [bp-2]
  cmp ax, 10
  jge .printDirEntry92
- push 32
+ push 48
  call putch
  add  sp, 2
-;-711 	printunsign(j);
+;-704 	printunsign(j);
 
 .printDirEntry92:
  push word [bp-2]
  call printunsign
  add  sp, 2
-;-712 	putch(':');
+;-705 	putch('.');
 
- push 58
+ push 46
  call putch
  add  sp, 2
-;-713 
+;-706 
 
-;-714 	j=dir_LastModTime  >> 5;//minute
+;-707 	j=dir_LastModDate >> 9;//year
+
+ mov ax, [dir_LastModDate]
+ shr ax, 9
+ mov [bp-2], ax
+;-708 	j+= 1980;
+
+ add  word[bp-2], 1980
+;-709 	printunsign(j);
+
+ push word [bp-2]
+ call printunsign
+ add  sp, 2
+;-710 	putch(' ');
+
+ push 32
+ call putch
+ add  sp, 2
+;-711 	//putch(' ');
+
+;-712 
+
+;-713 	j=dir_LastModTime  >>11;//hour
 
  mov ax, [dir_LastModTime]
- shr ax, 5
+ shr ax, 11
  mov [bp-2], ax
-;-715 	j&=  63;
-
- and  word[bp-2], 63
-;-716 	if (j<10) putch('0');
+;-714 	if (j<10) putch(' ');
 
  mov ax, [bp-2]
  cmp ax, 10
  jge .printDirEntry93
- push 48
+ push 32
  call putch
  add  sp, 2
-;-717 	printunsign(j);
+;-715 	printunsign(j);
 
 .printDirEntry93:
  push word [bp-2]
  call printunsign
  add  sp, 2
-;-718 	putch(':');
+;-716 	putch(':');
 
  push 58
  call putch
  add  sp, 2
-;-719 
+;-717 
 
-;-720 	j=dir_LastModTime & 31;// 2 seconds
+;-718 	j=dir_LastModTime  >> 5;//minute
 
  mov ax, [dir_LastModTime]
- and ax, 31
+ shr ax, 5
  mov [bp-2], ax
-;-721 	j=j+j;
+;-719 	j&=  63;
 
- mov ax, [bp-2]
- add ax, [bp-2]
- mov [bp-2], ax
-;-722 	if (j<10) putch('0');
+ and  word[bp-2], 63
+;-720 	if (j<10) putch('0');
 
  mov ax, [bp-2]
  cmp ax, 10
@@ -3495,48 +3485,79 @@ printDirEntry: PROC
  push 48
  call putch
  add  sp, 2
-;-723 	printunsign(j);
+;-721 	printunsign(j);
 
 .printDirEntry94:
  push word [bp-2]
  call printunsign
  add  sp, 2
-;-724 	putch(' ');
+;-722 	putch(':');
+
+ push 58
+ call putch
+ add  sp, 2
+;-723 
+
+;-724 	j=dir_LastModTime & 31;// 2 seconds
+
+ mov ax, [dir_LastModTime]
+ and ax, 31
+ mov [bp-2], ax
+;-725 	j=j+j;
+
+ mov ax, [bp-2]
+ add ax, [bp-2]
+ mov [bp-2], ax
+;-726 	if (j<10) putch('0');
+
+ mov ax, [bp-2]
+ cmp ax, 10
+ jge .printDirEntry95
+ push 48
+ call putch
+ add  sp, 2
+;-727 	printunsign(j);
+
+.printDirEntry95:
+ push word [bp-2]
+ call printunsign
+ add  sp, 2
+;-728 	putch(' ');
 
  push 32
  call putch
  add  sp, 2
-;-725 
+;-729 
 
-;-726 	cputs(" 1.Cl:"); 
+;-730 	cputs(" 1.Cl:"); 
 
  push printDirEntry_8
  call cputs
  add  sp, 2
-;-727 	printunsign(dir_FirstCluster);
+;-731 	printunsign(dir_FirstCluster);
 
  push word [dir_FirstCluster]
  call printunsign
  add  sp, 2
-;-728 	cputs(" Size:");
+;-732 	cputs(" Size:");
 
  push printDirEntry_9
  call cputs
  add  sp, 2
-;-729 	printlong(dir_FileSize);
+;-733 	printlong(dir_FileSize);
 
  push dword [dir_FileSize]
  call printlong
  add  sp, 4
-;-730 	
+;-734 	
 
-;-731 }
+;-735 }
 
-;-732 
+;-736 
 
-;-733 // 2.b
+;-737 // 2.b
 
-;-734 int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
+;-738 int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
 
  LEAVE
  ret
@@ -3553,64 +3574,64 @@ printDirEntry_9 db " Size:",0
 ENDP
 
 fatDirSectorList: PROC
-;-735     char *p;
+;-739     char *p;
 
-;-736 	unsigned int EndDiskBuf;
+;-740 	unsigned int EndDiskBuf;
 
-;-737 	char isHide;//shows entries, NOT lfn, deleted or empty
+;-741 	char isHide;//shows entries, NOT lfn, deleted or empty
 
-;-738 	unsigned int EntryNr;
+;-742 	unsigned int EntryNr;
 
-;-739 	EntryNr=0;
+;-743 	EntryNr=0;
 
 ;Function : fatDirSectorList, Number local Var: 6
 ; # type sign width local variables
-;91 var unsg long startSector = bp+4
-;92 var unsg long numsectors = bp+8
-;93 ptr sign byte p = bp-2
-;94 var unsg word EndDiskBuf = bp-4
-;95 var sign byte isHide = bp-6
-;96 var unsg word EntryNr = bp-8;
+;93 var unsg long startSector = bp+4
+;94 var unsg long numsectors = bp+8
+;95 ptr sign byte p = bp-2
+;96 var unsg word EndDiskBuf = bp-4
+;97 var sign byte isHide = bp-6
+;98 var unsg word EntryNr = bp-8;
  ENTER  8,0
  mov ax, 0
  mov [bp-8], ax
-;-740 	do {
+;-744 	do {
 
-.fatDirSectorList95:
-;-741 /*		putch(10);
+.fatDirSectorList96:
+;-745 /*		putch(10);
 
-;-742 		cputs("Sektor = "); 
+;-746 		cputs("Sektor = "); 
 
-;-743 		printlong(startSector);
+;-747 		printlong(startSector);
 
-;-744 		cputs(", numsectors = "); 
+;-748 		cputs(", numsectors = "); 
 
-;-745 		printlong(numsectors);
+;-749 		printlong(numsectors);
 
-;-746 		getkey();
+;-750 		getkey();
 
-;-747 */
+;-751 */
 
-;-748 		readLogical(startSector);
+;-752 		readLogical(startSector);
 
  push dword [bp+4]
  call readLogical
  add  sp, 4
-;-749 		p=&DiskBuf;
+;-753 		p=&DiskBuf;
 
  mov ax, DiskBuf
  mov [bp-2], ax
-;-750 		EndDiskBuf= p + bs_sect_size;		
+;-754 		EndDiskBuf= p + bs_sect_size;		
 
  mov ax, [bp-2]
  add ax, [bs_sect_size]
  mov [bp-4], ax
-;-751 		
+;-755 		
 
-;-752 		do {
+;-756 		do {
 
-.fatDirSectorList96:
-;-753 			memcpy(dir_Filename, p, 32);//copy whole dir structure
+.fatDirSectorList97:
+;-757 			memcpy(dir_Filename, p, 32);//copy whole dir structure
 
  push 32
  push word [bp-2]
@@ -3618,7 +3639,7 @@ fatDirSectorList: PROC
  push ax
  call memcpy
  add  sp, 6
-;-754 			memcpy(filename, p, 11);
+;-758 			memcpy(filename, p, 11);
 
  push 11
  push word [bp-2]
@@ -3626,159 +3647,159 @@ fatDirSectorList: PROC
  push ax
  call memcpy
  add  sp, 6
-;-755 			filename[11] = 0;
+;-759 			filename[11] = 0;
 
  mov ax, 0
  mov bx, 11
  mov [filename+bx], al
-;-756 			
+;-760 			
 
-;-757 			isHide=0;//show in listing
+;-761 			isHide=0;//show in listing
 
  mov ax, 0
  mov [bp-6], al
-;-758 			if (*p ==    0) {//only empty entries following
+;-762 			if (*p ==    0) {//only empty entries following
 
  mov bx, [bp-2]
  mov al, [bx]
  mov ah, 0
  cmp ax, 0
- jne .fatDirSectorList97
-;-759 				isHide++;
+ jne .fatDirSectorList98
+;-763 				isHide++;
 
  inc  byte[bp-6]
-;-760 				numsectors=1;//finish searching
+;-764 				numsectors=1;//finish searching
 
  mov ax, 1
  mov [bp+8], eax
-;-761 				p = EndDiskBuf;
+;-765 				p = EndDiskBuf;
 
  mov ax, [bp-4]
  mov [bp-2], ax
-;-762 				}
+;-766 				}
 
-;-763 			if (*p == 0xE5) isHide++;//deleted, free entry
-
-.fatDirSectorList97:
- mov bx, [bp-2]
- mov al, [bx]
- mov ah, 0
- cmp ax, 229
- jne .fatDirSectorList98
- inc  byte[bp-6]
-;-764 			if (*p <=   31) isHide++;//part of LFN
+;-767 			if (*p == 0xE5) isHide++;//deleted, free entry
 
 .fatDirSectorList98:
  mov bx, [bp-2]
  mov al, [bx]
  mov ah, 0
- cmp ax, 31
- jg  .fatDirSectorList99
+ cmp ax, 229
+ jne .fatDirSectorList99
  inc  byte[bp-6]
-;-765 			if (dir_Attrib ==    15) isHide++;//LFN start
+;-768 			if (*p <=   31) isHide++;//part of LFN
 
 .fatDirSectorList99:
- mov al, [dir_Attrib]
- cmp al, 15
- jne .fatDirSectorList100
+ mov bx, [bp-2]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 31
+ jg  .fatDirSectorList100
  inc  byte[bp-6]
-;-766 					
-
-;-767 			if (isHide == 0) printDirEntry(EntryNr);
+;-769 			if (dir_Attrib ==    15) isHide++;//LFN start
 
 .fatDirSectorList100:
+ mov al, [dir_Attrib]
+ cmp al, 15
+ jne .fatDirSectorList101
+ inc  byte[bp-6]
+;-770 					
+
+;-771 			if (isHide == 0) printDirEntry(EntryNr);
+
+.fatDirSectorList101:
  mov al, [bp-6]
  cmp al, 0
- jne .fatDirSectorList101
+ jne .fatDirSectorList102
  push word [bp-8]
  call printDirEntry
  add  sp, 2
-;-768 			p+=32;//get next entry
+;-772 			p+=32;//get next entry
 
-.fatDirSectorList101:
+.fatDirSectorList102:
  add  word[bp-2], 32
-;-769 			EntryNr++;
+;-773 			EntryNr++;
 
  inc  word[bp-8]
-;-770 		} while (p < EndDiskBuf);
+;-774 		} while (p < EndDiskBuf);
 
  mov ax, [bp-2]
  cmp ax, [bp-4]
- jge .fatDirSectorList102
- jmp .fatDirSectorList96
-.fatDirSectorList102:
-;-771 		startSector = startSector + 1;//long, do NOT use ++ or +=1
+ jge .fatDirSectorList103
+ jmp .fatDirSectorList97
+.fatDirSectorList103:
+;-775 		startSector = startSector + 1;//long, do NOT use ++ or +=1
 
  mov eax, [bp+4]
  add eax, 1
  mov [bp+4], eax
-;-772 		numsectors--;
+;-776 		numsectors--;
 
  dec  dword[bp+8]
-;-773 //mdump(DiskBuf, 512);
+;-777 //mdump(DiskBuf, 512);
 
-;-774 	} while (numsectors > 0);
+;-778 	} while (numsectors > 0);
 
  mov eax, [bp+8]
  cmp eax, 0
- jle .fatDirSectorList103
- jmp .fatDirSectorList95
-.fatDirSectorList103:
-;-775 	CurCluster=0;//not found but not end
+ jle .fatDirSectorList104
+ jmp .fatDirSectorList96
+.fatDirSectorList104:
+;-779 	CurCluster=0;//not found but not end
 
  mov ax, 0
  mov word [CurCluster], ax
-;-776 }
+;-780 }
 
-;-777 
+;-781 
 
-;-778 // 2.
+;-782 // 2.
 
-;-779 int fatDirSectorSearch(unsigned long startSector, unsigned long numsectors) {
+;-783 int fatDirSectorSearch(unsigned long startSector,unsigned long numsectors) {
 
  LEAVE
  ret
 ENDP
 
 fatDirSectorSearch: PROC
-;-780     //search for file name. IN:searchstr
+;-784     //search for file name. IN:searchstr
 
-;-781     char *p;
+;-785     char *p;
 
-;-782 	unsigned int EndDiskBuf;
+;-786 	unsigned int EndDiskBuf;
 
-;-783 	fatfound=0;
+;-787 	fatfound=0;
 
 ;Function : fatDirSectorSearch, Number local Var: 4
 ; # type sign width local variables
-;91 var unsg long startSector = bp+4
-;92 var unsg long numsectors = bp+8
-;93 ptr sign byte p = bp-2
-;94 var unsg word EndDiskBuf = bp-4;
+;93 var unsg long startSector = bp+4
+;94 var unsg long numsectors = bp+8
+;95 ptr sign byte p = bp-2
+;96 var unsg word EndDiskBuf = bp-4;
  ENTER  4,0
  mov ax, 0
  mov byte [fatfound], al
-;-784 	do {
+;-788 	do {
 
-.fatDirSectorSearch104:
-;-785 		readLogical(startSector);
+.fatDirSectorSearch105:
+;-789 		readLogical(startSector);
 
  push dword [bp+4]
  call readLogical
  add  sp, 4
-;-786 		p=&DiskBuf;
+;-790 		p=&DiskBuf;
 
  mov ax, DiskBuf
  mov [bp-2], ax
-;-787 		EndDiskBuf= p + bs_sect_size;
+;-791 		EndDiskBuf= p + bs_sect_size;
 
  mov ax, [bp-2]
  add ax, [bs_sect_size]
  mov [bp-4], ax
-;-788 		do {
+;-792 		do {
 
-.fatDirSectorSearch105:
-;-789 			if (memcmp(p, searchstr, 11) == 0) {//found file name
+.fatDirSectorSearch106:
+;-793 			if (memcmp(p, searchstr, 11) == 0) {//found file name
 
  push 11
  lea  ax, [searchstr]
@@ -3787,8 +3808,8 @@ fatDirSectorSearch: PROC
  call memcmp
  add  sp, 6
  cmp ax, 0
- jne .fatDirSectorSearch106
-;-790 				memcpy(dir_Filename, p, 32);//copy whole dir structure
+ jne .fatDirSectorSearch107
+;-794 				memcpy(dir_Filename, p, 32);//copy whole dir structure
 
  push 32
  push word [bp-2]
@@ -3796,7 +3817,7 @@ fatDirSectorSearch: PROC
  push ax
  call memcpy
  add  sp, 6
-;-791 				memcpy(filename, p, 11);
+;-795 				memcpy(filename, p, 11);
 
  push 11
  push word [bp-2]
@@ -3804,224 +3825,185 @@ fatDirSectorSearch: PROC
  push ax
  call memcpy
  add  sp, 6
-;-792 				filename[11] = 0;
+;-796 				filename[11] = 0;
 
  mov ax, 0
  mov bx, 11
  mov [filename+bx], al
-;-793 				CurCluster   = dir_FirstCluster;
+;-797 				CurCluster   = dir_FirstCluster;
 
  mov ax, [dir_FirstCluster]
  mov word [CurCluster], ax
-;-794 				FileSizeL  = dir_FileSize;
+;-798 				FileSizeL  = dir_FileSize;
 
  mov eax, [dir_FileSize]
  mov dword [FileSizeL], eax
-;-795 				fatfound=1;
+;-799 				fatfound=1;
 
  mov ax, 1
  mov byte [fatfound], al
-;-796 			}
+;-800 			}
 
-;-797 			if (*p == 0) return; //only empty entries following
+;-801 			if (*p == 0) return; //only empty entries following
 
-.fatDirSectorSearch106:
+.fatDirSectorSearch107:
  mov bx, [bp-2]
  mov al, [bx]
  mov ah, 0
  cmp ax, 0
- jne .fatDirSectorSearch107
+ jne .fatDirSectorSearch108
  jmp .retnfatDirSectorSearch
-;-798 			p+=32;//get next entry
+;-802 			p+=32;//get next entry
 
-.fatDirSectorSearch107:
+.fatDirSectorSearch108:
  add  word[bp-2], 32
-;-799 		} while (p < EndDiskBuf);
+;-803 		} while (p < EndDiskBuf);
 
  mov ax, [bp-2]
  cmp ax, [bp-4]
- jge .fatDirSectorSearch108
- jmp .fatDirSectorSearch105
-.fatDirSectorSearch108:
-;-800 		startSector++;		
+ jge .fatDirSectorSearch109
+ jmp .fatDirSectorSearch106
+.fatDirSectorSearch109:
+;-804 		startSector++;		
 
  inc  dword[bp+4]
-;-801 		numsectors--;
+;-805 		numsectors--;
 
  dec  dword[bp+8]
-;-802 	} while (numsectors > 0);
+;-806 	} while (numsectors > 0);
 
  mov eax, [bp+8]
  cmp eax, 0
- jle .fatDirSectorSearch109
- jmp .fatDirSectorSearch104
-.fatDirSectorSearch109:
-;-803 	CurCluster=0;//not found but not end
+ jle .fatDirSectorSearch110
+ jmp .fatDirSectorSearch105
+.fatDirSectorSearch110:
+;-807 	CurCluster=0;//not found but not end
 
  mov ax, 0
  mov word [CurCluster], ax
-;-804 }
+;-808 }
 
-;-805 
+;-809 
 
-;-806 
+;-810 /*
 
-;-807 int is_delimiter(char *s) {
+;-811 // 3.
+
+;-812 int fatRootSearch() {
+
+;-813     fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL);
+
+;-814 //	getkey();
+
+;-815 //    fatDirSectorList(fat_RootDirStartSectorL, fat_RootDirSectorsL);
+
+;-816 }
+
+;-817 */
+
+;-818 // 4.
+
+;-819 int fatClusterAnalyse(unsigned int clust) {
 
  .retnfatDirSectorSearch:
  LEAVE
  ret
 ENDP
 
-is_delimiter: PROC
-;-808 	if (*s == '/' ) return 1;
-
-;Function : is_delimiter, Number local Var: 1
-; # type sign width local variables
-;91 ptr sign byte s = bp+4;
- ENTER  0,0
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 47
- jne .is_delimiter110
- mov ax, 1
- jmp .retnis_delimiter
-;-809 	if (*s == '\\') return 1;
-
-.is_delimiter110:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 92
- jne .is_delimiter111
- mov ax, 1
- jmp .retnis_delimiter
-;-810 	if (*s ==    0) return 2;
-
-.is_delimiter111:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 0
- jne .is_delimiter112
- mov ax, 2
- jmp .retnis_delimiter
-;-811 	if (*s ==  '.') return 3;
-
-.is_delimiter112:
- mov bx, [bp+4]
- mov al, [bx]
- mov ah, 0
- cmp ax, 46
- jne .is_delimiter113
- mov ax, 3
- jmp .retnis_delimiter
-;-812 	return 0;
-
-.is_delimiter113:
- mov ax, 0
- jmp .retnis_delimiter
-;-813 }
-
-;-814 
-
-;-815 // 4.
-
-;-816 int fatClusterAnalyse(unsigned int clust) {
-
- .retnis_delimiter:
- LEAVE
- ret
-ENDP
-
 fatClusterAnalyse: PROC
-;-817 //OUT: CurSectorL, NextCluster
+;-820 //OUT: CurSectorL, NextCluster
 
-;-818 	unsigned long fatSectorL;
+;-821 	unsigned long fatSectorL;
 
-;-819 	unsigned int offset;
+;-822 	unsigned int offset;
 
-;-820 	char *p;
+;-823 	char *p;
 
-;-821 
+;-824 unsigned long offL;
 
-;-822 	CurSectorL = (long) clust - 2;
+;-825 
 
-;Function : fatClusterAnalyse, Number local Var: 4
+;-826 	CurSectorL = (long) clust - 2;
+
+;Function : fatClusterAnalyse, Number local Var: 5
 ; # type sign width local variables
-;91 var unsg word clust = bp+4
-;92 var unsg long fatSectorL = bp-4
-;93 var unsg word offset = bp-6
-;94 ptr sign byte p = bp-8;
- ENTER  8,0
+;93 var unsg word clust = bp+4
+;94 var unsg long fatSectorL = bp-4
+;95 var unsg word offset = bp-6
+;96 ptr sign byte p = bp-8
+;97 var unsg long offL = bp-12;
+ ENTER  12,0
  xor eax, eax
  mov ax, [bp+4]
  sub ax, 2
  mov dword [CurSectorL], eax
-;-823 	CurSectorL = CurSectorL * clust_sizeL;
+;-827 	CurSectorL = CurSectorL * clust_sizeL;
 
  mov eax, [CurSectorL]
 ;todo:save high part:mov [Longvar+2(+4)],(e)dx
  mul dword [clust_sizeL]
  mov dword [CurSectorL], eax
-;-824 	CurSectorL = CurSectorL + fat_DataStartSectorL;
+;-828 	CurSectorL = CurSectorL + fat_DataStartSectorL;
 
  mov eax, [CurSectorL]
  add eax, [fat_DataStartSectorL]
  mov dword [CurSectorL], eax
-;-825 	
+;-829 	
 
-;-826 	fatSectorL = (long) clust + clust;
+;-830 //	fatSectorL=cluster*2/512+FatStartSector
+
+;-831 	fatSectorL = (long) clust;
 
  xor eax, eax
  mov ax, [bp+4]
- add ax, [bp+4]
  mov [bp-4], eax
-;-827 	fatSectorL = fatSectorL / sector_sizeL;		
+;-832 	fatSectorL = fatSectorL + fatSectorL;
+
+ mov eax, [bp-4]
+ add eax, [bp-4]
+ mov [bp-4], eax
+;-833 	fatSectorL = fatSectorL / sector_sizeL;		
 
  mov eax, [bp-4]
  xor edx, edx
  div dword [sector_sizeL]
  mov [bp-4], eax
-;-828 	fatSectorL = fatSectorL + fat_FatStartSectorL; 
+;-834 	fatSectorL = fatSectorL + fat_FatStartSectorL; 
 
  mov eax, [bp-4]
  add eax, [fat_FatStartSectorL]
  mov [bp-4], eax
-;-829 
-
-;-830 	readLogical(fatSectorL);
+;-835 	readLogical(fatSectorL);
 
  push dword [bp-4]
  call readLogical
  add  sp, 4
-;-831 	
+;-836 	
 
-;-832 	offset = clust + clust;
+;-837 	offset = clust + clust;//todo overflow?
 
  mov ax, [bp+4]
  add ax, [bp+4]
  mov [bp-6], ax
-;-833 	offset = offset % bs_sect_size;
+;-838 	offset = offset % bs_sect_size;
 
  mov ax, [bp-6]
  xor dx, dx
  div word [bs_sect_size]
  mov ax, dx
  mov [bp-6], ax
-;-834 	
+;-839 	
 
-;-835 	p=&DiskBuf;
+;-840 	p=&DiskBuf;
 
  mov ax, DiskBuf
  mov [bp-8], ax
-;-836 	p = p + offset;	
+;-841 	p = p + offset;	
 
  mov ax, [bp-8]
  add ax, [bp-6]
  mov [bp-8], ax
-;-837 	memcpy(&NextCluster, p, 2);
+;-842 	memcpy(&NextCluster, p, 2);//OUT: NextCluster
 
  push 2
  push word [bp-8]
@@ -4029,224 +4011,324 @@ fatClusterAnalyse: PROC
  push ax
  call memcpy
  add  sp, 6
-;-838 }
+;-843 }
 
-;-839 	
+;-844 /*
 
-;-840 // 6.
+;-845 // 5.
 
-;-841 int fatNextSearch() {//get next part of filename to do a search
+;-846 int fatDirSearch() {//search a directory chain. IN:searchstr
+
+;-847 	
+
+;-848 	fatClusterAnalyse(fatfile_cluster);
+
+;-849 	//OUT: fatfile_sectorStartL, fatfile_nextCluster
+
+;-850 
+
+;-851 	fatDirSectorSearch(fatfile_sectorStartL, fatfile_nextCluster); 
+
+;-852 	while (fatfile_cluster == 0) {//not found but not end
+
+;-853 		if (fatfile_nextCluster >= 0xFFF8) {
+
+;-854 			fat_notfound=1;
+
+;-855 			return;	
+
+;-856 		}		
+
+;-857 		fatfile_cluster=fatfile_nextCluster;
+
+;-858 		fatClusterAnalyse(fatfile_cluster);
+
+;-859 		fatDirSectorSearch(fatfile_sectorStartL, fatfile_nextCluster);
+
+;-860 	}	
+
+;-861 }
+
+;-862 */	
+
+;-863 
+
+;-864 int is_delimiter(char *s) {
 
  LEAVE
  ret
 ENDP
 
+is_delimiter: PROC
+;-865 	if (*s == '/' ) return 1;
+
+;Function : is_delimiter, Number local Var: 1
+; # type sign width local variables
+;93 ptr sign byte s = bp+4;
+ ENTER  0,0
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 47
+ jne .is_delimiter111
+ mov ax, 1
+ jmp .retnis_delimiter
+;-866 	if (*s == '\\') return 1;
+
+.is_delimiter111:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 92
+ jne .is_delimiter112
+ mov ax, 1
+ jmp .retnis_delimiter
+;-867 	if (*s ==    0) return 2;
+
+.is_delimiter112:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 0
+ jne .is_delimiter113
+ mov ax, 2
+ jmp .retnis_delimiter
+;-868 	if (*s ==  '.') return 3;
+
+.is_delimiter113:
+ mov bx, [bp+4]
+ mov al, [bx]
+ mov ah, 0
+ cmp ax, 46
+ jne .is_delimiter114
+ mov ax, 3
+ jmp .retnis_delimiter
+;-869 	return 0;
+
+.is_delimiter114:
+ mov ax, 0
+ jmp .retnis_delimiter
+;-870 }
+
+;-871 
+
+;-872 // 6.
+
+;-873 int fatNextSearch() {//get next part of filename to do a search
+
+ .retnis_delimiter:
+ LEAVE
+ ret
+ENDP
+
 fatNextSearch: PROC
-;-842 //	IN:  upto: points to start of search in filename 
+;-874 //	IN:  upto: points to start of search in filename 
 
-;-843 //	OUT: upto: points to search for next time
+;-875 //	OUT: upto: points to search for next time
 
-;-844 //	OUT: searchstr: part of filename in DIR-format with blanks (11bytes)
+;-876 //	OUT: searchstr: part of filename in DIR-format with blanks (11bytes)
 
-;-845 //	OUT: isfilename: 0=part of directory, 1=filename
+;-877 //	OUT: isfilename: 0=part of directory, 1=filename
 
-;-846 //	OUT: fatfound
+;-878 //	OUT: fatfound
 
-;-847 	char *searchstrp;
+;-879 	char *searchstrp;
 
-;-848 	char *p; 
+;-880 	char *p; 
 
-;-849 	unsigned int  len;
+;-881 	unsigned int  len;
 
-;-850 	unsigned int delimiter;
+;-882 	unsigned int delimiter;
 
-;-851 	delimiter=is_delimiter(upto);
+;-883 
+
+;-884 	delimiter=is_delimiter(upto);
 
 ;Function : fatNextSearch, Number local Var: 4
 ; # type sign width local variables
-;91 ptr sign byte searchstrp = bp-2
-;92 ptr sign byte p = bp-4
-;93 var unsg word len = bp-6
-;94 var unsg word delimiter = bp-8;
+;93 ptr sign byte searchstrp = bp-2
+;94 ptr sign byte p = bp-4
+;95 var unsg word len = bp-6
+;96 var unsg word delimiter = bp-8;
  ENTER  8,0
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-852 	if (delimiter == 1) upto++;
+;-885 	if (delimiter == 1) upto++;
 
  mov ax, [bp-8]
  cmp ax, 1
- jne .fatNextSearch114
- inc  word[upto]
-;-853 	if (delimiter == 2) return; 
-
-.fatNextSearch114:
- mov ax, [bp-8]
- cmp ax, 2
  jne .fatNextSearch115
- jmp .retnfatNextSearch
-;-854 
-
-;-855 	strcpy(&searchstr, "           ");//11 blank padded
+ inc  word[upto]
+;-886 	if (delimiter == 2) return; 
 
 .fatNextSearch115:
+ mov ax, [bp-8]
+ cmp ax, 2
+ jne .fatNextSearch116
+ jmp .retnfatNextSearch
+;-887 
+
+;-888 	strcpy(&searchstr, "           ");//11 blank padded
+
+.fatNextSearch116:
  push fatNextSearch_0
  lea  ax, [searchstr]
  push ax
  call strcpy
  add  sp, 4
-;-856 	searchstrp = &searchstr;//clear searchstr
+;-889 	searchstrp = &searchstr;//clear searchstr
 
  mov ax, searchstr
  mov [bp-2], ax
-;-857 	len=0;
+;-890 	len=0;
 
  mov ax, 0
  mov [bp-6], ax
-;-858 	delimiter=is_delimiter(upto);
+;-891 	delimiter=is_delimiter(upto);
 
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-859 	while (delimiter == 0) { //no slash, zero, point
+;-892 	while (delimiter == 0) { //no slash, zero, point
 
-.fatNextSearch116:
+.fatNextSearch117:
  mov ax, [bp-8]
  cmp ax, 0
- jne .fatNextSearch117
-;-860 		*searchstrp = *upto;
+ jne .fatNextSearch118
+;-893 		*searchstrp = *upto;
 
  mov bx, [upto]
  mov al, [bx]
  mov ah, 0
  mov  bx, [bp-2]
  mov  [bx], al
-;-861 		searchstrp++;
+;-894 		searchstrp++;
 
  inc  word[bp-2]
-;-862 		upto++;	
+;-895 		upto++;	
 
  inc  word[upto]
-;-863 		len++;
+;-896 		len++;
 
  inc  word[bp-6]
-;-864 		delimiter=is_delimiter(upto);
+;-897 		delimiter=is_delimiter(upto);
 
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-865 	} 
+;-898 	} 
 
-;-866 	if (len > 8) return;
+;-899 	if (len > 8) return;
 
- jmp .fatNextSearch116
-.fatNextSearch117:
+ jmp .fatNextSearch117
+.fatNextSearch118:
  mov ax, [bp-6]
  cmp ax, 8
- jle .fatNextSearch118
+ jle .fatNextSearch119
  jmp .retnfatNextSearch
-;-867 	isfilename=0;//todo: default directory, not yet implemented
+;-900 	isfilename=0;//todo: default directory, not yet implemented
 
-.fatNextSearch118:
+.fatNextSearch119:
  mov ax, 0
  mov byte [isfilename], al
-;-868 	if (delimiter == 2) isfilename=1;//last name is always a file name
+;-901 	if (delimiter == 2) isfilename=1;//last name is always a file name
 
  mov ax, [bp-8]
  cmp ax, 2
- jne .fatNextSearch119
+ jne .fatNextSearch120
  mov ax, 1
  mov byte [isfilename], al
-;-869 	if (delimiter == 3) {//remove dot in name		
+;-902 	if (delimiter == 3) {//remove dot in name		
 
-.fatNextSearch119:
+.fatNextSearch120:
  mov ax, [bp-8]
  cmp ax, 3
- jne .fatNextSearch120
-;-870 		searchstrp = &searchstr;
+ jne .fatNextSearch121
+;-903 		searchstrp = &searchstr;
 
  mov ax, searchstr
  mov [bp-2], ax
-;-871 		searchstrp += 8;//start extension		
+;-904 		searchstrp += 8;//start extension		
 
  add  word[bp-2], 8
-;-872 		len=0;
+;-905 		len=0;
 
  mov ax, 0
  mov [bp-6], ax
-;-873 		upto++;
+;-906 		upto++;
 
  inc  word[upto]
-;-874 		delimiter=is_delimiter(upto);
+;-907 		delimiter=is_delimiter(upto);
 
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-875 		while (delimiter == 0) { //no slash, zero, point
+;-908 		while (delimiter == 0) { //no slash, zero, point
 
-.fatNextSearch121:
+.fatNextSearch122:
  mov ax, [bp-8]
  cmp ax, 0
- jne .fatNextSearch122
-;-876 			*searchstrp = *upto;
+ jne .fatNextSearch123
+;-909 			*searchstrp = *upto;
 
  mov bx, [upto]
  mov al, [bx]
  mov ah, 0
  mov  bx, [bp-2]
  mov  [bx], al
-;-877 			searchstrp++;
+;-910 			searchstrp++;
 
  inc  word[bp-2]
-;-878 			upto++;	
+;-911 			upto++;	
 
  inc  word[upto]
-;-879 			len++;
+;-912 			len++;
 
  inc  word[bp-6]
-;-880 			delimiter=is_delimiter(upto);
+;-913 			delimiter=is_delimiter(upto);
 
  push word [upto]
  call is_delimiter
  add  sp, 2
  mov [bp-8], ax
-;-881 		} 
+;-914 		} 
 
-;-882 		if (len > 3) return;
+;-915 		if (len > 3) return;
 
- jmp .fatNextSearch121
-.fatNextSearch122:
+ jmp .fatNextSearch122
+.fatNextSearch123:
  mov ax, [bp-6]
  cmp ax, 3
- jle .fatNextSearch123
+ jle .fatNextSearch124
  jmp .retnfatNextSearch
-;-883 		if (delimiter == 2) isfilename=1;//last name is always a file name
-
-.fatNextSearch123:
- mov ax, [bp-8]
- cmp ax, 2
- jne .fatNextSearch124
- mov ax, 1
- mov byte [isfilename], al
-;-884 	}
+;-916 		if (delimiter == 2) isfilename=1;//last name is always a file name
 
 .fatNextSearch124:
-;-885 	fatfound=1;	
+ mov ax, [bp-8]
+ cmp ax, 2
+ jne .fatNextSearch125
+ mov ax, 1
+ mov byte [isfilename], al
+;-917 	}
 
-.fatNextSearch120:
+.fatNextSearch125:
+;-918 	fatfound=1;	
+
+.fatNextSearch121:
  mov ax, 1
  mov byte [fatfound], al
-;-886 }
+;-919 }
 
-;-887 
+;-920 
 
-;-888 // 7.
+;-921 // 7.
 
-;-889 int fatGetStartCluster() {//lastBytes, lastSectors
+;-922 int fatGetStartCluster() {//lastBytes, lastSectors
 
  .retnfatNextSearch:
  LEAVE
@@ -4255,30 +4337,30 @@ fatNextSearch_0 db "           ",0
 ENDP
 
 fatGetStartCluster: PROC
-;-890 	fatfound=0;
+;-923 	fatfound=0;
 
  mov ax, 0
  mov byte [fatfound], al
-;-891 	toupper(filename);
+;-924 	toupper(filename);
 
  lea  ax, [filename]
  push ax
  call toupper
  add  sp, 2
-;-892 	upto = &filename;
+;-925 	upto = &filename;
 
  mov ax, filename
  mov word [upto], ax
-;-893 	fatNextSearch();
+;-926 	fatNextSearch();
 
  call fatNextSearch
-;-894 
+;-927 
 
-;-895 	if (debug) {putch(10); cputsLen(searchstr, 11);
+;-928 	if (debug) {putch(10); cputsLen(searchstr, 11);
 
  mov ax, 1
  or  al, al
- je .fatGetStartCluster125
+ je .fatGetStartCluster126
  push 10
  call putch
  add  sp, 2
@@ -4287,78 +4369,160 @@ fatGetStartCluster: PROC
  push ax
  call cputsLen
  add  sp, 4
-;-896 //		cputs(",FName="); printunsign(isfilename); 
+;-929 //		cputs(",FName="); printunsign(isfilename); 
 
-;-897 		}
+;-930 		}
 
-;-898 	if (isfilename == 0) return; //todo not implemented
-
-.fatGetStartCluster125:
- mov al, [isfilename]
- cmp al, 0
- jne .fatGetStartCluster126
- jmp .retnfatGetStartCluster
-;-899 	if (fatfound) 	fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
+;-931 	if (isfilename == 0) return; //todo not implemented
 
 .fatGetStartCluster126:
+ mov al, [isfilename]
+ cmp al, 0
+ jne .fatGetStartCluster127
+ jmp .retnfatGetStartCluster
+;-932 	if (fatfound) 	fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
+
+.fatGetStartCluster127:
  mov al, [fatfound]
  or  al, al
- je .fatGetStartCluster127
+ je .fatGetStartCluster128
  push dword [fat_RootDirSectorsL]
  push dword [fat_RootDirStartSectorL]
  call fatDirSectorSearch
  add  sp, 8
-;-900 }
+;-933 }
 
-.fatGetStartCluster127:
-;-901 
+.fatGetStartCluster128:
+;-934 
 
-;-902 // 10.
+;-935 /*
 
-;-903 int fatReadFile() {// reads 1 byte from an already open file
+;-936 // 8.
+
+;-937 int fatOpenFile() {//set handle for root or subdir
+
+;-938 	unsigned long bytes_per_cluster;
+
+;-939 	fat_notfound=0;
+
+;-940 	if (debug) cputs("fatOpenfile ");	
+
+;-941 	if (filename[0] == 0) {//empty filename
+
+;-942 //	if (strlen(filename) == 0) {//empty filename
+
+;-943 		fat_notfound=1;//todo: return
+
+;-944 		
+
+;-945 		fatfile_root = 1;
+
+;-946 		fatfile_nextCluster = 0xFFFF;
+
+;-947 		fatfile_sectorCount = fat_RootDirSectorsL;
+
+;-948 		fatfile_sectorStartL = fat_RootDirStartSectorL;
+
+;-949 		fatfile_lastBytes   = 0;
+
+;-950 		fatfile_lastSectors = fat_RootDirSectorsL;
+
+;-951 		fatfile_cluster     = 0;
+
+;-952 		fatfile_dir         = 1;
+
+;-953 
+
+;-954 	} else {//search in subdir
+
+;-955 		fatfile_root = 0;
+
+;-956 		fatGetStartCluster();
+
+;-957 		if (fat_notfound) return 1;
+
+;-958 		bytes_per_cluster   = (long) bs_clust_size * bs_sect_size;
+
+;-959 		fatfile_lastBytes   = fatfile_fileSize % bytes_per_cluster;
+
+;-960 		fatfile_lastSectors = fatfile_lastBytes / bs_sect_size;
+
+;-961 		fatfile_lastBytes   = fatfile_lastBytes % bs_sect_size;
+
+;-962 		if (fatfile_fileSize == 0) fatfile_dir = 1;
+
+;-963 		else                       fatfile_dir = 0;
+
+;-964 
+
+;-965 //		fatClusterAnalyse();
+
+;-966 		fatfile_sectorCount = (int) bs_clust_size;
+
+;-967 	}
+
+;-968 	fatfile_currentCluster = fatfile_cluster;
+
+;-969 	fatfile_sectorUpto = 0;
+
+;-970 	fatfile_byteUpto   = 0;
+
+;-971 	if (fat_notfound) return 1;
+
+;-972 	return 0;
+
+;-973 }
+
+;-974 */
+
+;-975 
+
+;-976 // 9.
+
+;-977 int fatReadFile() {// reads 1 byte from an already open file
 
  .retnfatGetStartCluster:
  ret
 ENDP
 
 fatReadFile: PROC
-;-904 //	IN: CurCluster, FileSizeL
+;-978 //	IN: CurCluster, FileSizeL
 
-;-905 	fatGetStartCluster();
+;-979 	fatGetStartCluster();
 
  call fatGetStartCluster
-;-906 	if (fatfound == 0) {
+;-980 	if (fatfound == 0) {
 
  mov al, [fatfound]
  cmp al, 0
- jne .fatReadFile128
-;-907 		cputs(" file not found"); 
+ jne .fatReadFile129
+;-981 		cputs(" file not found"); 
 
  push fatReadFile_0
  call cputs
  add  sp, 2
-;-908 		return;
+;-982 		return;
 
  jmp .retnfatReadFile
-;-909 		}
+;-983 		}
 
-;-910 cputs(",1.Cl="); printunsign(CurCluster);
+;-984 cputs(",1.Cl="); printunsign(CurCluster);
 
-.fatReadFile128:
+.fatReadFile129:
  push fatReadFile_1
  call cputs
  add  sp, 2
  push word [CurCluster]
  call printunsign
  add  sp, 2
-;-911 	fatClusterAnalyse(CurCluster);
+;-985 	fatClusterAnalyse(CurCluster);
 
  push word [CurCluster]
  call fatClusterAnalyse
  add  sp, 2
-;-912 //cputs(",secStartL="); printlong(CurSectorL);
+;-986 //cputs(",secStartL="); printlong(CurSectorL);
 
-;-913 cputs(",ClSz="); printlong(clust_sizeL);
+;-987 cputs(",ClSz="); printlong(clust_sizeL);
 
  push fatReadFile_2
  call cputs
@@ -4366,7 +4530,7 @@ fatReadFile: PROC
  push dword [clust_sizeL]
  call printlong
  add  sp, 4
-;-914 cputs(",Size="); printlong(FileSizeL);
+;-988 cputs(",Size="); printlong(FileSizeL);
 
  push fatReadFile_3
  call cputs
@@ -4374,7 +4538,7 @@ fatReadFile: PROC
  push dword [FileSizeL]
  call printlong
  add  sp, 4
-;-915 cputs(",NextCl="); printunsign(NextCluster);
+;-989 cputs(",NextCl="); printunsign(NextCluster);
 
  push fatReadFile_4
  call cputs
@@ -4382,27 +4546,29 @@ fatReadFile: PROC
  push word [NextCluster]
  call printunsign
  add  sp, 2
-;-916 	readLogical(CurSectorL);
+;-990 	readLogical(CurSectorL);
 
  push dword [CurSectorL]
  call readLogical
  add  sp, 4
-;-917 	mdump(DiskBuf, 512);
+;-991 	mdump(DiskBuf, 512);
 
  push 512
  lea  ax, [DiskBuf]
  push ax
  call mdump
  add  sp, 4
-;-918 	
+;-992 	
 
-;-919 		
+;-993 		
 
-;-920 }
+;-994 }
 
-;-921 //------------------------------- Init,  main ---------------
+;-995 //------------------------------- OS functions --------------
 
-;-922 int Init() {
+;-996 //handle: 0=in, 1=out, 2=err, 3=aux, 4=prn, 255=error
+
+;-997 int OSOpenFile(char *name) {//remove drive letter and uppercase
 
  .retnfatReadFile:
  ret
@@ -4413,83 +4579,169 @@ fatReadFile_3 db ",Size=",0
 fatReadFile_4 db ",NextCl=",0
 ENDP
 
+OSOpenFile: PROC
+;-998 	if (filename[0] == 0) return 255; //empty filename
+
+;Function : OSOpenFile, Number local Var: 1
+; # type sign width local variables
+;93 ptr sign byte name = bp+4;
+ ENTER  0,0
+ mov al, [filename]
+ cmp al, 0
+ jne .OSOpenFile130
+ mov ax, 255
+ jmp .retnOSOpenFile
+;-999 	
+
+;-1000 	strcpy(filename, name);
+
+.OSOpenFile130:
+ push word [bp+4]
+ lea  ax, [filename]
+ push ax
+ call strcpy
+ add  sp, 4
+;-1001 	toupper(filename);
+
+ lea  ax, [filename]
+ push ax
+ call toupper
+ add  sp, 2
+;-1002 
+
+;-1003 cputs(",filename=");cputs(filename);
+
+ push OSOpenFile_0
+ call cputs
+ add  sp, 2
+ lea  ax, [filename]
+ push ax
+ call cputs
+ add  sp, 2
+;-1004 
+
+;-1005 
+
+;-1006 
+
+;-1007 //	rc=fatOpenFile();
+
+;-1008 //	cputs(" rc="); printunsign(rc);
+
+;-1009 
+
+;-1010 	return 5;
+
+ mov ax, 5
+ jmp .retnOSOpenFile
+;-1011 }
+
+;-1012 
+
+;-1013 int OSReadFile(char hd) {
+
+ .retnOSOpenFile:
+ LEAVE
+ ret
+OSOpenFile_0 db ",filename=",0
+ENDP
+
+OSReadFile: PROC
+;-1014 	
+
+;-1015 }
+
+;Function : OSReadFile, Number local Var: 1
+; # type sign width local variables
+;93 var sign byte hd = bp+4;
+ ENTER  0,0
+;-1016 
+
+;-1017 //------------------------------- Init,  main ---------------
+
+;-1018 int Init() {
+
+ LEAVE
+ ret
+ENDP
+
 Init: PROC
-;-923 	Drive=0x80;
+;-1019 	Drive=0x80;
 
  mov ax, 128
  mov byte [Drive], al
-;-924 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
+;-1020 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
 
  mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
-;-925 	if (debug) cputs(" Init");
+;-1021 	if (debug) cputs(" Init");
 
  mov ax, 1
  or  al, al
- je .Init129
+ je .Init131
  push Init_0
  call cputs
  add  sp, 2
-;-926 	if (Params()) cputs(" ** NO DRIVE PARAMS FOUND **");//no hard disk
+;-1022 	if (Params()) cputs(" ** NO DRIVE PARAMS FOUND **");//no hard disk
 
-.Init129:
+.Init131:
  call Params
  or  al, al
- je .Init130
+ je .Init132
  push Init_1
  call cputs
  add  sp, 2
-;-927 	if (readMBR() == 0) {//0=error,1=FAT12,6=FAT16,11=FAT32	
+;-1023 	if (readMBR() == 0) {//0=error,1=FAT12,6=FAT16,11=FAT32	
 
-.Init130:
+.Init132:
  call readMBR
  cmp al, 0
- jne .Init131
-;-928 		cputs(" ** no active FAT partition found **");
+ jne .Init133
+;-1024 		cputs(" ** no active FAT partition found **");
 
  push Init_2
  call cputs
  add  sp, 2
-;-929 		return 1;
+;-1025 		return 1;
 
  mov ax, 1
  jmp .retnInit
-;-930 		}
+;-1026 		}
 
-;-931 	if(getBootSector()==0) 	return 1;
-
-.Init131:
- call getBootSector
- cmp al, 0
- jne .Init132
- mov ax, 1
- jmp .retnInit
-;-932 	if (FATInit())			return 1;
-
-.Init132:
- call FATInit
- or  al, al
- je .Init133
- mov ax, 1
- jmp .retnInit
-;-933 	if(trueFATtype != 16) 	return 1;
+;-1027 	if(getBootSector()==0) 	return 1;
 
 .Init133:
- mov al, [trueFATtype]
- cmp al, 16
- je  .Init134
+ call getBootSector
+ cmp al, 0
+ jne .Init134
  mov ax, 1
  jmp .retnInit
-;-934 	Int13hExt();
+;-1028 	if (FATInit())			return 1;
 
 .Init134:
+ call FATInit
+ or  al, al
+ je .Init135
+ mov ax, 1
+ jmp .retnInit
+;-1029 	if(trueFATtype != 16) 	return 1;
+
+.Init135:
+ mov al, [trueFATtype]
+ cmp al, 16
+ je  .Init136
+ mov ax, 1
+ jmp .retnInit
+;-1030 	Int13hExt();
+
+.Init136:
  call Int13hExt
-;-935 	return 0;
+;-1031 	return 0;
 
  mov ax, 0
  jmp .retnInit
-;-936 }
+;-1032 }
 
-;-937 int main() {
+;-1033 int main() {
 
  .retnInit:
  ret
@@ -4499,66 +4751,245 @@ Init_2 db " ** no active FAT partition found **",0
 ENDP
 
 main: PROC
-;-938 	if (Init() != 0) return 1;
+;-1034 	if (Init() != 0) return 1;
 
  call Init
  cmp al, 0
- je  .main135
+ je  .main137
  mov ax, 1
  jmp .retnmain
-;-939 //	if (debug) PrintDriveParameter();
+;-1035 	if (debug) PrintDriveParameter();
 
-;-940 	
-
-;-941 	strcpy(&filename, "dos.com");	fatReadFile();	
-
-.main135:
- push main_0
- lea  ax, [filename]
- push ax
- call strcpy
- add  sp, 4
- call fatReadFile
-;-942 	strcpy(&filename, "readme.md");	fatReadFile();	
-
- push main_1
- lea  ax, [filename]
- push ax
- call strcpy
- add  sp, 4
- call fatReadFile
-;-943 	strcpy(&filename, "cm.bat");	fatReadFile();	
-
- push main_2
- lea  ax, [filename]
- push ax
- call strcpy
- add  sp, 4
- call fatReadFile
-;-944 	strcpy(&filename, "test1.c");	fatReadFile();
-
- push main_3
- lea  ax, [filename]
- push ax
- call strcpy
- add  sp, 4
- call fatReadFile
-;-945 	if (debug) cputs(" End.");
-
+.main137:
  mov ax, 1
  or  al, al
- je .main136
+ je .main138
+ call PrintDriveParameter
+;-1036 	
+
+;-1037 	handle=OSOpenFile("dos.com");	
+
+.main138:
+ push main_0
+ call OSOpenFile
+ add  sp, 2
+ mov byte [handle], al
+;-1038 cputs(" handle="); printunsign(handle);
+
+ push main_1
+ call cputs
+ add  sp, 2
+ mov al, byte [handle]
+ mov ah, 0
+ push ax
+ call printunsign
+ add  sp, 2
+;-1039 
+
+;-1040 	if (handle == 255) {
+
+ mov al, [handle]
+ cmp al, 255
+ jne .main139
+;-1041 		cputs(" ** no handle **");
+
+ push main_2
+ call cputs
+ add  sp, 2
+;-1042 
+
+;-1043 		}
+
+;-1044 		
+
+;-1045 //	OSReadFile(handle);
+
+;-1046 	
+
+;-1047 		handle=OSOpenFile("readme.md");	
+
+.main139:
+ push main_3
+ call OSOpenFile
+ add  sp, 2
+ mov byte [handle], al
+;-1048 cputs(" handle="); printunsign(handle);
+
  push main_4
  call cputs
  add  sp, 2
-;-946 }
+ mov al, byte [handle]
+ mov ah, 0
+ push ax
+ call printunsign
+ add  sp, 2
+;-1049 		handle=OSOpenFile("cm.bat");	
 
-.main136:
+ push main_5
+ call OSOpenFile
+ add  sp, 2
+ mov byte [handle], al
+;-1050 cputs(" handle="); printunsign(handle);
+
+ push main_6
+ call cputs
+ add  sp, 2
+ mov al, byte [handle]
+ mov ah, 0
+ push ax
+ call printunsign
+ add  sp, 2
+;-1051 		handle=OSOpenFile("test1.c");	
+
+ push main_7
+ call OSOpenFile
+ add  sp, 2
+ mov byte [handle], al
+;-1052 cputs(" handle="); printunsign(handle);
+
+ push main_8
+ call cputs
+ add  sp, 2
+ mov al, byte [handle]
+ mov ah, 0
+ push ax
+ call printunsign
+ add  sp, 2
+;-1053 		handle=OSOpenFile("");	
+
+ push main_9
+ call OSOpenFile
+ add  sp, 2
+ mov byte [handle], al
+;-1054 cputs(" handle="); printunsign(handle);
+
+ push main_10
+ call cputs
+ add  sp, 2
+ mov al, byte [handle]
+ mov ah, 0
+ push ax
+ call printunsign
+ add  sp, 2
+;-1055 
+
+;-1056 
+
+;-1057 	if (debug) cputs(" End.");
+
+ mov ax, 1
+ or  al, al
+ je .main140
+ push main_11
+ call cputs
+ add  sp, 2
+;-1058 
+
+;-1059 }
+
+.main140:
+;-1060 /*cputs(" delimiter="); printunsign(delimiter);
+
+;-1061 cputs(", isfilename="); printunsign(isfilename);
+
+;-1062 cputs(", upto="); printunsign(upto);
+
+;-1063 cputs("="); cputs(upto);
+
+;-1064 cputs(", len="); printunsign(len);
+
+;-1065 cputs(", searchstr="); cputsLen(searchstr, len);
+
+;-1066 */
+
+;-1067 /*
+
+;-1068 	OSOpenFile
+
+;-1069 	OSReadFile
+
+;-1070 9. fatReadFile
+
+;-1071 8. fatOpenFile set handle, init root or subdir
+
+;-1072 	s7 fatGetStartCluster
+
+;-1073 	s4 fatClusterAnalyse
+
+;-1074 7. fatGestStartCluster
+
+;-1075 	6 fatNextSearch
+
+;-1076 	3 fatRootSearch
+
+;-1077 	s5 fatDirSearch
+
+;-1078 6. fatNextSearch Upto,search,isFilename =>7
+
+;-1079 5. fatDirSearch a directory chain for search
+
+;-1080 	4 fatClusterAnalyse
+
+;-1081 	2 fatDieSectorSearch
+
+;-1082 4. fatClusterAnalysedetermines sector by cluster number, next cluster
+
+;-1083 	1 ReadLogical
+
+;-1084 3. fatRootSearch search the root for an entry
+
+;-1085 	2 fatDirSectorSearch
+
+;-1086 2. fatDirSectorSearch search a block of sectors for entries,
+
+;-1087 		get starting cluster, file size, notfound
+
+;-1088 	1 readLogical
+
+;-1089 2.a printDirEntry
+
+;-1090 2.b fatDirSectorList
+
+;-1091 	1 readLogical					
+
+;-1092 1. readLogical
+
+;-1093 	DiskSectorReadWrite	
+
+;-1094 */
+
+;-1095 /*
+
+;-1096 bin_file=fopen("name", "rb") //binary
+
+;-1097 int = fgetc(in_file)	     //EOF(-1)
+
+;-1098 fputc(character, file)
+
+;-1099 printf() = fprintf(stdout, format, parameter1) //buffered I/O
+
+;-1100 DOS: add CR13 to LF10
+
+;-1101 read_size=fread(data_ptr, 1, size, file) //binary read
+
+;-1102 file_descriptor=open(name, flags, mode=0666) //unbuffered I/O
+
+;-1103 read_size=read(file_descriptor, buffer, size) //unbufferes I/O 
+
+;-1104 */
+
  .retnmain:
  ret
 main_0 db "dos.com",0
-main_1 db "readme.md",0
-main_2 db "cm.bat",0
-main_3 db "test1.c",0
-main_4 db " End.",0
+main_1 db " handle=",0
+main_2 db " ** no handle **",0
+main_3 db "readme.md",0
+main_4 db " handle=",0
+main_5 db "cm.bat",0
+main_6 db " handle=",0
+main_7 db "test1.c",0
+main_8 db " handle=",0
+main_9 db "",0
+main_10 db " handle=",0
+main_11 db " End.",0
 ENDP
