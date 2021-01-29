@@ -5,7 +5,7 @@ char Version1[]="DOS.COM V0.2.3";//test bed
 // AL*r/m8=AX; AX*r/m16=DX:AX; EAX*r/m32=EDX:EAX
 // > 16.777.216 sectors (8GB) only LBA
 #define ORGDATA		16384//=16K start of arrays
-#define debug 1
+#define debug 0
 unsigned int vAX ;unsigned int vBX ;unsigned int vCX; unsigned int vDX;
 unsigned int vSP; unsigned int vBP; unsigned int vCS; unsigned int vDS;
 unsigned int vSS; unsigned int vES; //debugging
@@ -229,6 +229,7 @@ __asm{
 //--------------------------------  string  ---------------------
 int strlen(char *s) { int c;
     c=0;
+    if (*s == 34) return 0; // "
     while (*s!=0) {s++; c++;}
     return c;
 }
@@ -932,7 +933,7 @@ int fatGetStartCluster() {//lastBytes, lastSectors
 	if (fatfound) 	fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL); 
 }
 
-/*
+
 // 8.
 int fatOpenFile() {//set handle for root or subdir
 	unsigned long bytes_per_cluster;
@@ -971,7 +972,7 @@ int fatOpenFile() {//set handle for root or subdir
 	if (fat_notfound) return 1;
 	return 0;
 }
-*/
+
 
 // 9.
 int fatReadFile() {// reads 1 byte from an already open file
@@ -995,12 +996,14 @@ cputs(",NextCl="); printunsign(NextCluster);
 //------------------------------- OS functions --------------
 //handle: 0=in, 1=out, 2=err, 3=aux, 4=prn, 255=error
 int OSOpenFile(char *name) {//remove drive letter and uppercase
-	if (filename[0] == 0) return 255; //empty filename
+	int i;
+	if (strlen(name) == 0) return 255; //empty filename
 	
 	strcpy(filename, name);
 	toupper(filename);
 
 cputs(",filename=");cputs(filename);
+cputs(" strlen="); i=strlen(filename); printunsign(i);
 
 
 
@@ -1036,7 +1039,6 @@ int main() {
 	
 	handle=OSOpenFile("dos.com");	
 cputs(" handle="); printunsign(handle);
-
 	if (handle == 255) {
 		cputs(" ** no handle **");
 
@@ -1048,7 +1050,7 @@ cputs(" handle="); printunsign(handle);
 cputs(" handle="); printunsign(handle);
 		handle=OSOpenFile("cm.bat");	
 cputs(" handle="); printunsign(handle);
-		handle=OSOpenFile("test1.c");	
+		handle=OSOpenFile("Z");	
 cputs(" handle="); printunsign(handle);
 		handle=OSOpenFile("");	
 cputs(" handle="); printunsign(handle);
