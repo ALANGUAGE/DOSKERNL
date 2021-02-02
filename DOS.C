@@ -5,7 +5,7 @@ char Version1[]="DOS.COM V0.2.3";//test bed
 // AL*r/m8=AX; AX*r/m16=DX:AX; EAX*r/m32=EDX:EAX
 // > 16.777.216 sectors (8GB) only LBA
 #define ORGDATA		16384//=16K start of arrays
-#define debug 0
+#define debug 1
 unsigned int vAX ;unsigned int vBX ;unsigned int vCX; unsigned int vDX;
 unsigned int vSP; unsigned int vBP; unsigned int vCS; unsigned int vDS;
 unsigned int vSS; unsigned int vES; //debugging
@@ -52,6 +52,7 @@ unsigned long DataSectors32;
 unsigned long CountofClustersL;
 unsigned char trueFATtype;	//12, 16, 32 from FATInit
 //unsigned int  FATtype;//0=error,1=FAT12,6=FAT16,11=FAT32 from ReadMBR
+unsigned long bytes_per_clusterL;
 
 //Params from int13h, Function 8
 unsigned int  pa_Cylinders;
@@ -545,6 +546,8 @@ int FATInit() {
 
 //	templong = (long) bs_num_heads;
 //	fat_num_cylinders = num_tracksL / templong;//w=d/w
+	
+	bytes_per_clusterL = (long) bs_clust_size * bs_sect_size;
 
 	Sectors_per_cylinderL = bs_sectors_per_track *  bs_num_heads;//d=w*w
 	asm mov [Sectors_per_cylinderL + 2], dx;store high word
@@ -578,13 +581,13 @@ int Int13hExt() {
 		return 1;
 		}
 	else if (debug) cputs(",Int13h Ext.");
+	putch(10);
 	return 0;
 }
 
 int PrintDriveParameter() {
 	unsigned long Lo;
 // from Params
-	putch(10);
 	cputs("Params:CylHeadSec=");printunsign(pa_Cylinders);
 	putch('/');					printunsign(pa_Heads);
 	putch('/');					printunsign(pa_Sectors);
@@ -652,7 +655,9 @@ int PrintDriveParameter() {
 	cputs(", Sectors_per_cylinderL="); printlong(Sectors_per_cylinderL);
 	putch(10);
 	cputs("num_tracksL=");	printlong(num_tracksL);
+	cputs(", bytes_per_clusterL=");	printlong(bytes_per_clusterL);
 //	cputs(", fat_num_cylinders="); printunsign(fat_num_cylinders);
+	putch(10);
 	getkey();
 }
 
@@ -936,40 +941,37 @@ int fatGetStartCluster() {//lastBytes, lastSectors
 
 // 8.
 int fatOpenFile() {//set handle for root or subdir
-	unsigned long bytes_per_cluster;
-	fat_notfound=0;
+//	fat_notfound=0;
 	if (debug) cputs("fatOpenfile ");	
-	if (filename[0] == 0) {//empty filename
-//	if (strlen(filename) == 0) {//empty filename
-		fat_notfound=1;//todo: return
+	if (strlen(filename) == 0) {//empty filename
+//		fat_notfound=1;//todo: return
 		
-		fatfile_root = 1;
-		fatfile_nextCluster = 0xFFFF;
-		fatfile_sectorCount = fat_RootDirSectorsL;
-		fatfile_sectorStartL = fat_RootDirStartSectorL;
-		fatfile_lastBytes   = 0;
-		fatfile_lastSectors = fat_RootDirSectorsL;
-		fatfile_cluster     = 0;
-		fatfile_dir         = 1;
+//		fatfile_root = 1;
+//		fatfile_nextCluster = 0xFFFF;
+//		fatfile_sectorCount = fat_RootDirSectorsL;
+//		fatfile_sectorStartL = fat_RootDirStartSectorL;
+//		fatfile_lastBytes   = 0;
+//		fatfile_lastSectors = fat_RootDirSectorsL;
+//		fatfile_cluster     = 0;
+//		fatfile_dir         = 1;
 
 	} else {//search in subdir
-		fatfile_root = 0;
+//		fatfile_root = 0;
 		fatGetStartCluster();
-		if (fat_notfound) return 1;
-		bytes_per_cluster   = (long) bs_clust_size * bs_sect_size;
-		fatfile_lastBytes   = fatfile_fileSize % bytes_per_cluster;
-		fatfile_lastSectors = fatfile_lastBytes / bs_sect_size;
-		fatfile_lastBytes   = fatfile_lastBytes % bs_sect_size;
-		if (fatfile_fileSize == 0) fatfile_dir = 1;
-		else                       fatfile_dir = 0;
+//		if (fat_notfound) return 1;
+//		fatfile_lastBytes   = fatfile_fileSize % bytes_per_cluster;
+//		fatfile_lastSectors = fatfile_lastBytes / bs_sect_size;
+//		fatfile_lastBytes   = fatfile_lastBytes % bs_sect_size;
+//		if (fatfile_fileSize == 0) fatfile_dir = 1;
+//		else                       fatfile_dir = 0;
 
 //		fatClusterAnalyse();
-		fatfile_sectorCount = (int) bs_clust_size;
+//		fatfile_sectorCount = (int) bs_clust_size;
 	}
-	fatfile_currentCluster = fatfile_cluster;
-	fatfile_sectorUpto = 0;
-	fatfile_byteUpto   = 0;
-	if (fat_notfound) return 1;
+//	fatfile_currentCluster = fatfile_cluster;
+//	fatfile_sectorUpto = 0;
+//	fatfile_byteUpto   = 0;
+//	if (fat_notfound) return 1;
 	return 0;
 }
 
@@ -994,25 +996,33 @@ cputs(",NextCl="); printunsign(NextCluster);
 		
 }
 //------------------------------- OS functions --------------
-//handle: 0=in, 1=out, 2=err, 3=aux, 4=prn, 255=error
+//handle: 0=in, 1=out, 2=err, 255=error
+// 10.
 int OSOpenFile(char *name) {//remove drive letter and uppercase
-	int i;
-	if (strlen(name) == 0) return 255; //empty filename
-	
+	int i;	
+	handle=255;//default=error
 	strcpy(filename, name);
 	toupper(filename);
 
-cputs(",filename=");cputs(filename);
-cputs(" strlen="); i=strlen(filename); printunsign(i);
+//	cputs(" name=");cputs(name);
+	if (strlen(filename) == 0) return;
+	i=strchr(filename, ':');
+	if (i) {
+		cputs(" ':' found at="); printunsign(i);
+		i++;
+		strcpy(filename, i);	
+//	cputs(" newfilename=");cputs(filename);
+	if (strlen(filename) == 0) return;	
+	}	
+//todo: add working directory page 18
 
+	if (debug) {cputs(" filename=");cputs(filename);}
 
-
-//	rc=fatOpenFile();
-//	cputs(" rc="); printunsign(rc);
-
-	return 5;
+	handle=5;
+	return;
 }
 
+// 11.
 int OSReadFile(char hd) {
 	
 }
@@ -1033,31 +1043,25 @@ int Init() {
 	Int13hExt();
 	return 0;
 }
+
 int main() {
 	if (Init() != 0) return 1;
 	if (debug) PrintDriveParameter();
 	
-	handle=OSOpenFile("dos.com");	
-cputs(" handle="); printunsign(handle);
-	if (handle == 255) {
-		cputs(" ** no handle **");
-
-		}
-		
-//	OSReadFile(handle);
-	
-		handle=OSOpenFile("readme.md");	
-cputs(" handle="); printunsign(handle);
-		handle=OSOpenFile("cm.bat");	
-cputs(" handle="); printunsign(handle);
-		handle=OSOpenFile("Z");	
-cputs(" handle="); printunsign(handle);
-		handle=OSOpenFile("");	
-cputs(" handle="); printunsign(handle);
-
+	OSOpenFile("dos.com");	
+	if (handle == 255) cputs(" **no handle**");		
+	OSOpenFile("readme.md");	
+	if (handle == 255) cputs(" **no handle**");	
+	OSOpenFile("C:cm.bat");	
+	if (handle == 255) cputs(" **no handle**");	
+	OSOpenFile("ab:/z");	
+	if (handle == 255) cputs(" **no handle**");	
+	OSOpenFile("C:");	
+	if (handle == 255) cputs(" **no handle**");	
+	OSOpenFile("");	
+	if (handle == 255) cputs(" **no handle**");	
 
 	if (debug) cputs(" End.");
-
 }
 /*cputs(" delimiter="); printunsign(delimiter);
 cputs(", isfilename="); printunsign(isfilename);
@@ -1067,8 +1071,8 @@ cputs(", len="); printunsign(len);
 cputs(", searchstr="); cputsLen(searchstr, len);
 */
 /*
-	OSOpenFile
-	OSReadFile
+11.	OSReadFile
+10.	OSOpenFile
 9. fatReadFile
 8. fatOpenFile set handle, init root or subdir
 	s7 fatGetStartCluster
