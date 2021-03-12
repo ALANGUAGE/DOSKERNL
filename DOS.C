@@ -24,7 +24,9 @@ unsigned char searchstr  [12];//with null
 char *upto;		//IN:part of filename to search/OUT:to search next time
 char isfilename;//0=part of directory or 1=filename
 char fatfound;
-unsigned char Buffer [16394];//16K+10
+#define BUFFERSIZE 16384 //16K
+unsigned char Buffer [BUFFERSIZE];
+char *BufferPtr;
 
 char          handle;
 //start array of handles of every open file
@@ -314,12 +316,20 @@ int mdump(unsigned char *adr, unsigned int len ) {
     unsigned char c; unsigned char chal; int i; int j; int k;
     j=0;
     k=0;
+	putch(10);
+	cputs("Ofs=");
+	printunsign(j);
+	cputs(" Length=");
+	printunsign(len);
     while (j < len ) {
 	    k++;;
-	    if (k > 8) {
+	    if (k > 16) {
 		    chal = getkey();//remove scan code
 		    if (chal =='q') return;
 		    k=1;
+		    putch(10);
+		    cputs("Ofs=");
+		    printunsign(j);
 		    }
         putch(10);
         printhex16(adr);
@@ -342,6 +352,42 @@ int mdump(unsigned char *adr, unsigned int len ) {
                 else putch(c);
             adr++;
             i++;
+        }
+    }
+    getkey();
+    putch(10);
+
+}
+int dumpASCII(unsigned char *adr, unsigned int len ) {
+    unsigned char c; unsigned char chal; int i; int j; int k;
+    j=0;
+    k=0;
+	putch(10);
+	cputs("Ofs=");
+	printunsign(j);
+	cputs(" Length=");
+	printunsign(len);
+    while (j < len ) {
+	    k++;;
+	    if (k > 16) {
+		    chal = getkey();//remove scan code
+		    if (chal =='q') return;
+		    k=1;
+		    putch(10);
+		    cputs("Ofs=");
+		    printunsign(j);
+		    }
+        putch(10);
+        printhex16(adr);
+        putch(':');
+        i=0;
+        while(i < 64) {
+            c= *adr;
+            if (c < 32) putch('.');
+                else putch(c);
+            adr++;
+            i++;
+            j++;
         }
     }
     getkey();
@@ -977,6 +1023,12 @@ int fatReadFile() {// reads 1 byte from an already open file
 //	IN: CurCluster, FileSizeL
 	readLogical(CurSectorL);
 	mdump(DiskBuf, 512);
+	dumpASCII(DiskBuf, 512);
+	
+	BufferPtr = &Buffer;
+	memcpy(BufferPtr, DiskBuf, 512);
+	mdump(BufferPtr, 512);
+	dumpASCII(BufferPtr, 512);
 	
 		
 }
@@ -1006,8 +1058,17 @@ int OSOpenFile(char *name) {
 
 // 11.
 int OSReadFile(char hd) {
+	fatReadFile();
+}
+
+int OSShowFile(char hd) {
+	mdump(Buffer, FileSizeL);
+}
+
+int OSStartCOM(char hd) {
 	
 }
+
 
 //------------------------------- Init,  main ---------------
 int Init() {
@@ -1030,13 +1091,15 @@ int main() {
 	if (Init() != 0) return 1;
 	if (debug) PrintDriveParameter();
 	
-	OSOpenFile("dos.com");	
+	OSOpenFile("dos.co");	
 	if (handle == 255) cputs(" **no handle**");		
-	OSOpenFile("readme.md");	
+	if (handle < 0) cputs(" **handle < 0**");		
+	OSOpenFile("fdconfig.sys");	
 	if (handle == 255) cputs(" **no handle**");	
-	OSOpenFile("C:cm.bat");	
-	if (handle == 255) cputs(" **no handle**");	
-	
+	OSReadFile();
+
+/*	OSOpenFile("C:cm.bat");	
+	if (handle == 255) cputs(" **no handle**");		
 /*	OSOpenFile("ab:/z");	
 	if (handle == 255) cputs(" **no handle**");	
 	OSOpenFile("C:");	
