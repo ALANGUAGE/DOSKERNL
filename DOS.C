@@ -14,17 +14,17 @@ unsigned char DOS_ERR;
 unsigned char BIOS_ERR;
 unsigned int  BIOS_Status;
 unsigned int  DiskBufSeg;
-unsigned char dummy[1];//todo remove
+unsigned char dummy1[1];//todo remove
+unsigned char filename[67];
+unsigned char searchstr  [12];//with null
 unsigned char DiskBuf [512];
 unsigned char Drive=0x80;
 unsigned long clust_sizeL;
 unsigned long sector_sizeL;
-unsigned char filename[67];
-unsigned char searchstr  [12];//with null
 char *upto;		//IN:part of filename to search/OUT:to search next time
 char isfilename;//0=part of directory or 1=filename
 char fatfound;
-#define BUFFERSIZE 16384 //16K
+#define BUFFERSIZE 35000
 unsigned char Buffer [BUFFERSIZE];
 char *BufferPtr;
 
@@ -367,6 +367,8 @@ int dumpASCII(unsigned char *adr, unsigned int len ) {
 	printunsign(j);
 	cputs(" Length=");
 	printunsign(len);
+	cputs(" Handle=");
+	printunsign(handle);
     while (j < len ) {
 	    k++;;
 	    if (k > 16) {
@@ -715,7 +717,8 @@ int error2(char *s) {
 	DOS_ERR++;
 }
 // 1.
-int readLogical(unsigned long SectorL) {//OUT:1 sector in DiskBuf
+int readLogical(unsigned long SectorL,unsigned int DSeg, unsigned int DOfs) {
+	//OUT:1 sector in DiskBuf
 	unsigned int track; unsigned int head; unsigned int sect;
 	SectorL = SectorL + bs_hid_sects;//d=d+d
 	track = SectorL / Sectors_per_cylinderL;  //w=d/d
@@ -725,7 +728,7 @@ int readLogical(unsigned long SectorL) {//OUT:1 sector in DiskBuf
 	head  = head            / bs_sectors_per_track;	 //w=w/w
 
 	DiskSectorReadWrite(2, bs_drive_num, head, track/* =cyl */,
-		sect, 1, DiskBufSeg , DiskBuf);
+		sect, 1, DSeg , DOfs);
 }
 // 2.a
 int printDirEntry(int EntryNr) {
@@ -801,7 +804,7 @@ int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
 		printlong(numsectors);
 		getkey();
 */
-		readLogical(startSector);
+		readLogical(startSector, DiskBufSeg, DiskBuf);
 		p=&DiskBuf;
 		EndDiskBuf= p + bs_sect_size;		
 		
@@ -838,7 +841,7 @@ int fatDirSectorSearch(unsigned long startSector,unsigned long numsectors) {
 	unsigned int EndDiskBuf;
 	fatfound=0;
 	do {
-		readLogical(startSector);
+		readLogical(startSector, DiskBufSeg, DiskBuf);
 		p=&DiskBuf;
 		EndDiskBuf= p + bs_sect_size;
 		do {
@@ -884,7 +887,7 @@ unsigned long offL;
 	fatSectorL = fatSectorL + fatSectorL;
 	fatSectorL = fatSectorL / sector_sizeL;		
 	fatSectorL = fatSectorL + fat_FatStartSectorL; 
-	readLogical(fatSectorL);
+	readLogical(fatSectorL, DiskBufSeg, DiskBuf);
 	
 	offset = clust + clust;//todo overflow?
 	offset = offset % bs_sect_size;
@@ -1007,28 +1010,22 @@ int fatOpenFile() {//set handle for root or subdir
 //	if (fat_notfound) return 1;
 
 	if (debug) {
-		cputs(" CurCluster="); 	printunsign(CurCluster);
-		cputs(",CurSectorL=");	printlong(CurSectorL);
-		cputs(",ClusterSizeL=");printlong(clust_sizeL);
-		cputs(",FileSizeL="); 	printlong(FileSizeL);
-		cputs(",NextCluster="); printunsign(NextCluster);
-		cputs(",lastSectorsL="); printlong(lastSectorsL);
-		cputs(",lastBytesL="); 	printlong(lastBytesL);
+	cputs(" CurCluster="); 	printunsign(CurCluster);
+	cputs(",CurSectorL=");	printlong(CurSectorL);
+	cputs(",ClusterSizeL=");printlong(clust_sizeL);
+	cputs(",FileSizeL="); 	printlong(FileSizeL);
+	cputs(",NextCluster="); printunsign(NextCluster);
+	cputs(",lastSectorsL=");printlong(lastSectorsL);
+	cputs(",lastBytesL="); 	printlong(lastBytesL);
 	}
 }
 
 
 // 9.
-int fatReadFile() {// reads 1 byte from an already open file
-//	IN: CurCluster, FileSizeL
-	readLogical(CurSectorL);
-	mdump(DiskBuf, 512);
-	dumpASCII(DiskBuf, 512);
+int fatReadFile() {// reads from an already open file
+//	IN: CurCluster, FileSizeL, FilePointerL
+	readLogical(CurSectorL, DiskBufSeg, Buffer);
 	
-	BufferPtr = &Buffer;
-	memcpy(BufferPtr, DiskBuf, 512);
-	mdump(BufferPtr, 512);
-	dumpASCII(BufferPtr, 512);
 	
 		
 }
@@ -1058,11 +1055,12 @@ int OSOpenFile(char *name) {
 
 // 11.
 int OSReadFile(char hd) {
-	fatReadFile();
+	fatReadFile(hd);//9.
 }
 
 int OSShowFile(char hd) {
-	mdump(Buffer, FileSizeL);
+	mdump(Buffer, 512);
+	dumpASCII(Buffer, FileSizeL);
 }
 
 int OSStartCOM(char hd) {
@@ -1091,12 +1089,13 @@ int main() {
 	if (Init() != 0) return 1;
 	if (debug) PrintDriveParameter();
 	
-	OSOpenFile("dos.co");	
+	OSOpenFile("dos.com");	
 	if (handle == 255) cputs(" **no handle**");		
 	if (handle < 0) cputs(" **handle < 0**");		
 	OSOpenFile("fdconfig.sys");	
 	if (handle == 255) cputs(" **no handle**");	
-	OSReadFile();
+	OSReadFile(handle);
+	OSShowFile(handle);
 
 /*	OSOpenFile("C:cm.bat");	
 	if (handle == 255) cputs(" **no handle**");		
