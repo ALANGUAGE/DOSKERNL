@@ -128,15 +128,15 @@ StartSectorL dd 0
 ;-39 unsigned long FileSizeL;
 
 FileSizeL dd 0
-;-40 unsigned long lastBytesL;		//resting bytes in a sector
+;-40 unsigned int  lastBytes;		//resting bytes in a sector
 
-lastBytesL dd 0
-;-41 unsigned long lastSectorsL;		//resting sectors in a cluster
+lastBytes dw 0
+;-41 unsigned int  lastSectors;		//resting sectors in a cluster
 
-lastSectorsL dd 0
-;-42 unsigned long sectorUptoL;		//??
+lastSectors dw 0
+;-42 unsigned int  sectorUpto;		//??
 
-sectorUptoL dd 0
+sectorUpto dw 0
 ;-43 unsigned int  byteUpto;			//??
 
 byteUpto dw 0
@@ -4630,7 +4630,7 @@ fatNextSearch: PROC
 
 ;-979 // 7.
 
-;-980 int fatGetStartCluster() {//lastBytesL, lastSectorsL
+;-980 int fatGetStartCluster() {//lastBytes, lastSectors
 
  .retnfatNextSearch:
  LEAVE
@@ -4741,27 +4741,27 @@ fatOpenFile: PROC
  call cputs
  add  sp, 2
  jmp .retnfatOpenFile
-;-1003 	lastBytesL = FileSizeL % bytes_per_clusterL;	
+;-1003 	lastBytes   = FileSizeL % bytes_per_clusterL;	
 
 .fatOpenFile139:
  mov eax, [FileSizeL]
  xor edx, edx
  div dword [bytes_per_clusterL]
  mov eax, edx
- mov dword [lastBytesL], eax
-;-1004 	lastSectorsL = lastBytesL / sector_sizeL;//resting sectors in a cluster
+ mov word [lastBytes], ax
+;-1004 	lastSectors = lastBytes / sector_sizeL;//resting sectors in a cluster
 
- mov eax, [lastBytesL]
+ mov ax, [lastBytes]
  xor edx, edx
  div dword [sector_sizeL]
- mov dword [lastSectorsL], eax
-;-1005 	lastBytesL = lastBytesL % sector_sizeL;//resting bytes in a sector
+ mov word [lastSectors], ax
+;-1005 	lastBytes   = lastBytes % sector_sizeL;//resting bytes in a sector
 
- mov eax, [lastBytesL]
+ mov ax, [lastBytes]
  xor edx, edx
  div dword [sector_sizeL]
  mov eax, edx
- mov dword [lastBytesL], eax
+ mov word [lastBytes], ax
 ;-1006 	
 
 ;-1007 	if (FileSizeL == 0) isfilename = 0;
@@ -4820,11 +4820,10 @@ fatOpenFile: PROC
 
  mov ax, 0
  mov dword [FilePointerL], eax
-;-1020 	sectorUptoL = (long) 0;
+;-1020 	sectorUpto = 0;
 
- xor eax, eax
  mov ax, 0
- mov dword [sectorUptoL], eax
+ mov word [sectorUpto], ax
 ;-1021 	byteUpto   = 0;
 
  mov ax, 0
@@ -4860,7 +4859,7 @@ fatOpenFile: PROC
  push dword [clust_sizeL]
  call printlong
  add  sp, 4
-;-1027 	cputs(",FileSizeL="); 		printlong(FileSizeL);		//8362	762
+;-1027 	cputs(",FileSizeL="); 		printlong(FileSizeL);		//8802	762
 
  push fatOpenFile_6
  call cputs
@@ -4876,22 +4875,22 @@ fatOpenFile: PROC
  push word [NextCluster]
  call printunsign
  add  sp, 2
-;-1029 	cputs(",lastSectorsL=");	printlong(lastSectorsL);	// 0	 1
+;-1029 	cputs(",lastSectors=");		printunsign(lastSectors);	// 1	 1
 
  push fatOpenFile_8
  call cputs
  add  sp, 2
- push dword [lastSectorsL]
- call printlong
- add  sp, 4
-;-1030 	cputs(",lastBytesL="); 		printlong(lastBytesL);		//170	250
+ push word [lastSectors]
+ call printunsign
+ add  sp, 2
+;-1030 	cputs(",lastBytes="); 		printunsign(lastBytes);		// 98	250
 
  push fatOpenFile_9
  call cputs
  add  sp, 2
- push dword [lastBytesL]
- call printlong
- add  sp, 4
+ push word [lastBytes]
+ call printunsign
+ add  sp, 2
 ;-1031 	}
 
 ;-1032 }
@@ -4899,9 +4898,9 @@ fatOpenFile: PROC
 .fatOpenFile143:
 ;-1033 
 
-;-1034 // 9.
+;-1034 // 9a.
 
-;-1035 int fatReadFile() {// reads from an already open file
+;-1035 int pf_read(unsigned long bytestoReadL) {
 
  .retnfatOpenFile:
  LEAVE
@@ -4914,112 +4913,913 @@ fatOpenFile_4 db ",StartSectorL=",0
 fatOpenFile_5 db ",ClusterSizeL=",0
 fatOpenFile_6 db ",FileSizeL=",0
 fatOpenFile_7 db ",NextCluster=",0
-fatOpenFile_8 db ",lastSectorsL=",0
-fatOpenFile_9 db ",lastBytesL=",0
+fatOpenFile_8 db ",lastSectors=",0
+fatOpenFile_9 db ",lastBytes=",0
+ENDP
+
+pf_read: PROC
+;-1036 //	IN:FileSizeL
+
+;-1037 //	IO:FilePointerL
+
+;-1038 //	OUT: 0=OK, 1=
+
+;-1039 	unsigned long remainL;
+
+;-1040 	unsigned long templong1;
+
+;-1041 	unsigned long templong2;
+
+;-1042 	unsigned int  tempint1;
+
+;-1043 	unsigned char tempbyte1;
+
+;-1044 	
+
+;-1045 	unsigned long constL512;
+
+;-1046 	constL512 = (long) 512;
+
+;Function : pf_read, Number local Var: 7
+; # type sign width local variables
+;103 var unsg long bytestoReadL = bp+4
+;104 var unsg long remainL = bp-4
+;105 var unsg long templong1 = bp-8
+;106 var unsg long templong2 = bp-12
+;107 var unsg word tempint1 = bp-14
+;108 var unsg byte tempbyte1 = bp-16
+;109 var unsg long constL512 = bp-20;
+ ENTER  20,0
+ xor eax, eax
+ mov ax, 512
+ mov [bp-20], eax
+;-1047 	
+
+;-1048 	remainL = FileSizeL - FilePointerL;	
+
+ mov eax, [FileSizeL]
+ sub eax, [FilePointerL]
+ mov [bp-4], eax
+;-1049 
+
+;-1050 	if (bytestoReadL > remainL) bytestoReadL = remainL;
+
+ mov eax, [bp+4]
+ cmp eax, [bp-4]
+ jle .pf_read144
+ mov eax, [bp-4]
+ mov [bp+4], eax
+;-1051 
+
+;-1052 	while (bytestoReadL != 0) {//repeat until all data transferred
+
+.pf_read144:
+.pf_read145:
+ mov eax, [bp+4]
+ cmp eax, 0
+ je  .pf_read146
+;-1053 		tempint1 = FilePointerL % constL512;
+
+ mov eax, [FilePointerL]
+ xor edx, edx
+ div dword [bp-20]
+ mov eax, edx
+ mov [bp-14], ax
+;-1054 
+
+;-1055 		if (tempint1  ==  0) {//on sector boundary?			
+
+ mov ax, [bp-14]
+ cmp ax, 0
+ jne .pf_read147
+;-1056 			templong1 = FilePointerL / constL512;//sector offset in cluster	
+
+ mov eax, [FilePointerL]
+ xor edx, edx
+ div dword [bp-20]
+ mov [bp-8], eax
+;-1057 			templong2 = clust_sizeL- 1;//0 - 127
+
+ mov eax, [clust_sizeL]
+ sub eax, 1
+ mov [bp-12], eax
+;-1058 			tempbyte1 = templong1 & templong2;
+
+ mov eax, [bp-8]
+ and eax, [bp-12]
+ mov [bp-16], al
+;-1059 			if (tempbyte1 != 0) {//on cluster boundary?
+
+ mov al, [bp-16]
+ cmp al, 0
+ je  .pf_read148
+;-1060 				if (FilePointerL == 0) {//on top of file?
+
+ mov eax, [FilePointerL]
+ cmp eax, 0
+ jne .pf_read149
+;-1061 					
+
+;-1062 					
+
+;-1063 					
+
+;-1064 					
+
+;-1065 				}
+
+;-1066 				
+
+;-1067 				
+
+;-1068 				
+
+;-1069 				
+
+;-1070 			
+
+;-1071 				
+
+;-1072 			}
+
+.pf_read149:
+;-1073 		
+
+;-1074 		
+
+;-1075 		
+
+;-1076 		
+
+;-1077 		}	
+
+.pf_read148:
+;-1078 		
+
+;-1079 		
+
+;-1080 		
+
+;-1081 	}	
+
+.pf_read147:
+;-1082 	
+
+;-1083 }	
+
+ jmp .pf_read145
+.pf_read146:
+;-1084 
+
+;-1085 // 9.
+
+;-1086 int fatReadFile() {// reads from an already open file
+
+ LEAVE
+ ret
 ENDP
 
 fatReadFile: PROC
-;-1036 //	IN: CurrentCluster, FileSizeL, FilePointerL
+;-1087 //	IN: CurrentCluster, FileSizeL, FilePointerL
 
-;-1037 //	IN: lastBytesL, lastSectorsL
+;-1088 //	IN: lastBytes, lastSectors
 
-;-1038 	unsigned int  sectorsAvail;	//in one cluster or rootsize
+;-1089 	unsigned int  sectorsAvail;	//in one cluster or rootsize
 
-;-1039 	unsigned int  bytesAvail;	//max. in one sector
+;-1090 	unsigned int  bytesAvail;	//max. in one sector
 
-;-1040 	unsigned long CurrentSectorL;
+;-1091 	unsigned long CurrentSectorL;
 
-;-1041 
+;-1092 
 
-;-1042 	unsigned int  temp1;
+;-1093 	unsigned int  temp1;
 
-;-1043 	unsigned int  temp2;
+;-1094 	unsigned int  temp2;
 
-;-1044 	unsigned int BufSz;
+;-1095 	unsigned int  temp3;
 
-;-1045 	BufSz = BUFFERSIZE;
+;-1096 	unsigned int  BufSz;
 
-;Function : fatReadFile, Number local Var: 6
+;-1097 	BufSz    =    BUFFERSIZE;
+
+;Function : fatReadFile, Number local Var: 7
 ; # type sign width local variables
 ;103 var unsg word sectorsAvail = bp-2
 ;104 var unsg word bytesAvail = bp-4
 ;105 var unsg long CurrentSectorL = bp-8
 ;106 var unsg word temp1 = bp-10
 ;107 var unsg word temp2 = bp-12
-;108 var unsg word BufSz = bp-14;
- ENTER  14,0
+;108 var unsg word temp3 = bp-14
+;109 var unsg word BufSz = bp-16;
+ ENTER  16,0
  mov ax, 35000
- mov [bp-14], ax
-;-1046 
+ mov [bp-16], ax
+;-1098 	
 
-;-1047 	bytesRead = 0;
+;-1099 	BufferPtr = &Buffer;
+
+ mov ax, Buffer
+ mov word [BufferPtr], ax
+;-1100 	bytesRead = 0;
 
  mov ax, 0
  mov word [bytesRead], ax
-;-1048 	sectorsAvail = sectorCount;	//1..128 or fat_RootDirSectorsL 
+;-1101 	sectorsAvail = sectorCount;	//1..128 or fat_RootDirSectorsL 
 
  mov ax, [sectorCount]
  mov [bp-2], ax
-;-1049 	bytesAvail = bs_sect_size;
+;-1102 	bytesAvail = bs_sect_size;
 
  mov ax, [bs_sect_size]
  mov [bp-4], ax
-;-1050 	
+;-1103 	
 
-;-1051 	while (CurrentCluster < 0xFFF8) {//not end of Cluster
+;-1104 	while (CurrentCluster < 0xFFF8) {//not end of Cluster
 
-.fatReadFile144:
+.fatReadFile150:
  mov ax, [CurrentCluster]
  cmp ax, 65528
- jge .fatReadFile145
-;-1052 		sectorsAvail = sectorCount;
+ jge .fatReadFile151
+;-1105 		sectorsAvail = sectorCount;
 
  mov ax, [sectorCount]
  mov [bp-2], ax
-;-1053 		if (NextCluster >= 0xFFF8) {
+;-1106 		if (NextCluster >= 0xFFF8) {
 
  mov ax, [NextCluster]
  cmp ax, 65528 ;unsigned : 0
- jb  .fatReadFile146
-;-1054 			if (isfilename) sectorsAvail = lastSectorsL + 1;//????
+ jb  .fatReadFile152
+;-1107 			if (isfilename) sectorsAvail = lastSectors + 1;//????
 
  mov al, [isfilename]
  or  al, al
- je .fatReadFile147
- mov eax, [lastSectorsL]
- add eax, 1
+ je .fatReadFile153
+ mov ax, [lastSectors]
+ add ax, 1
  mov [bp-2], ax
-;-1055 			}
+;-1108 			}
 
-.fatReadFile147:
-;-1056 		while (sectorUptoL != sectorsAvail) {
+.fatReadFile153:
+;-1109 		while (sectorUpto != sectorsAvail) {
 
-.fatReadFile146:
-.fatReadFile148:
- mov eax, [sectorUptoL]
+.fatReadFile152:
+.fatReadFile154:
+ mov ax, [sectorUpto]
  cmp ax, [bp-2]
- je  .fatReadFile149
-;-1057 			bytesAvail = bs_sect_size;
+ je  .fatReadFile155
+;-1110 			bytesAvail = bs_sect_size;
 
  mov ax, [bs_sect_size]
  mov [bp-4], ax
-;-1058 			if (NextCluster >= 0xFFF8) {
+;-1111 			if (NextCluster >= 0xFFF8) {
 
  mov ax, [NextCluster]
  cmp ax, 65528 ;unsigned : 0
- jb  .fatReadFile150
-;-1059 				if (isfilename) {
+ jb  .fatReadFile156
+;-1112 				if (isfilename) {
 
  mov al, [isfilename]
  or  al, al
- je .fatReadFile151
-;-1060 					if (sectorUptoL == lastSectorsL) {
+ je .fatReadFile157
+;-1113 					if (sectorUpto == lastSectors) {
 
- mov eax, [sectorUptoL]
- cmp eax, [lastSectorsL]
- jne .fatReadFile152
-;-1061 						bytesAvailL = lastBytesL;
+ mov ax, [sectorUpto]
+ cmp ax, [lastSectors]
+ jne .fatReadFile158
+;-1114 						bytesAvail = lastBytes;
 
- 						bytesAvailL = lastBytesL;
-;Line: 1061 ************** ERROR: Variable unknown  in column: 20
-Token: 61, Symbol: bytesAvailL
+ mov ax, [lastBytes]
+ mov [bp-4], ax
+;-1115 					}	
+
+;-1116 				}
+
+.fatReadFile158:
+;-1117 			}
+
+.fatReadFile157:
+;-1118 			while (byteUpto != bytesAvail) {
+
+.fatReadFile156:
+.fatReadFile159:
+ mov ax, [byteUpto]
+ cmp ax, [bp-4]
+ je  .fatReadFile160
+;-1119 				CurrentSectorL = (long) sectorUpto;
+
+ xor eax, eax
+ mov ax, [sectorUpto]
+ mov [bp-8], eax
+;-1120 				CurrentSectorL = CurrentSectorL + StartSectorL;	
+
+ mov eax, [bp-8]
+ add eax, [StartSectorL]
+ mov [bp-8], eax
+;-1121 				readLogical(CurrentSectorL, DiskBufSeg, DiskBuf);		
+
+ lea  ax, [DiskBuf]
+ push ax
+ push word [DiskBufSeg]
+ push dword [bp-8]
+ call readLogical
+ add  sp, 8
+;-1122 				
+
+;-1123 				temp1 = bytesAvail - byteUpto;
+
+ mov ax, [bp-4]
+ sub ax, [byteUpto]
+ mov [bp-10], ax
+;-1124 				temp2 = BufSz - bytesRead;
+
+ mov ax, [bp-16]
+ sub ax, [bytesRead]
+ mov [bp-12], ax
+;-1125 				temp3 = Buffer + byteUpto;
+
+ mov al, [Buffer]
+ add ax, [byteUpto]
+ mov [bp-14], ax
+;-1126 
+
+;-1127 				BufferPtr = BufferPtr + bytesRead;////////////////
+
+ mov ax, [BufferPtr]
+ add ax, [bytesRead]
+ mov word [BufferPtr], ax
+;-1128 				
+
+;-1129 				
+
+;-1130 				if (temp1 > temp2) {//read last sector not full
+
+ mov ax, [bp-10]
+ cmp ax, [bp-12]
+ jle .fatReadFile161
+;-1131 					memcpy(BufferPtr, temp3, temp2);	
+
+ push word [bp-12]
+ push word [bp-14]
+ push word [BufferPtr]
+ call memcpy
+ add  sp, 6
+;-1132 					byteUpto = byteUpto + temp2;
+
+ mov ax, [byteUpto]
+ add ax, [bp-12]
+ mov word [byteUpto], ax
+;-1133 					bytesRead = BufSz;
+
+ mov ax, [bp-16]
+ mov word [bytesRead], ax
+;-1134 					return;
+
+ jmp .retnfatReadFile
+;-1135 				}	
+
+;-1136 				else {//read full sector
+
+ jmp .fatReadFile162
+.fatReadFile161:
+;-1137 					memcpy(BufferPtr, temp3, temp1);
+
+ push word [bp-10]
+ push word [bp-14]
+ push word [BufferPtr]
+ call memcpy
+ add  sp, 6
+;-1138 					bytesRead = bytesRead + temp1;
+
+ mov ax, [bytesRead]
+ add ax, [bp-10]
+ mov word [bytesRead], ax
+;-1139 					byteUpto = byteUpto + temp1; 
+
+ mov ax, [byteUpto]
+ add ax, [bp-10]
+ mov word [byteUpto], ax
+;-1140 				}	
+
+;-1141 			}	
+
+.fatReadFile162:
+;-1142 			sectorUpto ++;
+
+ jmp .fatReadFile159
+.fatReadFile160:
+ inc  word[sectorUpto]
+;-1143 			byteUpto = 0;
+
+ mov ax, 0
+ mov word [byteUpto], ax
+;-1144 		}	
+
+;-1145 		CurrentCluster = NextCluster;
+
+ jmp .fatReadFile154
+.fatReadFile155:
+ mov ax, [NextCluster]
+ mov word [CurrentCluster], ax
+;-1146 		fatClusterAnalyse(CurrentCluster);//4.OUT:StartSectorL,NextCluster
+
+ push word [CurrentCluster]
+ call fatClusterAnalyse
+ add  sp, 2
+;-1147 		sectorUpto = 0;
+
+ mov ax, 0
+ mov word [sectorUpto], ax
+;-1148 	}	
+
+;-1149 }
+
+ jmp .fatReadFile150
+.fatReadFile151:
+;-1150 //------------------------------- OS functions --------------
+
+;-1151 //handle: 0=in, 1=out, 2=err, 255=error
+
+;-1152 // 10.
+
+;-1153 int OSOpenFile(char *name) {
+
+ .retnfatReadFile:
+ LEAVE
+ ret
+ENDP
+
+OSOpenFile: PROC
+;-1154 //remove drive letter, slash. uppercase and copy to filename
+
+;-1155 	unsigned int i;
+
+;-1156 	handle=255;//default=error
+
+;Function : OSOpenFile, Number local Var: 2
+; # type sign width local variables
+;103 ptr sign byte name = bp+4
+;104 var unsg word i = bp-2;
+ ENTER  2,0
+ mov ax, 255
+ mov byte [handle], al
+;-1157 	strcpy(filename, name);
+
+ push word [bp+4]
+ lea  ax, [filename]
+ push ax
+ call strcpy
+ add  sp, 4
+;-1158 	toupper(filename);
+
+ lea  ax, [filename]
+ push ax
+ call toupper
+ add  sp, 2
+;-1159 
+
+;-1160 	if (strlen(filename) == 0) return;
+
+ lea  ax, [filename]
+ push ax
+ call strlen
+ add  sp, 2
+ cmp ax, 0
+ jne .OSOpenFile163
+ jmp .retnOSOpenFile
+;-1161 	i=strchr(filename, ':');
+
+.OSOpenFile163:
+ push 58
+ lea  ax, [filename]
+ push ax
+ call strchr
+ add  sp, 4
+ mov [bp-2], ax
+;-1162 	if (i) {
+
+ mov ax, [bp-2]
+ or  al, al
+ je .OSOpenFile164
+;-1163 		i++;
+
+ inc  word[bp-2]
+;-1164 		strcpy(filename, i);	
+
+ push word [bp-2]
+ lea  ax, [filename]
+ push ax
+ call strcpy
+ add  sp, 4
+;-1165 		if (strlen(filename) == 0) return;	
+
+ lea  ax, [filename]
+ push ax
+ call strlen
+ add  sp, 2
+ cmp ax, 0
+ jne .OSOpenFile165
+ jmp .retnOSOpenFile
+;-1166 	}	
+
+.OSOpenFile165:
+;-1167 //todo: add working directory page 18
+
+;-1168 	if(is_delimiter(filename) == 1) filename++;
+
+.OSOpenFile164:
+ lea  ax, [filename]
+ push ax
+ call is_delimiter
+ add  sp, 2
+ cmp ax, 1
+ jne .OSOpenFile166
+ inc  byte[filename]
+;-1169 //	if (debug) {cputs(" filename=");cputs(filename);}		
+
+;-1170 	
+
+;-1171 	fatOpenFile();
+
+.OSOpenFile166:
+ call fatOpenFile
+;-1172 }
+
+;-1173 
+
+;-1174 // 11.
+
+;-1175 int OSReadFile(char hd) {
+
+ .retnOSOpenFile:
+ LEAVE
+ ret
+ENDP
+
+OSReadFile: PROC
+;-1176 	fatReadFile(hd);//9.
+
+;Function : OSReadFile, Number local Var: 1
+; # type sign width local variables
+;103 var sign byte hd = bp+4;
+ ENTER  0,0
+ mov al, byte [bp+4]
+ mov ah, 0
+ push ax
+ call fatReadFile
+ add  sp, 2
+;-1177 }
+
+;-1178 
+
+;-1179 int OSShowFile(char hd) {
+
+ LEAVE
+ ret
+ENDP
+
+OSShowFile: PROC
+;-1180 	mdump(Buffer, 512);
+
+;Function : OSShowFile, Number local Var: 1
+; # type sign width local variables
+;103 var sign byte hd = bp+4;
+ ENTER  0,0
+ push 512
+ lea  ax, [Buffer]
+ push ax
+ call mdump
+ add  sp, 4
+;-1181 	dumpASCII(Buffer, FileSizeL);
+
+ push dword [FileSizeL]
+ lea  ax, [Buffer]
+ push ax
+ call dumpASCII
+ add  sp, 6
+;-1182 }
+
+;-1183 
+
+;-1184 int OSStartCOM(char hd) {
+
+ LEAVE
+ ret
+ENDP
+
+OSStartCOM: PROC
+;-1185 	
+
+;-1186 }
+
+;Function : OSStartCOM, Number local Var: 1
+; # type sign width local variables
+;103 var sign byte hd = bp+4;
+ ENTER  0,0
+;-1187 
+
+;-1188 
+
+;-1189 //------------------------------- Init,  main ---------------
+
+;-1190 int Init() {
+
+ LEAVE
+ ret
+ENDP
+
+Init: PROC
+;-1191 	Drive=0x80;
+
+ mov ax, 128
+ mov byte [Drive], al
+;-1192 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
+
+ mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
+;-1193 	if (debug) cputs(" Init");
+
+ mov ax, 1
+ or  al, al
+ je .Init167
+ push Init_0
+ call cputs
+ add  sp, 2
+;-1194 	if (Params()) cputs(" ** NO DRIVE PARAMS FOUND **");//no hard disk
+
+.Init167:
+ call Params
+ or  al, al
+ je .Init168
+ push Init_1
+ call cputs
+ add  sp, 2
+;-1195 	if (readMBR() == 0) {//0=error,1=FAT12,6=FAT16,11=FAT32	
+
+.Init168:
+ call readMBR
+ cmp al, 0
+ jne .Init169
+;-1196 		cputs(" ** no active FAT partition found **");
+
+ push Init_2
+ call cputs
+ add  sp, 2
+;-1197 		return 1;
+
+ mov ax, 1
+ jmp .retnInit
+;-1198 		}
+
+;-1199 	if(getBootSector()==0) 	return 1;
+
+.Init169:
+ call getBootSector
+ cmp al, 0
+ jne .Init170
+ mov ax, 1
+ jmp .retnInit
+;-1200 	if (FATInit())			return 1;
+
+.Init170:
+ call FATInit
+ or  al, al
+ je .Init171
+ mov ax, 1
+ jmp .retnInit
+;-1201 	if(trueFATtype != 16) 	return 1;
+
+.Init171:
+ mov al, [trueFATtype]
+ cmp al, 16
+ je  .Init172
+ mov ax, 1
+ jmp .retnInit
+;-1202 	Int13hExt();
+
+.Init172:
+ call Int13hExt
+;-1203 	return 0;
+
+ mov ax, 0
+ jmp .retnInit
+;-1204 }
+
+;-1205 
+
+;-1206 int main() {
+
+ .retnInit:
+ ret
+Init_0 db " Init",0
+Init_1 db " ** NO DRIVE PARAMS FOUND **",0
+Init_2 db " ** no active FAT partition found **",0
+ENDP
+
+main: PROC
+;-1207 	if (Init() != 0) return 1;
+
+ call Init
+ cmp al, 0
+ je  .main173
+ mov ax, 1
+ jmp .retnmain
+;-1208 	if (debug) PrintDriveParameter();
+
+.main173:
+ mov ax, 1
+ or  al, al
+ je .main174
+ call PrintDriveParameter
+;-1209 	
+
+;-1210 	OSOpenFile("dos.com");	
+
+.main174:
+ push main_0
+ call OSOpenFile
+ add  sp, 2
+;-1211 	if (handle == 255) cputs(" **no handle**");		
+
+ mov al, [handle]
+ cmp al, 255
+ jne .main175
+ push main_1
+ call cputs
+ add  sp, 2
+;-1212 	if (handle < 0) cputs(" **handle < 0**");		
+
+.main175:
+ mov al, [handle]
+ cmp al, 0
+ jge .main176
+ push main_2
+ call cputs
+ add  sp, 2
+;-1213 	OSOpenFile("fdconfig.sys");	
+
+.main176:
+ push main_3
+ call OSOpenFile
+ add  sp, 2
+;-1214 	if (handle == 255) cputs(" **no handle**");	
+
+ mov al, [handle]
+ cmp al, 255
+ jne .main177
+ push main_4
+ call cputs
+ add  sp, 2
+;-1215 	OSReadFile(handle);
+
+.main177:
+ mov al, byte [handle]
+ mov ah, 0
+ push ax
+ call OSReadFile
+ add  sp, 2
+;-1216 	OSShowFile(handle);
+
+ mov al, byte [handle]
+ mov ah, 0
+ push ax
+ call OSShowFile
+ add  sp, 2
+;-1217 
+
+;-1218 /*	OSOpenFile("C:cm.bat");	
+
+;-1219 	if (handle == 255) cputs(" **no handle**");		
+
+;-1220 /*	OSOpenFile("ab:/z");	
+
+;-1221 	if (handle == 255) cputs(" **no handle**");	
+
+;-1222 	OSOpenFile("C:");	
+
+;-1223 	if (handle == 255) cputs(" **no handle**");	
+
+;-1224 	OSOpenFile("/test.ba");	
+
+;-1225 	if (handle == 255) cputs(" **no handle**");	
+
+;-1226 */
+
+;-1227 	if (debug) cputs(".End.");
+
+ mov ax, 1
+ or  al, al
+ je .main178
+ push main_5
+ call cputs
+ add  sp, 2
+;-1228 }
+
+.main178:
+;-1229 /*cputs(" delimiter="); printunsign(delimiter);
+
+;-1230 cputs(", isfilename="); printunsign(isfilename);
+
+;-1231 cputs(", upto="); printunsign(upto);
+
+;-1232 cputs("="); cputs(upto);
+
+;-1233 cputs(", len="); printunsign(len);
+
+;-1234 cputs(", searchstr="); cputsLen(searchstr, len);
+
+;-1235 */
+
+;-1236 /*
+
+;-1237 11	OSReadFile
+
+;-1238 	9 fatReadFile
+
+;-1239 	
+
+;-1240 10	OSOpenFile drive,slash,upper,to filename
+
+;-1241 	8 fatOpenFile
+
+;-1242 9. fatReadFile
+
+;-1243 	1 readLogical
+
+;-1244 	4 fatClusterAnalyse
+
+;-1245 8. fatOpenFile set handle, init root or subdir
+
+;-1246 	s7 fatGetStartCluster
+
+;-1247 	s4 fatClusterAnalyse
+
+;-1248 7. fatGestStartCluster
+
+;-1249 	6 fatNextSearch
+
+;-1250 	3 fatRootSearch
+
+;-1251 	s5 fatDirSearch
+
+;-1252 6. fatNextSearch Upto,search,isFilename =>7
+
+;-1253 5. fatDirSearch a directory chain for search
+
+;-1254 	4 fatClusterAnalyse
+
+;-1255 	2 fatDieSectorSearch
+
+;-1256 4. fatClusterAnalyse determines sector by cluster number, next cluster
+
+;-1257 	1 ReadLogical
+
+;-1258 3. fatRootSearch search the root for an entry
+
+;-1259 	2 fatDirSectorSearch
+
+;-1260 2. fatDirSectorSearch search a block of sectors for entries,
+
+;-1261 		get starting cluster, file size, notfound
+
+;-1262 	1 readLogical
+
+;-1263 2.a printDirEntry
+
+;-1264 2.b fatDirSectorList
+
+;-1265 	1 readLogical					
+
+;-1266 1. readLogical
+
+;-1267 	DiskSectorReadWrite	
+
+;-1268 */
+
+;-1269 /*
+
+;-1270 bin_file=fopen("name", "rb") //binary
+
+;-1271 int = fgetc(in_file)	     //EOF(-1)
+
+;-1272 fputc(character, file)
+
+;-1273 printf() = fprintf(stdout, format, parameter1) //buffered I/O
+
+;-1274 DOS: add CR13 to LF10
+
+;-1275 read_size=fread(data_ptr, 1, size, file) //binary read
+
+;-1276 file_descriptor=open(name, flags, mode=0666) //unbuffered I/O
+
+;-1277 read_size=read(file_descriptor, buffer, size) //unbufferes I/O 
+
+;-1278 */
+
+ .retnmain:
+ ret
+main_0 db "dos.com",0
+main_1 db " **no handle**",0
+main_2 db " **handle < 0**",0
+main_3 db "fdconfig.sys",0
+main_4 db " **no handle**",0
+main_5 db ".End.",0
+ENDP
