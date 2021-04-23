@@ -23,6 +23,7 @@ unsigned long clust_sizeL;
 unsigned long sector_sizeL;
 unsigned int  sectorCount;
 unsigned int  bytesRead;
+unsigned long Sector;
 
 char *upto;		//IN:part of filename to search/OUT:to search next time
 char isfilename;//0=part of directory or 1=filename
@@ -1031,16 +1032,23 @@ int fatOpenFile() {//set handle for root or subdir
 	}
 }
 
+
+int get_fat(unsigned int cl) {
+	
+	
+}
+	
 // 9a.
 int pf_read(unsigned long bytestoReadL) {
 //	IN:FileSizeL
 //	IO:FilePointerL
-//	OUT: 0=OK, 1=
+//	OUT: 0=OK, 1=error
 	unsigned long remainL;
 	unsigned long templong1;
 	unsigned long templong2;
 	unsigned int  tempint1;
-	unsigned char tempbyte1;
+	unsigned char tempbyte1;//CS byte
+	unsigned int  clst;//=CurrentCluster=actual cluster
 	
 	unsigned long constL512;
 	constL512 = (long) 512;
@@ -1057,29 +1065,14 @@ int pf_read(unsigned long bytestoReadL) {
 			templong2 = clust_sizeL- 1;//0 - 127
 			tempbyte1 = templong1 & templong2;
 			if (tempbyte1 != 0) {//on cluster boundary?
-				if (FilePointerL == 0) {//on top of file?
-					
-					
-					
-					
-				}
+				if (FilePointerL == 0) clst = dir_FirstCluster;//top file?
+				else clst=get_fat(CurrentCluster);
+				if (clst <= 1) return 1;
+				CurrentCluster = clst;//update current cluster
 				
-				
-				
-				
-			
-				
-			}
-		
-		
-		
-		
+			}		
 		}	
-		
-		
-		
-	}	
-	
+	}		
 }	
 
 // 9.
