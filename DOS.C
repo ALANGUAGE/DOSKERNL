@@ -37,6 +37,7 @@ char          handle;
 unsigned int  CurrentCluster;
 unsigned int  NextCluster;
 unsigned long StartSectorL;		//start sector in current cluster
+unsigned long CurrentSectorL;	//current data sector
 unsigned long FileSizeL;
 unsigned int  lastBytes;		//resting bytes in a sector
 unsigned int  lastSectors;		//resting sectors in a cluster
@@ -51,6 +52,7 @@ unsigned long FilePointerL;		//current byte location in file
 unsigned int  fat_FatStartSector;
 unsigned long fat_FatStartSectorL;
 unsigned int  fat_FatSectors;
+unsigned int  fat_Entries;
 unsigned long fat_RootDirStartSectorL;
 unsigned long fat_RootDirSectorsL;
 unsigned long fat_DataStartSectorL;
@@ -432,7 +434,7 @@ int Int13hfunction(char drive, char function) {
 	BIOS_ERR++;//Status or error code in AX
 }
 int Int13hError() {
-	cputs("** DISK ERROR AX=");
+	cputs("*** DISK ERROR *** AX=");
 	printhex16(BIOS_Status);
 	cputs(".  ");
 	//Int13hfunction(Drive, 0);//Reset, loose BIOS_ERR
@@ -583,6 +585,9 @@ int FATInit() {
 	fat_FatSectors = bs_fat_size;
 	if (bs_num_fats == 2) fat_FatSectors=fat_FatSectors+fat_FatSectors;
 
+	fat_Entries = bs_fat_size >> 1;//2 bytes for one entry
+	fat_Entries -=2;//first 2 entries not used
+	
 	fat_RootDirStartSectorL = (long)fat_FatStartSector + fat_FatSectors;
 	
 	fat_RootDirSectorsL = (long) bs_root_entr >> 4;//  ./. 16
@@ -697,6 +702,7 @@ int PrintDriveParameter() {
 	putch(10);
 	cputs("FATInit:fat_FatStartSector:");	printunsign(fat_FatStartSector);
 	cputs(", fat_FatSectors=");		printunsign(fat_FatSectors);
+	cputs(", fat_Entries=");	printunsign(fat_Entries);
 	putch(10);
 	cputs("fat_RootDirStartSectorL="); printlong(fat_RootDirStartSectorL);
 	cputs(", fat_RootDirSectors=");	printunsign(fat_RootDirSectorsL);
@@ -1032,47 +1038,125 @@ int fatOpenFile() {//set handle for root or subdir
 	}
 }
 
+/*
+DRESULT disk_readp (	//Read Partial Sector  
+	BYTE* buff,		// Data read buffer
+	DWORD sector,	// Sector number (LBA)
+	UINT offset,	// Offset in the sector
+	UINT count		// Byte count
+)
+{
+	DRESULT res;
+	DWORD rnc;
+	LARGE_INTEGER dofs;
 
-int get_fat(unsigned int cl) {
+	if (!ReadFile(Stat[0].h_drive, Buffer, 512, &rnc, NULL) || 512 != rnc) {
+		res = RES_ERROR;
+		} else {
+				if (buff) {
+					memcpy(buff, &Buffer[offset], count);
+				} else {
+					while (count--)
+						putchar(Buffer[offset++]);
+				}
+			}
+} 
+*/
+
+
+
+int get_fat(unsigned int clst) {//read value of FAT entry
+//	OUT:1=error, else cluster status
+	if (clst < 2)            return 1;
+	if (clst >= fat_Entries) return 1;
+	
+//	if (disk_readp(buf, fs->fatbase + clst / 256, ((UINT)clst % 256) * 2, 2)
+//	) break;
+//	return *buf;
+
+// 4. fatClusterAnalyse
+//	fatSectorL=cluster*2/512+FatStartSector
+
+
+
+
+	
 	
 	
 }
+
+int clust2sect(unsigned int clst) {//250
+//	OUT:CurrentSectorL, 0=error	
+	if (clst < 2)            { CurrentSectorL = 0; return; }
+	clst -=2;
+	if (clst >= fat_Entries) { CurrentSectorL = 0; return; }
 	
+	CurrentSectorL = (long) clst * clust_sizeL;//EAX*m32=EAX
+	CurrentSectorL = CurrentSectorL + fat_DataStartSectorL;
+}
+		
 // 9a.
 int pf_read(unsigned long bytestoReadL) {
 //	IN:FileSizeL
 //	IO:FilePointerL
-//	OUT: 0=OK, 1=error
+//	OUT: 0=error, else byteread
 	unsigned long remainL;
 	unsigned long templong1;
 	unsigned long templong2;
+	unsigned long sectoroffsetCSL;
 	unsigned int  tempint1;
-	unsigned char tempbyte1;//CS byte
+//	unsigned char tempbyte1;//CS byte
 	unsigned int  clst;//=CurrentCluster=actual cluster
+	unsigned long rcntL;
+	unsigned int  bytesread; 
+	unsigned int  rbuff;
 	
-	unsigned long constL512;
-	constL512 = (long) 512;
-	
+	unsigned long constL512;  
+	constL512 = (long) 512;//necessary for DIV
+	bytesread = 0;
+	rbuff = 0;
 	remainL = FileSizeL - FilePointerL;	
 
-	if (bytestoReadL > remainL) bytestoReadL = remainL;
+	if (bytestoReadL > remainL) bytestoReadL = remainL;//718
 
-	while (bytestoReadL != 0) {//repeat until all data transferred
+	while (bytestoReadL != 0) {//repeat until all data transferred//720
 		tempint1 = FilePointerL % constL512;
 
-		if (tempint1  ==  0) {//on sector boundary?			
+		if (tempint1  ==  0) {//on sector boundary?	//721		
 			templong1 = FilePointerL / constL512;//sector offset in cluster	
 			templong2 = clust_sizeL- 1;//0 - 127
-			tempbyte1 = templong1 & templong2;
-			if (tempbyte1 != 0) {//on cluster boundary?
+			sectoroffsetCSL = templong1 & templong2;//722
+			if (sectoroffsetCSL != 0) {//on cluster boundary?
 				if (FilePointerL == 0) clst = dir_FirstCluster;//top file?
 				else clst=get_fat(CurrentCluster);
-				if (clst <= 1) return 1;
+				if (clst <= 1) return 0;//729
 				CurrentCluster = clst;//update current cluster
-				
-			}		
-		}	
-	}		
+			}
+			clust2sect(clst);//OUT:CurrentSectorL, 0=error	//732
+			if (CurrentSectorL == 0) return 0;
+			CurrentSectorL = CurrentSectorL + sectoroffsetCSL;	
+		}
+		rcntL = constL512 - tempint1;//get partial sector data from buffer
+		if (rcntL > bytestoReadL) rcntL = bytestoReadL; //737
+		
+		readLogical(CurrentSectorL, DiskBufSeg, DiskBuf);		
+		if (BIOS_ERR) {//739
+			Int13hError(); 
+			return 0;
+		}
+		//Copy to Buffer[rbuff(max.BUFFERSIZE)], from DiskBuf+templong1
+			
+		
+		
+		
+		
+		
+		FilePointerL = FilePointerL + rcntL;//740//advance file read pointr	
+		bytestoReadL = bytestoReadL - rcntL;//741 //update read counter		
+		bytesread = bytesread + rcntL;
+		rbuff = rbuff + rcntL;//742 //advance data pointer
+	}
+	return bytesread;		
 }	
 
 // 9.
@@ -1081,7 +1165,6 @@ int fatReadFile() {// reads from an already open file
 //	IN: lastBytes, lastSectors
 	unsigned int  sectorsAvail;	//in one cluster or rootsize
 	unsigned int  bytesAvail;	//max. in one sector
-	unsigned long CurrentSectorL;
 
 	unsigned int  temp1;
 	unsigned int  temp2;
@@ -1112,7 +1195,11 @@ int fatReadFile() {// reads from an already open file
 				CurrentSectorL = (long) sectorUpto;
 				CurrentSectorL = CurrentSectorL + StartSectorL;	
 				readLogical(CurrentSectorL, DiskBufSeg, DiskBuf);		
-				
+				if (BIOS_ERR) {
+					Int13hError(); 
+					fatfound = 0;
+					return;
+				}	
 				temp1 = bytesAvail - byteUpto;
 				temp2 = BufSz - bytesRead;
 				temp3 = Buffer + byteUpto;
