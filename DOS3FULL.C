@@ -21,19 +21,23 @@ unsigned char DiskBuf [512];
 unsigned char Drive=0x80;
 unsigned long clust_sizeL;
 unsigned long sector_sizeL;
-unsigned int  BytesAreRead;
+unsigned int  sectorCount;
+unsigned int  bytesRead;
 unsigned long Sector;
 
 char *upto;		//IN:part of filename to search/OUT:to search next time
 char isfilename;//0=part of directory or 1=filename
+char fatfound;
 #define BUFFERSIZE 35000
 unsigned char Buffer [BUFFERSIZE];
 char *BufferPtr;
 
+char          handle;
 //start array of handles of every open file
 unsigned int  CurrentCluster;
 unsigned int  NextCluster;
 unsigned long StartSectorL;		//start sector in current cluster
+//unsigned long CurrentSectorL;	//current data sector
 unsigned long FileSizeL;
 unsigned int  lastBytes;		//resting bytes in a sector
 unsigned int  lastSectors;		//resting sectors in a cluster
@@ -370,6 +374,8 @@ int dumpASCII(unsigned char *adr, unsigned int len ) {
 	printunsign(j);
 	cputs(" Length=");
 	printunsign(len);
+	cputs(" Handle=");
+	printunsign(handle);
     while (j < len ) {
 	    k++;;
 	    if (k > 16) {
@@ -571,8 +577,8 @@ int getBootSector() {
 int FATInit() {
 	unsigned long templong;//converting word to dword
 
-	clust_sizeL = (long) bs_clust_size;//1--127
-	sector_sizeL= (long) bs_sect_size; //512
+	clust_sizeL = (long) bs_clust_size;
+	sector_sizeL= (long) bs_sect_size;
 
 	fat_FatStartSector = bs_res_sects;
 	fat_FatStartSectorL= (long) fat_FatStartSector; 
@@ -734,7 +740,6 @@ int readLogical(unsigned long SectorL,unsigned int DSeg, unsigned int DOfs){
 
 	DiskSectorReadWrite(2, bs_drive_num, head, track/* =cyl */,
 		sect, 1, DSeg , DOfs);
-	if (BIOS_ERR) error2("readLogical low level");
 }
 // 2.a
 int printDirEntry(int EntryNr) {
@@ -811,7 +816,6 @@ int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
 		getkey();
 */
 		readLogical(startSector, DiskBufSeg, DiskBuf);
-		if (DOS_ERR) return;
 		p=&DiskBuf;
 		EndDiskBuf= p + bs_sect_size;		
 		
@@ -836,20 +840,19 @@ int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
 		} while (p < EndDiskBuf);
 		startSector = startSector + 1;//long, do NOT use ++ or +=1
 		numsectors--;
+//mdump(DiskBuf, 512);
 	} while (numsectors > 0);
 	CurrentCluster=0;//not found but not end
 }
 
 // 2.
 int fatDirSectorSearch(unsigned long startSector,unsigned long numsectors) {
-//	search for file name. 
-//	IN:  searchstr
-//	OUT: 0=file not found
+    //search for file name. IN:searchstr
     char *p;
 	unsigned int EndDiskBuf;
+	fatfound=0;
 	do {
 		readLogical(startSector, DiskBufSeg, DiskBuf);
-		if (DOS_ERR) return 0;
 		p=&DiskBuf;
 		EndDiskBuf= p + bs_sect_size;
 		do {
@@ -857,56 +860,71 @@ int fatDirSectorSearch(unsigned long startSector,unsigned long numsectors) {
 				memcpy(dir_Filename, p, 32);//copy whole dir structure
 				memcpy(filename, p, 11);
 				filename[11] = 0;
-				CurrentCluster = dir_FirstCluster;
-				FileSizeL      = dir_FileSize;
-				return 1;
+				CurrentCluster   = dir_FirstCluster;
+				FileSizeL  = dir_FileSize;
+				fatfound=1;
 			}
-			if (*p == 0) return 0; //only empty entries following
+			if (*p == 0) return; //only empty entries following
 			p+=32;//get next entry
 		} while (p < EndDiskBuf);
 		startSector++;		
 		numsectors--;
 	} while (numsectors > 0);
-	  CurrentCluster=0;//not found but not end
-	return 0;
+	CurrentCluster=0;//not found but not end
 }
 
+/*
+// 3.
+int fatRootSearch() {
+    fatDirSectorSearch(fat_RootDirStartSectorL, fat_RootDirSectorsL);
+//	getkey();
+//    fatDirSectorList(fat_RootDirStartSectorL, fat_RootDirSectorsL);
+}
+*/
 // 4.
 int fatClusterAnalyse(unsigned int clust) {
-//	OUT: StartSectorL, NextCluster
-//	OUT: 1=error
+//OUT: StartSectorL, NextCluster
 	unsigned long fatSectorL;
 	unsigned int offset;
 	char *p;
-	if (clust < 2) { StartSectorL = 0; return 1; }
-	if ((long) clust >= CountofClustersL) { StartSectorL = 0; return 1; }
 
-//StartSectorL = (long) clust -2 * clust_sizeL+fat_DataStartSectorL;
-	StartSectorL = (long) clust -2;
+	StartSectorL = (long) clust - 2;
 	StartSectorL = StartSectorL * clust_sizeL;
 	StartSectorL = StartSectorL + fat_DataStartSectorL;
-
+	
 //	fatSectorL=cluster*2/512+FatStartSector
 	fatSectorL = (long) clust;
 	fatSectorL = fatSectorL + fatSectorL;
 	fatSectorL = fatSectorL / sector_sizeL;		
 	fatSectorL = fatSectorL + fat_FatStartSectorL; 
 	readLogical(fatSectorL, DiskBufSeg, DiskBuf);
-	if(DOS_ERR) { StartSectorL = 0; return 1; }
 	
-	offset = clust + clust;
-	offset = offset % bs_sect_size;	
+	offset = clust + clust;//todo overflow?
+	offset = offset % bs_sect_size;
+	
 	p=&DiskBuf;
 	p = p + offset;	
 	memcpy(&NextCluster, p, 2);//OUT: NextCluster
-
-	if (debug) { 
-		cputs(" StartSectorL="); printlong(StartSectorL); 
-		cputs(" Currentclust="); printunsign(clust);
-		cputs(" NextCluster="); printunsign(NextCluster); 
-	}
-	return 0;
 }
+/*
+// 5.
+int fatDirSearch() {//search a directory chain. IN:searchstr
+	
+	fatClusterAnalyse(fatfile_cluster);
+	//OUT: fatfile_sectorStartL, fatfile_nextCluster
+
+	fatDirSectorSearch(fatfile_sectorStartL, fatfile_nextCluster); 
+	while (fatfile_cluster == 0) {//not found but not end
+		if (fatfile_nextCluster >= 0xFFF8) {
+			fat_notfound=1;
+			return;	
+		}		
+		fatfile_cluster=fatfile_nextCluster;
+		fatClusterAnalyse(fatfile_cluster);
+		fatDirSectorSearch(fatfile_sectorStartL, fatfile_nextCluster);
+	}	
+}
+*/	
 
 int is_delimiter(char *s) {
 	if (*s == '/' ) return 1;
@@ -922,7 +940,7 @@ int fatNextSearch() {//get next part of filename to do a search
 //	OUT: upto: points to search for next time
 //	OUT: searchstr: part of filename in DIR-format with blanks (11bytes)
 //	OUT: isfilename: 0=part of directory, 1=filename
-//	OUT: 0=file not found
+//	OUT: fatfound
 	char *searchstrp;
 	char *p; 
 	unsigned int  len;
@@ -930,7 +948,7 @@ int fatNextSearch() {//get next part of filename to do a search
 
 	delimiter=is_delimiter(upto);
 	if (delimiter == 1) upto++;
-	if (delimiter == 2) return 0; 
+	if (delimiter == 2) return; 
 
 	strcpy(&searchstr, "           ");//11 blank padded
 	searchstrp = &searchstr;//clear searchstr
@@ -943,7 +961,7 @@ int fatNextSearch() {//get next part of filename to do a search
 		len++;
 		delimiter=is_delimiter(upto);
 	} 
-	if (len > 8) return 0;
+	if (len > 8) return;
 	isfilename=0;//todo: default directory, not yet implemented
 	if (delimiter == 2) isfilename=1;//last name is always a file name
 	if (delimiter == 3) {//remove dot in name		
@@ -959,149 +977,334 @@ int fatNextSearch() {//get next part of filename to do a search
 			len++;
 			delimiter=is_delimiter(upto);
 		} 
-		if (len > 3) return 0;
+		if (len > 3) return;
 		if (delimiter == 2) isfilename=1;//last name is always a file name
 	}
-	return 1;	
+	fatfound=1;	
 }
 
 // 7.
 int fatGetStartCluster() {//lastBytes, lastSectors
+	fatfound=0;
 	upto = &filename;
-	if (fatNextSearch()) {//6 get next part of file name
-		if (debug) {putch(10); cputsLen(searchstr, 11); }
-		if (isfilename == 0) return 0; //todo not implemented
-		if (fatDirSectorSearch(fat_RootDirStartSectorL,
-			fat_RootDirSectorsL)) return 1; 
-		//2 todo: only root search
+	fatNextSearch();//6 get next part of file name
+
+	if (debug) {putch(10); cputsLen(searchstr, 11); }
+	if (isfilename == 0) return; //todo not implemented
+	if (fatfound) fatDirSectorSearch(fat_RootDirStartSectorL,
+	fat_RootDirSectorsL); //2 todo: only root search
+}
+
+
+// 8.
+int fatOpenFile() {//set handle for root or subdir
+//	fat_notfound=0;
+	unsigned long BufSzL;
+	
+	if (debug) cputs(".fatOpenfile ");	
+	handle=3;//todo
+	sectorCount = fat_RootDirSectorsL;// or clust_sizeL
+	
+	fatGetStartCluster();// 7.
+	if (fatfound == 0) { cputs(" file not found"); return; }
+	lastBytes   = FileSizeL % bytes_per_clusterL;	
+	lastSectors = lastBytes / sector_sizeL;//resting sectors in a cluster
+	lastBytes   = lastBytes % sector_sizeL;//resting bytes in a sector
+	
+	if (FileSizeL == 0) isfilename = 0;
+	else isfilename = 1;
+		
+	BufSzL = (long) BUFFERSIZE;
+	if (FileSizeL >=  BufSzL) {
+		cputs(" file longer than BufferSize"); 
+		fatfound= 0;
+		return;
 	}
-	return 0;
+
+	fatClusterAnalyse(CurrentCluster);// 4. OUT:StartSectorL,NextCluster
+	sectorCount = clust_sizeL;//1..128 or fat_RootDirSectorsL
+	FilePointerL = 0;
+	sectorUpto = 0;
+	byteUpto   = 0;
+//	if (fat_notfound) return 1;
+	if (debug) {									//		DOS.COM FDCONFIG
+	cputs(" CurrentCluster="); 	printunsign(CurrentCluster);//4177	4164
+	cputs(",StartSectorL=");	printlong(StartSectorL);	//17051	16999
+	cputs(",ClusterSizeL=");	printlong(clust_sizeL);		// 4	 4
+	cputs(",FileSizeL="); 		printlong(FileSizeL);		//8802	762
+	cputs(",NextCluster="); 	printunsign(NextCluster);	//4178	65.535
+	cputs(",lastSectors=");		printunsign(lastSectors);	// 1	 1
+	cputs(",lastBytes="); 		printunsign(lastBytes);		// 98	250
+	}
+}
+
+/*
+DRESULT disk_readp (	//Read Partial Sector  
+	BYTE* buff,		// Data read buffer
+	DWORD sector,	// Sector number (LBA)
+	UINT offset,	// Offset in the sector
+	UINT count		// Byte count
+)
+{
+	DRESULT res;
+	DWORD rnc;
+	LARGE_INTEGER dofs;
+
+	if (!ReadFile(Stat[0].h_drive, Buffer, 512, &rnc, NULL) || 512 != rnc) {
+		res = RES_ERROR;
+		} else {
+				if (buff) {
+					memcpy(buff, &Buffer[offset], count);
+				} else {
+					while (count--)
+						putchar(Buffer[offset++]);
+				}
+			}
+} 
+*/
+
+
+
+int get_fat(unsigned int clst) {//read value of FAT entry
+//	OUT:1=error, else cluster status
+	if (clst < 2)            return 1;
+	if (clst >= fat_Entries) return 1;
+	
+//	if (disk_readp(buf, fs->fatbase + clst / 256, ((UINT)clst % 256) * 2, 2)
+//	) break;
+//	return *buf;
+
+// 4. fatClusterAnalyse
+//	fatSectorL=cluster*2/512+FatStartSector
+
+
+
+
+	
+	
+	
+}
+
+int clust2sect(unsigned int clst) {//250
+//	OUT:CurrentSectorL, 0=error	
+	if (clst < 2)            { CurrentSectorL = 0; return; }
+	clst -=2;
+	if (clst >= fat_Entries) { CurrentSectorL = 0; return; }
+	
+	CurrentSectorL = (long) clst * clust_sizeL;//EAX*m32=EAX
+	CurrentSectorL = CurrentSectorL + fat_DataStartSectorL;
 }
 		
-// 9b.
-int ReadFile(unsigned int BytestoRead) {
-//	IN: FileSizeL		from 2.fatDirSectorSearch
-//	IN: CurrentCluster	from 2.fatDirSectorSearch
-//	IN: StartSectorL	from 4.fatClusterAnalyse
-//	IN: NextCluster		from 4.fatClusterAnalyse
-//	IO: FilePointerL=0	from 10.OSOpenFile
-//	OUT: 0=error, else ByteRead
-
-	unsigned long CurrentSectorL;	//current data sector	
-	unsigned long EndSectorL;
-	unsigned int  ByteRead;
-	unsigned int  btr;
+// 9a.
+int pf_read(unsigned long bytestoReadL) {
+//	IN:FileSizeL
+//	IO:FilePointerL
+//	OUT: 0=error, else byteread
+	unsigned long remainL;
+	unsigned long templong1;
+	unsigned long templong2;
+	unsigned long sectoroffsetCSL;
+	unsigned int  tempint1;
+//	unsigned char tempbyte1;//CS byte
+	unsigned int  clst;//=CurrentCluster=actual cluster
+	unsigned long rcntL;
+	unsigned int  bytesread; 
+	unsigned int  rbuff;
 	
-	if (BytestoRead == 0) return 0;
-	ByteRead = 0;
+	unsigned long constL512;  
+	constL512 = (long) 512;//necessary for DIV
+	bytesread = 0;
+	rbuff = 0;
+	remainL = FileSizeL - FilePointerL;	
 
-	 while (CurrentCluster <= 0xFFF7) {// 65528,   < is wrong code!!!
-		CurrentSectorL = StartSectorL;
-		EndSectorL = StartSectorL + clust_sizeL;//set in FATInit(1-127)
-			
-//		if (debug) { 
-//			cputs(" CurrentCluster="); printunsign(CurrentCluster); 
-//			cputs(" CurrentSectorL="); printlong(CurrentSectorL); 
-//			cputs(" EndSectorL="); printlong(EndSectorL); 
-//		}		
-		while (CurrentSectorL <= EndSectorL) {
-			readLogical(CurrentSectorL, DiskBufSeg, DiskBuf);		
-			if (BIOS_ERR) {	Int13hError(); return 0; }	
-			if (BytestoRead > bs_sect_size) btr = bs_sect_size;
-			else btr = BytestoRead;
-							
-			memcpy(BufferPtr, DiskBuf, btr);
-			BufferPtr   	= BufferPtr    + btr;
-			BytestoRead 	= BytestoRead  - btr;
-			ByteRead    	= ByteRead     + btr;
-			FilePointerL	= FilePointerL + btr;
-			CurrentSectorL	= CurrentSectorL + 1; 		
-//			cputs(" C BytestoRead="); printunsign(BytestoRead);		
-			if (BytestoRead == 0) return ByteRead;
+	if (bytestoReadL > remainL) bytestoReadL = remainL;//718
+
+	while (bytestoReadL != 0) {//repeat until all data transferred//720
+		tempint1 = FilePointerL % constL512;
+
+		if (tempint1  ==  0) {//on sector boundary?	//721		
+			templong1 = FilePointerL / constL512;//sector offset in cluster	
+			templong2 = clust_sizeL- 1;//0 - 127
+			sectoroffsetCSL = templong1 & templong2;//722
+			if (sectoroffsetCSL != 0) {//on cluster boundary?
+				if (FilePointerL == 0) clst = dir_FirstCluster;//top file?
+				else clst=get_fat(CurrentCluster);
+				if (clst <= 1) return 0;//729
+				CurrentCluster = clst;//update current cluster
+			}
+			clust2sect(clst);//OUT:CurrentSectorL, 0=error	//732
+			if (CurrentSectorL == 0) return 0;
+			CurrentSectorL = CurrentSectorL + sectoroffsetCSL;	
 		}
-		CurrentCluster = NextCluster;
-		if (fatClusterAnalyse(CurrentCluster)) return 0;//4.OUT:StartSectorL		
+		rcntL = constL512 - tempint1;//get partial sector data from buffer
+		if (rcntL > bytestoReadL) rcntL = bytestoReadL; //737
+		
+		readLogical(CurrentSectorL, DiskBufSeg, DiskBuf);		
+		if (BIOS_ERR) {//739
+			Int13hError(); 
+			return 0;
+		}
+		//Copy to Buffer[rbuff(max.BUFFERSIZE)], from DiskBuf+templong1
+			
+		
+		
+		
+		
+		
+		FilePointerL = FilePointerL + rcntL;//740//advance file read pointr	
+		bytestoReadL = bytestoReadL - rcntL;//741 //update read counter		
+		bytesread = bytesread + rcntL;
+		rbuff = rbuff + rcntL;//742 //advance data pointer
 	}
-	return 0;//error
+	return bytesread;		
 }	
 
+
+
+// 9b.
+int ReadFile(unsigned int bytestoRead) {
+//	IN:FileSizeL
+//	IO:FilePointerL
+//	CurrentCluster = dir_FirstCluster for first time
+//	OUT: 0=error, else byteread
+//	need: StartSectorL, NextCluster from fatClusterAnalyse(CurrentCluster)
+	
+unsigned long bytestoReadL;
+unsigned long bytes_in_file_leftL;
+unsigned long bytes_in_cluster_leftL;
+unsigned int  bytes_in_sector_left;
+unsigned long constL512;  
+
+	constL512 = (long) 512;//necessary for MUL,DIV
+
+	bytestoReadL = (long) bytestoRead;
+	bytes_in_file_leftL = FileSizeL;
+	bytes_in_cluster_leftL = clust_sizeL * constL512;//OK
+
+
+//cl=al;
+//asm shl dword [clust_sizeL], cl
+
+
+
+
+
+	bytes_in_sector_left = 0;
+
+//if (FilePointerL != 0) fseek(fat_DataStartSectorL+clusterM2 << bs_clust_size);
+	
+	
+}	
+
+// 9.
+int fatReadFile() {// reads from an already open file
+//	IN: CurrentCluster, FileSizeL, FilePointerL
+//	IN: lastBytes, lastSectors
+	unsigned int  sectorsAvail;	//in one cluster or rootsize
+	unsigned int  bytesAvail;	//max. in one sector
+
+	unsigned int  temp1;
+	unsigned int  temp2;
+	unsigned int  temp3;
+	unsigned int  BufSz;
+	BufSz    =    BUFFERSIZE;
+	
+	BufferPtr = &Buffer;
+	bytesRead = 0;
+	sectorsAvail = sectorCount;	//1..128 or fat_RootDirSectorsL 
+	bytesAvail = bs_sect_size;
+	
+	while (CurrentCluster < 0xFFF8) {//not end of Cluster
+		sectorsAvail = sectorCount;
+		if (NextCluster >= 0xFFF8) {
+			if (isfilename) sectorsAvail = lastSectors + 1;//????
+			}
+		while (sectorUpto != sectorsAvail) {
+			bytesAvail = bs_sect_size;
+			if (NextCluster >= 0xFFF8) {
+				if (isfilename) {
+					if (sectorUpto == lastSectors) {
+						bytesAvail = lastBytes;
+					}	
+				}
+			}
+			while (byteUpto != bytesAvail) {
+				CurrentSectorL = (long) sectorUpto;
+				CurrentSectorL = CurrentSectorL + StartSectorL;	
+				readLogical(CurrentSectorL, DiskBufSeg, DiskBuf);		
+				if (BIOS_ERR) {
+					Int13hError(); 
+					fatfound = 0;
+					return;
+				}	
+				temp1 = bytesAvail - byteUpto;
+				temp2 = BufSz - bytesRead;
+				temp3 = Buffer + byteUpto;
+
+				BufferPtr = BufferPtr + bytesRead;////////////////
+				
+				
+				if (temp1 > temp2) {//read last sector not full
+					memcpy(BufferPtr, temp3, temp2);	
+					byteUpto = byteUpto + temp2;
+					bytesRead = BufSz;
+					return;
+				}	
+				else {//read full sector
+					memcpy(BufferPtr, temp3, temp1);
+					bytesRead = bytesRead + temp1;
+					byteUpto = byteUpto + temp1; 
+				}	
+			}	
+			sectorUpto ++;
+			byteUpto = 0;
+		}	
+		CurrentCluster = NextCluster;
+		fatClusterAnalyse(CurrentCluster);//4.OUT:StartSectorL,NextCluster
+		sectorUpto = 0;
+	}	
+}
 //------------------------------- OS functions --------------
-int FileError() {
-	cputs(" *** file error *** ");
-}	
-
+//handle: 0=in, 1=out, 2=err, 255=error
 // 10.
 int OSOpenFile(char *name) {
-//	NEED:CurrentCluster, FileSizeL from 2.fatDirSectorSearch
-//	OUT: 0=error
-	unsigned long BufSzL;
+//remove drive letter, slash. uppercase and copy to filename
 	unsigned int i;
-	DOS_ERR = 0;
-//	remove drive letter, slash. uppercase and copy to filename
+	handle=255;//default=error
 	strcpy(filename, name);
 	toupper(filename);
-	if (strlen(filename) == 0) return 0;
+
+	if (strlen(filename) == 0) return;
 	i=strchr(filename, ':');
 	if (i) {
 		i++;
 		strcpy(filename, i);	
-		if (strlen(filename) == 0) return 0;	
+		if (strlen(filename) == 0) return;	
 	}	
+//todo: add working directory page 18
 	if(is_delimiter(filename) == 1) filename++;
-		if (fatGetStartCluster() == 0) {// 7.fatGetStartCluster
-		cputs(" file not found"); 
-		return 0; 
-		}
-	BufferPtr = &Buffer;
-	FilePointerL = 0;
+//	if (debug) {cputs(" filename=");cputs(filename);}		
 	
-	BufSzL = (long) BUFFERSIZE;
-	if (FileSizeL >=  BufSzL) {
-		error2(" file longer than BufferSize"); 
-		return 0;
-	}
-		
-	if (fatClusterAnalyse(CurrentCluster)) return 0;// 4. OUT: StartSectorL
-//	CurrentCluster is set in 2.fatDirSectorSearch
-//	if (debug) {									//		DOS.COM FDCONFIG
-//	putch(10);
-//	cputs(" --10 OSOpenFile B:");
-//	cputs(" CurrentCluster="); 	printunsign(CurrentCluster);//4177	4164
-//	cputs(",StartSectorL=");	printlong(StartSectorL);	//17051	16999
-//	cputs(",ClusterSizeL=");	printlong(clust_sizeL);		// 4	 4
-//	cputs(",FileSizeL="); 		printlong(FileSizeL);		//8802	762
-//	cputs(",NextCluster="); 	printunsign(NextCluster);	//4178	65.535
-//	cputs(",lastSectors=");		printunsign(lastSectors);	// 1	 1
-//	cputs(",lastBytes="); 		printunsign(lastBytes);		// 98	250
-//	getkey();
-//	}
-	return 1;
+	fatOpenFile();
 }
 
 // 11.
-int OSReadFile() {
-	unsigned int BytesToReadInt;
-	BytesToReadInt = FileSizeL;//long2int	
-	BytesAreRead=ReadFile(BytesToReadInt);//9.
-	if (BytesToReadInt != BytesAreRead) {
-		FileError();
-		cputs(" --11 OSReadFile BytesAreRead="); 
-		printunsign(BytesAreRead);  
-	}
-	if (debug) getkey();	
+int OSReadFile(char hd) {
+	fatReadFile(hd);//9.
 }
 
+int OSShowFile(char hd) {
+	mdump(Buffer, 512);
+	dumpASCII(Buffer, FileSizeL);
+}
 
-// 12.
-int OSShowFile() {
-//	mdump(DiskBuf, 512);
-	dumpASCII(Buffer, BytesAreRead);
+int OSStartCOM(char hd) {
+	
 }
 
 
 //------------------------------- Init,  main ---------------
 int Init() {
-	DOS_ERR = 0;
 	Drive=0x80;
 	asm mov [DiskBufSeg], ds; 		//Offset is in DiskBuf
 	if (debug) cputs(" Init");
@@ -1118,14 +1321,75 @@ int Init() {
 }
 
 int main() {
-	if (Init() ) return 1;
-//	if (debug) PrintDriveParameter();
+	if (Init() != 0) return 1;
+	if (debug) PrintDriveParameter();
 	
-	if (OSOpenFile("fat.h"       ) > 0) { OSReadFile(); OSShowFile(); }
-	else FileError();
-	if (OSOpenFile("r.bat"       ) > 0) { OSReadFile(); OSShowFile(); }
-	else FileError();
-	if (OSOpenFile("int13.asm"   ) > 0) { OSReadFile(); OSShowFile(); }
-	else FileError();
+	OSOpenFile("dos.com");	
+	if (handle == 255) cputs(" **no handle**");		
+	if (handle < 0) cputs(" **handle < 0**");		
+	OSOpenFile("fdconfig.sys");	
+	if (handle == 255) cputs(" **no handle**");	
+	OSReadFile(handle);
+	OSShowFile(handle);
+
+/*	OSOpenFile("C:cm.bat");	
+	if (handle == 255) cputs(" **no handle**");		
+/*	OSOpenFile("ab:/z");	
+	if (handle == 255) cputs(" **no handle**");	
+	OSOpenFile("C:");	
+	if (handle == 255) cputs(" **no handle**");	
+	OSOpenFile("/test.ba");	
+	if (handle == 255) cputs(" **no handle**");	
+*/
 	if (debug) cputs(".End.");
 }
+/*cputs(" delimiter="); printunsign(delimiter);
+cputs(", isfilename="); printunsign(isfilename);
+cputs(", upto="); printunsign(upto);
+cputs("="); cputs(upto);
+cputs(", len="); printunsign(len);
+cputs(", searchstr="); cputsLen(searchstr, len);
+*/
+/*
+11	OSReadFile
+	9 fatReadFile
+	
+10	OSOpenFile drive,slash,upper,to filename
+	8 fatOpenFile
+9. fatReadFile
+	1 readLogical
+	4 fatClusterAnalyse
+8. fatOpenFile set handle, init root or subdir
+	s7 fatGetStartCluster
+	s4 fatClusterAnalyse
+7. fatGestStartCluster
+	6 fatNextSearch
+	3 fatRootSearch
+	s5 fatDirSearch
+6. fatNextSearch Upto,search,isFilename =>7
+5. fatDirSearch a directory chain for search
+	4 fatClusterAnalyse
+	2 fatDieSectorSearch
+4. fatClusterAnalyse determines sector by cluster number, next cluster
+	1 ReadLogical
+3. fatRootSearch search the root for an entry
+	2 fatDirSectorSearch
+2. fatDirSectorSearch search a block of sectors for entries,
+		get starting cluster, file size, notfound
+	1 readLogical
+2.a printDirEntry
+2.b fatDirSectorList
+	1 readLogical					
+1. readLogical
+	DiskSectorReadWrite	
+*/
+/*
+bin_file=fopen("name", "rb") //binary
+int = fgetc(in_file)	     //EOF(-1)
+fputc(character, file)
+printf() = fprintf(stdout, format, parameter1) //buffered I/O
+DOS: add CR13 to LF10
+read_size=fread(data_ptr, 1, size, file) //binary read
+file_descriptor=open(name, flags, mode=0666) //unbuffered I/O
+read_size=read(file_descriptor, buffer, size) //unbufferes I/O 
+*/
