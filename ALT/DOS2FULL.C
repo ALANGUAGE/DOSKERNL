@@ -750,7 +750,7 @@ int fatDirSectorList(unsigned long startSector, unsigned long numsectors) {
 		cputs("Sektor = "); 
 		printlong(startSector);
 		cputs(", numsectors = "); 
-		printunsign(numsectors);
+		printlong(numsectors);
 		getkey();
 */
 		readLogical(startSector);
