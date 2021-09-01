@@ -3,9 +3,7 @@ char Version1[]="DOS.COM V0.2.4";//test bed
 	rigth click / open / Parallels Mounter
 	(E)DX:(E)AX DIV r/m16(32) = (E)AX, remainder (E)DX
 	AL*r/m8=AX; AX*r/m16=DX:AX; EAX*r/m32=EDX:EAX
-	> 16.777.216 sectors (8GB) only LBA
-*/
-/*todo:
+todo:
 	read subdir, Line 1018
 	read root dir
 	lseek 42h
@@ -23,7 +21,7 @@ unsigned char DOS_ERR;
 unsigned char BIOS_ERR;
 unsigned int  BIOS_Status;
 unsigned int  DiskBufSeg;
-unsigned char dummy1[1];//todo remove
+//unsigned char dummy1[1];//todo remove
 unsigned char filename[67];
 unsigned char searchstr  [12];//with null
 unsigned char DiskBuf [512];
@@ -214,6 +212,32 @@ int printunsign(unsigned int n) {
     n=n%10;
     n+='0';
     putch(n);
+}
+
+int printunsignedlong(unsigned long n) {
+    unsigned long e;
+    unsigned char c;
+    if (n >= 10) {
+        	//emulate e=n/10;
+        n;	//asm mov eax, [bp+4] ;n
+        edx = 0;
+        ebx = 10;
+        asm div ebx
+        asm mov [bp-4], eax ;e
+        printunsignedlong(e);
+    }
+    //emulate: c = n % 10; //unsigned mod
+        n;	//asm mov eax, [bp+4] ;n
+        edx = 0;
+        ebx = 10;
+        asm div ebx
+        asm mov [bp-4], eax ;e
+//    	eax = edx; //modulo
+//    	asm mov [bp-6], al ;c ,convert long2byte	  	
+    	asm mov [bp-6], dl ;short for eax = edx; asm mov [bp-6], al	
+    		
+    c += '0';
+    putch(c);//only print with isPrint=on
 }
 
 int printlong(unsigned long L) {
